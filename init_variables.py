@@ -35,4 +35,6 @@ RIGHT = 0
 LEFT = 1
 X_AXIS = 0
 Y_AXIS = 1
-Gstreamer_Path = ''
+Gstreamer_Path = '/usr/bin/'
+Encoding = 'latin_1'
+Debug = 0

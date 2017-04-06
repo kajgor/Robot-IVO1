@@ -6,7 +6,7 @@ import sys, time, os
 # from os import system
 # from thread import *
 # import threading
-from init_variables import *
+# from init_variables import *
 from config_rw import *
 from class_console import *
 # from pygame import display, draw, event, mouse, Surface
@@ -55,24 +55,22 @@ class PygameDisplay(wx.Window):
     def Update(self, event):
         # Any update tasks would go here (moving sprites, advancing animation frames etc.)
         if Rac_connection.conoff:
-            if Rac_connection.check_connection("127.0.0.1"):
+            if Rac_connection.check_connection(""):
                 if App.speed != "HALT":
                     App.Motor_Power = [0, 0]
                     App.Motor_Power[RIGHT] = App.speed - App.direction
                     App.Motor_Power[LEFT] = App.speed + App.direction
-                    # print("Motor Powwer sent: " + App.Motor_Power.__str__())
+
                     request = Rac_Uio.encode_transmission(App.Motor_Power, App.mouse, "")
                     resp = Rac_connection.transmit(request)
-                    # print("RESP>>> " + resp.__str__())
+
                     if resp is not None:
                         App.Motor_PWR, App.Motor_RPM, App.Motor_ACK, App.Current, App.Voltage\
                             = Rac_Uio.decode_transmission(resp)
                 else:
                     halt_cmd = App.direction
                     Rac_connection.transmit(halt_cmd)
-                    print("Closing connection...")
                     Rac_connection.srv.close()
-                    print("Connection closed.")
                     Rac_connection.connected = False
                     sys.exit(0)  # quit the program
 
@@ -148,8 +146,7 @@ class Frame(wx.Frame):
         # wx.Frame.__init__(self, parent, -1)
 
         config_read(self, "rac.cfg")
-        print(self.Host + "< Host")
-        print(self.Port_Comm.__str__() + "< Comm")
+        # print(self.Port_Comm.__str__() + "< Comm")
         # self.MainFrame_statusbar = self.CreateStatusBar(1)
         self.statusbar = self.CreateStatusBar()
         self.button_Options = wx.Button(self, wx.ID_ANY, "&Options")
@@ -322,7 +319,7 @@ class Frame(wx.Frame):
         self.Gstreamer_Path = "/usr/bin/"
 
     def ButtonClick(self, event):
-        print ("event: " + str(event))
+        # if Debug > 2: print("event: " + str(event))
         gstreamer_cmd = self.Gstreamer_Path + "gst-launch-1.0 tcpclientsrc "
         if self.Local_Test:
             gstreamer_cmd += "host=127.0.0.1 port=12344"
@@ -333,17 +330,14 @@ class Frame(wx.Frame):
             # gstreamer_cmd += " ! gdpdepay ! rtph264depay ! avdec_h264 ! videoconvert ! autovideosink sync=false"
 
         self.SaveConfig()
-        # Rac_connection.conoff = self.button_Connect.GetValue()
-        print ("Rac_connection.check_connection(self.Host): " + Rac_connection.check_connection(self.Host).__str__())
 
         Rac_connection.conoff = self.button_Connect.GetValue()
 
         if Rac_connection.check_connection(self.Host) is False and Rac_connection.conoff:
             retmsg = Rac_connection.estabilish_connection(self.Host, self.Port_Comm)
             # retmsg = start_new_thread(Rac_connection.estabilish_connection,(self.Host, self.Port_Comm))
-            # print("retmsg = " + retmsg.__str__())
             # if retmsg.__str__().isdigit():
-            if not retmsg:
+            if retmsg is True:
                 time.sleep(3)
                 #        event.button_commit.SetLabel('Connecting...')
                 # Client
@@ -368,7 +362,6 @@ class Frame(wx.Frame):
                 PygameDisplay(self, self.hwnd).Show()
 
             else:
-                print("Connection error: " + retmsg.__str__())
                 self.button_Connect.SetLabel("RECONNECT")
                 self.button_Connect.SetValue(False)
                 self.checkbox_local_test.Enable(True)

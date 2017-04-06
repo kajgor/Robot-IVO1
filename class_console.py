@@ -19,30 +19,35 @@ class RacConnection:
         except:
             status = (False, False)
 
+        if not HostIp:
+            if status[0] != '0.0.0.0':
+                HostIp = status[0]
+
         if status[0] == HostIp:
-            # print("Connection status: " + status.__str__())
+            if Debug > 2: print("Connection status: " + status.__str__())
             return True
         else:
-            print("Not connected.")
+            if Debug > 1: print("Not connected.")
             return False
 
     def close_connection(self, gstreamer_cmd):
+        if Debug > 1: print("Closing connection...")
         if gstreamer_cmd:
             RacUio().execute_cmd("pkill -f '" + gstreamer_cmd + "'")
 
         try:
             self.srv.shutdown(socket.SHUT_WR)
         except:
-            print("...not connected!")
+            if Debug > 1: print("...not connected!")
 
         self.srv.close()
         self.srv = None
-        print("Connection closed.")
+        if Debug > 1: print("Connection closed.")
 
     def estabilish_connection(self, Host, Port_Comm):
         self.srv = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         server_address = (Host, Port_Comm)
-        print("Connecting...")
+        if Debug > 1: print("Connecting...")
         try:
             retmsg = self.srv.connect(server_address)
 
@@ -50,7 +55,8 @@ class RacConnection:
             retmsg = "Connection Error [" + server_address.__str__() + "]"
 
         if not retmsg:
-            print("Connected!")
+            if Debug > 1: print("Connected!")
+            return True
             # [thread: " + get_ident().__str__() + "]"
             # while True:
             #     if not self.conoff:
@@ -60,29 +66,26 @@ class RacConnection:
             #         # interrupt_main()
             #     time.sleep(1)
         else:
-            print(retmsg)
-
-        return retmsg
+            if Debug > 0: print(retmsg)
+            return False
 
     def transmit(self, out_str):
-        # print "out str: " + chr(COMM_BITSHIFT - 1) + str(out_str) + chr(10)
-        # sendenc = bytes(chr(COMM_BITSHIFT - 1) + out_str + chr(10), 'utf-8')
-        # sendenc = chr(COMM_BITSHIFT - 1).encode('ascii') + out_str.encode('ascii') + chr(10).encode('ascii')
         sendenc = chr(COMM_BITSHIFT - 1) + out_str + chr(10)
-        # print("CLISENT[len]: " + len(sendenc).__str__())
+        if Debug > 2: print("CLISENT[len]: " + len(sendenc).__str__())
+
         try:
-            self.srv.sendall(bytes(sendenc, 'ascii'))
+            self.srv.sendall(bytes(sendenc, Encoding))
         except BrokenPipeError:
             return None
 
-        data = self.srv.recv(15).decode('ascii')
-        # print("CLIRCVD[len]: " + len(data).__str__())
+        data = self.srv.recv(15).decode(Encoding)
+        if Debug > 2: print("CLIRCVD[len]: " + len(data).__str__())
 
         if data[0] == chr(COMM_BITSHIFT - 1) and data[14] == chr(10):
             return data
         else:
             self.srv.recv(1024)  # flush buffer
-            print(">>>FlushBuffer>>>")
+            if Debug > 1: print(">>>FlushBuffer>>>")
             return
 
 
@@ -274,10 +277,10 @@ class RacUio:
     def execute_cmd(self, cmd_string):
         #  system("clear")
         retcode = system(cmd_string)
-        print("")
         if retcode == 0:
-            print("Command executed successfully")
+            if Debug > 1: print("\nCommand executed successfully")
         else:
-            print("Command terminated with error: " + str(retcode))
+            if Debug > 1: print("\nCommand terminated with error: " + str(retcode))
+
         # raw_input("Press enter")
         return retcode

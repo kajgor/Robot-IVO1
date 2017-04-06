@@ -8,46 +8,12 @@
 import socket, sys, time, atexit
 from _thread import *
 from os import system
+from init_variables import *
 
-COMM_BITSHIFT = 30
 HOST = 'localhost'   # Symbolic name meaning all available interfaces
 C_PORT = 5000  # Arbitrary non-privileged port
 V_PORT = 12344
 srv_address = (HOST, C_PORT)
-Debug = 1
-
-# STREAM:
-# gst-launch-1.0 -v videotestsrc pattern=smpte ! video/x-raw,width=320,height=240 ! gdppay ! tcpserversink host=127.0.0.1 port=12344
-gstreamer_cmd = "/usr/bin/gst-launch-1.0 videotestsrc pattern=smpte ! video/x-raw,width=512,height=384 " \
-                "! gdppay ! tcpserversink host=" + HOST + " port=" + V_PORT.__str__()
-
-# RECEIVE:
-# Windows:  C:/gstreamer/1.0/x86_64/bin/gst-launch-1.0 -v tcpclientsrc host=127.0.0.1 port=1234 ! gdpdepay ! videoconvert ! autovideosink sync=false
-# Linux:    gst-launch-1.0 videotestsrc pattern=smpte ! video/x-raw,width=320,height=240 ! ximagesink/gtksink/cacasink/glimagesink (default)
-
-system("pkill -f '" + gstreamer_cmd + "'")
-time.sleep(1)
-
-srv = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-srv.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-print('Socket created')
-# Bind socket to local host and port
-try:
-    srv.bind(srv_address)
-
-except socket.error as msg:
-    print('Bind failed. Error Code : ' + str(msg[0]) + ' Message ' + msg[1])
-    sys.exit()
-
-except OSError as msg:
-    print('Bind failed. Error Code : ' + str(msg[0]) + ' Message ' + msg[1])
-    print('Advice: check for python process to kill it!')
-    sys.exit()
-
-print('Socket bind complete')
-# Start listening on socket
-srv.listen(5)
-print('Socket now listening')
 
 # Function for handling connections. This will be used to create threads
 def clientthread(conn):
@@ -71,12 +37,13 @@ def clientthread(conn):
                 break
         else:
             nodata_cnt = 0
+            reply = data.ljust(15, chr(10).encode(Encoding))
             if Debug > 0:
-                print("DATA_IN[len] " + len(data).__str__())
-            # reply = chr(COMM_BITSHIFT - 1) + data
-            reply = data.ljust(15, chr(10).encode('ascii'))
+                print("DATA_IN>> " + data.__str__())
+
             if Debug > 0:
                 print("DATA_OUT>> " + reply.__str__())
+
             conn.sendall(reply)
 
     #came out of loop
@@ -92,7 +59,43 @@ def closesrv():
     system("pkill -f '" + gstreamer_cmd + "'")
     srv.close()
 
+############################ MAIN ##########################################
+
 atexit.register(closesrv)
+# STREAM:
+# gst-launch-1.0 -v videotestsrc pattern=smpte ! video/x-raw,width=320,height=240 ! gdppay ! tcpserversink host=127.0.0.1 port=12344
+# RECEIVE:
+# Windows:  C:/gstreamer/1.0/x86_64/bin/gst-launch-1.0 -v tcpclientsrc host=127.0.0.1 port=1234 ! gdpdepay ! videoconvert ! autovideosink sync=false
+# Linux:    gst-launch-1.0 videotestsrc pattern=smpte ! video/x-raw,width=320,height=240 ! ximagesink/gtksink/cacasink/glimagesink (default)
+
+gstreamer_cmd = "/usr/bin/gst-launch-1.0 videotestsrc pattern=smpte ! video/x-raw,width=512,height=384 " \
+                "! gdppay ! tcpserversink host=" + HOST + " port=" + V_PORT.__str__()
+
+system("pkill -f '" + gstreamer_cmd + "'")
+time.sleep(1)
+
+# Create Socket
+srv = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+srv.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+print('Socket created')
+
+# Bind socket to local host and port
+try:
+    srv.bind(srv_address)
+
+except socket.error as msg:
+    print('Bind failed. Error Code : ' + str(msg[0]) + ' Message ' + msg[1])
+    sys.exit()
+
+except OSError as msg:
+    print('Bind failed. Error Code : ' + str(msg[0]) + ' Message ' + msg[1])
+    print('Advice: check for python process to kill it!')
+    sys.exit()
+
+print('Socket bind complete')
+# Start listening on socket
+srv.listen(5)
+print('Socket now listening')
 
 # now keep talking with the client
 while 1:
