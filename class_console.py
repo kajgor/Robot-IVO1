@@ -1,9 +1,12 @@
-import pygame, wx, socket
+import pygame
+import wx
+import socket
 from os import system
 # from thread import *
 
 from init_variables import *
 # from pygame.locals import *
+
 
 class RacConnection:
     def __init__(self):
@@ -17,7 +20,7 @@ class RacConnection:
             status = (False, False)
 
         if status[0] == HostIp:
-            print("Connection status: " + status.__str__())
+            # print("Connection status: " + status.__str__())
             return True
         else:
             print("Not connected.")
@@ -66,20 +69,20 @@ class RacConnection:
         # sendenc = bytes(chr(COMM_BITSHIFT - 1) + out_str + chr(10), 'utf-8')
         # sendenc = chr(COMM_BITSHIFT - 1).encode('ascii') + out_str.encode('ascii') + chr(10).encode('ascii')
         sendenc = chr(COMM_BITSHIFT - 1) + out_str + chr(10)
-        print("CLISENT[len]: " + len(sendenc).__str__())
+        # print("CLISENT[len]: " + len(sendenc).__str__())
         try:
             self.srv.sendall(bytes(sendenc, 'ascii'))
         except BrokenPipeError:
             return None
 
         data = self.srv.recv(15).decode('ascii')
-        print("CLIRCVD[len]: " + len(data).__str__())
+        # print("CLIRCVD[len]: " + len(data).__str__())
 
         if data[0] == chr(COMM_BITSHIFT - 1) and data[14] == chr(10):
             return data
         else:
             self.srv.recv(1024)  # flush buffer
-            print("Ffffffffffffluuuuuuusssssssh!!")
+            print(">>>FlushBuffer>>>")
             return
 
 
@@ -152,13 +155,15 @@ class RacDisplay:
         self.disp_text("L Rpm:   " + str(Motor_RPM[LEFT]), 10, 57, CYAN, DDBLUE)
         self.disp_text("L ACK:   " + str(Motor_ACK[LEFT]), 10, 77, CYAN, DDBLUE)
 
-        self.disp_text("L DeBug: " + str(Motor_DBG[LEFT]), 10, 310, CYAN, DDBLUE)
-        self.disp_text("R DeBug: " + str(Motor_DBG[RIGHT]), 130, 310, CYAN, DDBLUE)
-        self.disp_text("Voltage: " + str(Voltage) + " V ", 10, 330, CYAN, DDBLUE)
-        self.disp_text("Current: " + str(Current) + " mA ", 150, 330, CYAN, DDBLUE)
+        # self.disp_text("L DeBug: " + str(Motor_DBG[LEFT]), 10, 310, CYAN, DDBLUE)
+        # self.disp_text("R DeBug: " + str(Motor_DBG[RIGHT]), 130, 310, CYAN, DDBLUE)
+        # self.disp_text("Voltage: " + str(Voltage) + " V ", 10, 330, CYAN, DDBLUE)
+        # self.disp_text("Current: " + str(Current) + " mA ", 150, 330, CYAN, DDBLUE)
 
-        self.disp_text("CamV: " + str(mouse[X_AXIS]) + " ", 350, 310, CYAN, DDBLUE)
-        self.disp_text("CamH: " + str(mouse[Y_AXIS]) + " ", 350, 330, CYAN, DDBLUE)
+        # self.disp_text("CamV: " + str(mouse[X_AXIS]) + " ", 350, 310, CYAN, DDBLUE)
+        # self.disp_text("CamH: " + str(mouse[Y_AXIS]) + " ", 350, 330, CYAN, DDBLUE)
+        self.disp_text("CamV: " + str(mouse[X_AXIS]) + " ", 350, 210, CYAN, DDBLUE)
+        self.disp_text("CamH: " + str(mouse[Y_AXIS]) + " ", 350, 230, CYAN, DDBLUE)
 
 
 class RacUio:
@@ -216,10 +221,10 @@ class RacUio:
 
         return speed, direction
 
-    def get_mouseInput(self, event, mouse):
-        mouseXY = event.GetPositionTuple()
-        mouseX = MOUSEX_MAX - mouseXY[0] / 2
-        mouseY = MOUSEY_MAX - mouseXY[1] / 2
+    def get_mouseInput(self, event):
+        mouseXY = event.GetPosition()
+        mouseX = int(MOUSEX_MAX - mouseXY[0] / 2)
+        mouseY = int(MOUSEY_MAX - mouseXY[1] / 2)
         if mouseX > MOUSEX_MAX:
             mouseX = MOUSEX_MAX
         if mouseX < MOUSEX_MIN:

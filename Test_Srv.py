@@ -14,6 +14,7 @@ HOST = 'localhost'   # Symbolic name meaning all available interfaces
 C_PORT = 5000  # Arbitrary non-privileged port
 V_PORT = 12344
 srv_address = (HOST, C_PORT)
+Debug = 1
 
 # STREAM:
 # gst-launch-1.0 -v videotestsrc pattern=smpte ! video/x-raw,width=320,height=240 ! gdppay ! tcpserversink host=127.0.0.1 port=12344
@@ -36,6 +37,11 @@ try:
 
 except socket.error as msg:
     print('Bind failed. Error Code : ' + str(msg[0]) + ' Message ' + msg[1])
+    sys.exit()
+
+except OSError as msg:
+    print('Bind failed. Error Code : ' + str(msg[0]) + ' Message ' + msg[1])
+    print('Advice: check for python process to kill it!')
     sys.exit()
 
 print('Socket bind complete')
@@ -64,11 +70,13 @@ def clientthread(conn):
                 print("NO DATA - closing connection")
                 break
         else:
-            print("DATA_IN>> " + data.__str__())
             nodata_cnt = 0
+            if Debug > 0:
+                print("DATA_IN[len] " + len(data).__str__())
             # reply = chr(COMM_BITSHIFT - 1) + data
             reply = data.ljust(15, chr(10).encode('ascii'))
-            print("DATA_OUT>> " + reply.__str__())
+            if Debug > 0:
+                print("DATA_OUT>> " + reply.__str__())
             conn.sendall(reply)
 
     #came out of loop

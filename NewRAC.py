@@ -15,15 +15,12 @@ Rac_connection = RacConnection()
 Rac_Uio = RacUio()
 
 class PygameDisplay(wx.Window):
-    Motor_PWR = Motor_RPM = Motor_ACK = Motor_Power = mouse = [0, 0]
-    Current = Voltage = speed = direction = 0
-
     def __init__(self, parent, ID):
         wx.Window.__init__(self, parent, ID)
         self.parent = parent
         self.hwnd = self.GetHandle()
 
-        self.size = self.GetSizeTuple()
+        self.size = self.GetSize()
         self.draw_init = True
 
         self.timer = wx.Timer(self)
@@ -32,7 +29,7 @@ class PygameDisplay(wx.Window):
         self.Bind(wx.EVT_SIZE, self.OnSize)
         self.Bind(wx.EVT_KEY_DOWN, self.OnKeyDown)
         self.Bind(wx.EVT_MOTION, self.OnMouseMotion)
-        self.Bind(wx.EVT_IDLE, self.OnIdle)
+        # self.Bind(wx.EVT_IDLE, self.OnIdle)
         # wx.EVT_IDLE(self, self.OnIdle)
         # self.Bind(wx.EVT_LEFT_DOWN, self.OnMouseLdown)
 
@@ -46,37 +43,38 @@ class PygameDisplay(wx.Window):
 
     def OnMouseMotion(self, mouse_event):
         if mouse_event.LeftIsDown():
-            self.mouse = Rac_Uio.get_mouseInput(mouse_event, self.mouse)
+            App.mouse = Rac_Uio.get_mouseInput(mouse_event)
 
     def OnKeyDown(self, key):
-        self.speed, self.direction = Rac_Uio.get_keyInput(key, self.speed, self.direction)
+        App.speed, App.direction = Rac_Uio.get_keyInput(key, App.speed, App.direction)
 
-    def OnIdle(self, event):
-        if not self.initialized:
-            self.initialized = True
+    # def OnIdle(self, event):
+    #     if not self.initialized:
+    #         self.initialized = True
 
     def Update(self, event):
         # Any update tasks would go here (moving sprites, advancing animation frames etc.)
-        if Rac_connection.check_connection("127.0.0.1"):
-            if self.speed != "HALT":
-                self.Motor_Power = [0, 0]
-                self.Motor_Power[RIGHT] = self.speed - self.direction
-                self.Motor_Power[LEFT] = self.speed + self.direction
-                # print("Motor Powwer sent: " + self.Motor_Power.__str__())
-                request = Rac_Uio.encode_transmission(self.Motor_Power, self.mouse, "")
-                resp = Rac_connection.transmit(request)
-                # print("RESP>>> " + resp.__str__())
-                if resp is not None:
-                    self.Motor_PWR, self.Motor_RPM, self.Motor_ACK, self.Current, self.Voltage\
-                        = Rac_Uio.decode_transmission(resp)
-            else:
-                halt_cmd = self.direction
-                Rac_connection.transmit(halt_cmd)
-                print("Closing connection...")
-                Rac_connection.srv.close()
-                print("Connection closed.")
-                Rac_connection.connected = False
-                sys.exit(0)  # quit the program
+        if Rac_connection.conoff:
+            if Rac_connection.check_connection("127.0.0.1"):
+                if App.speed != "HALT":
+                    App.Motor_Power = [0, 0]
+                    App.Motor_Power[RIGHT] = App.speed - App.direction
+                    App.Motor_Power[LEFT] = App.speed + App.direction
+                    # print("Motor Powwer sent: " + App.Motor_Power.__str__())
+                    request = Rac_Uio.encode_transmission(App.Motor_Power, App.mouse, "")
+                    resp = Rac_connection.transmit(request)
+                    # print("RESP>>> " + resp.__str__())
+                    if resp is not None:
+                        App.Motor_PWR, App.Motor_RPM, App.Motor_ACK, App.Current, App.Voltage\
+                            = Rac_Uio.decode_transmission(resp)
+                else:
+                    halt_cmd = App.direction
+                    Rac_connection.transmit(halt_cmd)
+                    print("Closing connection...")
+                    Rac_connection.srv.close()
+                    print("Connection closed.")
+                    Rac_connection.connected = False
+                    sys.exit(0)  # quit the program
 
             self.Redraw()
 
@@ -100,12 +98,12 @@ class PygameDisplay(wx.Window):
         # self.screen.fill((0, 0, 0))
 
         Rac_display = RacDisplay(self.screen)
-        Rac_display.plot_screen(self.Motor_Power, self.speed, self.direction, self.Motor_PWR, self.Motor_RPM, self.Motor_ACK,
-                                self.mouse, self.Voltage, self.Current, Motor_DBG = [0, 0])
+        Rac_display.plot_screen(App.Motor_Power, App.speed, App.direction, App.Motor_PWR, App.Motor_RPM, App.Motor_ACK,
+                                App.mouse, App.Voltage, App.Current, Motor_DBG = [0, 0])
 
         s = pygame.image.tostring(self.screen, 'RGB')  # Convert the surface to an RGB string
-        img = wx.ImageFromData(self.size[0], self.size[1], s)  # Load this string into a wx image
-        bmp = wx.BitmapFromImage(img)  # Get the image in bitmap form
+        img = wx.Image(self.size[0], self.size[1], s)  # Load this string into a wx image
+        bmp = wx.Bitmap(img)  # Get the image in bitmap form
         dc = wx.ClientDC(self)  # Device context for drawing the bitmap
         dc.DrawBitmap(bmp, 0, 0, False)  # Blit the bitmap image to the display
         del dc
@@ -116,7 +114,7 @@ class PygameDisplay(wx.Window):
 
 
     def OnSize(self, event):
-        self.size = self.GetSizeTuple()
+        self.size = self.GetSize()
         self.draw_init = True
 
 
@@ -134,6 +132,7 @@ class OptionsScreen(wx.Frame):
         config_read(self, "rac.cfg")
 
         self.Destroy()
+
     def dummy(self):
         return
 # end of class OptionsScreen
@@ -149,8 +148,8 @@ class Frame(wx.Frame):
         # wx.Frame.__init__(self, parent, -1)
 
         config_read(self, "rac.cfg")
-        print (self.Host + "< Host")
-        print (self.Port_Comm.__str__() + "< Comm")
+        print(self.Host + "< Host")
+        print(self.Port_Comm.__str__() + "< Comm")
         # self.MainFrame_statusbar = self.CreateStatusBar(1)
         self.statusbar = self.CreateStatusBar()
         self.button_Options = wx.Button(self, wx.ID_ANY, "&Options")
@@ -334,13 +333,15 @@ class Frame(wx.Frame):
             # gstreamer_cmd += " ! gdpdepay ! rtph264depay ! avdec_h264 ! videoconvert ! autovideosink sync=false"
 
         self.SaveConfig()
-        Rac_connection.conoff = self.button_Connect.GetValue()
+        # Rac_connection.conoff = self.button_Connect.GetValue()
         print ("Rac_connection.check_connection(self.Host): " + Rac_connection.check_connection(self.Host).__str__())
 
-        if Rac_connection.check_connection(self.Host) is False:
+        Rac_connection.conoff = self.button_Connect.GetValue()
+
+        if Rac_connection.check_connection(self.Host) is False and Rac_connection.conoff:
             retmsg = Rac_connection.estabilish_connection(self.Host, self.Port_Comm)
             # retmsg = start_new_thread(Rac_connection.estabilish_connection,(self.Host, self.Port_Comm))
-            print("retmsg = " + retmsg.__str__())
+            # print("retmsg = " + retmsg.__str__())
             # if retmsg.__str__().isdigit():
             if not retmsg:
                 time.sleep(3)
@@ -355,24 +356,37 @@ class Frame(wx.Frame):
                 retmsg = Rac_Uio.execute_cmd(gstreamer_cmd + ' &')
                 print(gstreamer_cmd + " [" + retmsg.__str__() + "]")
 
+                self.Layout()
                 self.button_Connect.SetLabel("DISCONNECT")
+                self.button_Connect.SetValue(True)
+                self.checkbox_local_test.Enable(False)
+                self.combo_box_HostIp.Enable(False)
+                self.spin_ctrl_HostPort.Enable(False)
                 self.Layout()
 
                 # start_new_thread(PygameDisplay,(self, -1)).Show()
                 PygameDisplay(self, self.hwnd).Show()
-                # self.button.Enable(False)
+
             else:
                 print("Connection error: " + retmsg.__str__())
-                self.button_Connect.SetValue(False)
                 self.button_Connect.SetLabel("RECONNECT")
+                self.button_Connect.SetValue(False)
+                self.checkbox_local_test.Enable(True)
+                self.combo_box_HostIp.Enable(True)
+                self.spin_ctrl_HostPort.Enable(True)
                 self.Layout()
 
         else:
             self.button_Connect.SetLabel("CONNECT")
+            self.button_Connect.SetValue(False)
+            self.checkbox_local_test.Enable(True)
+            self.combo_box_HostIp.Enable(True)
+            self.spin_ctrl_HostPort.Enable(True)
             Rac_connection.close_connection(gstreamer_cmd)
             # print "exiting thread"
             # exit_thread()
 
+        Rac_connection.conoff = self.button_Connect.GetValue()
         self.Layout()
 
     def SaveConfig(self):
@@ -381,6 +395,9 @@ class Frame(wx.Frame):
 
 
 class App(wx.App):
+    Motor_PWR = Motor_RPM = Motor_ACK = Motor_Power = mouse = [0, 0]
+    Current = Voltage = speed = direction = 0
+
     def OnInit(self):
         self.frame = Frame(parent=None)
         self.frame.Show()
