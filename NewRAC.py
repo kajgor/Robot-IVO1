@@ -1,14 +1,16 @@
 #!/usr/bin/env python
 # -*- coding: CP1252 -*-
 
+import os
+import sys
+import time
 # import pygame
-import sys, time, os
+from config_rw import *
+from class_console import *
 # from os import system
 # from thread import *
 # import threading
 # from init_variables import *
-from config_rw import *
-from class_console import *
 # from pygame import display, draw, event, mouse, Surface
 
 Rac_connection = RacConnection()
@@ -19,6 +21,13 @@ class PygameDisplay(wx.Window):
         wx.Window.__init__(self, parent, ID)
         self.parent = parent
         self.hwnd = self.GetHandle()
+        self.Id = self.GetId()
+
+        # xid = self.wxWindowID()
+        print('ID: ' + ID.__str__())
+        print('Id: ' + self.Id.__str__())
+        print('hwnd: ' + self.hwnd.__str__())
+        print('parent: ' + self.parent.__str__())
 
         self.size = self.GetSize()
         self.draw_init = True
@@ -178,9 +187,13 @@ class Frame(wx.Frame):
 
         self.__set_properties()
         self.__do_layout()
+
         self.hwnd = self.GetHandle()
         self.display.SetFocus()
-        # end wxGlade
+
+        self.dflt_btn_colour = self.button_Connect.GetBackgroundColour()
+
+# end wxGlade
 
     def __set_properties(self):
         # begin wxGlade: RacMainFrame.__set_properties
@@ -352,6 +365,7 @@ class Frame(wx.Frame):
 
                 self.Layout()
                 self.button_Connect.SetLabel("DISCONNECT")
+                self.button_Connect.SetBackgroundColour(wx.Colour(224, 112, 0))
                 self.button_Connect.SetValue(True)
                 self.checkbox_local_test.Enable(False)
                 self.combo_box_HostIp.Enable(False)
@@ -359,10 +373,11 @@ class Frame(wx.Frame):
                 self.Layout()
 
                 # start_new_thread(PygameDisplay,(self, -1)).Show()
-                PygameDisplay(self, self.hwnd).Show()
+                PygameDisplay(self, -1).Show()
 
             else:
                 self.button_Connect.SetLabel("RECONNECT")
+                self.button_Connect.SetBackgroundColour(self.dflt_btn_colour)
                 self.button_Connect.SetValue(False)
                 self.checkbox_local_test.Enable(True)
                 self.combo_box_HostIp.Enable(True)
@@ -371,6 +386,7 @@ class Frame(wx.Frame):
 
         else:
             self.button_Connect.SetLabel("CONNECT")
+            self.button_Connect.SetBackgroundColour(self.dflt_btn_colour)
             self.button_Connect.SetValue(False)
             self.checkbox_local_test.Enable(True)
             self.combo_box_HostIp.Enable(True)

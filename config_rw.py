@@ -7,7 +7,7 @@ def config_read(self, filename):
         self.Port_Video = pickle.load(iniFile)
         self.Port_Audio = pickle.load(iniFile)
         self.Gstreamer_Path = pickle.load(iniFile)
-        self.Reserved_1 = pickle.load(iniFile)
+        self.Reserved_1  = pickle.load(iniFile)
         self.Reserved_2 = pickle.load(iniFile)
         self.Reserved_3 = pickle.load(iniFile)
         self.Reserved_4 = pickle.load(iniFile)
@@ -42,7 +42,7 @@ def reset_save(filename):
                      "X",
                      "X",
                      "X",
-                     "1",
+                     True,
                      "END"):
             pickle.dump(item,iniFile)
     print ("Configuration reset.")

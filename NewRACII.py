@@ -183,7 +183,7 @@ class GTK_Main:
 
     def on_message(self, bus, message):
         t = message.type
-        # print ("on_message " + t.__str__())
+        print ("on_message ", message.type, t)
         if t == Gst.MessageType.EOS:
             self.player.set_state(Gst.State.NULL)
             self.button_connect.set_active(False)
@@ -202,7 +202,7 @@ class GTK_Main:
         return
 
     def on_sync_message(self, bus, message):
-        # print ("on_sync_message " + message.type.__str__())
+        print ("on_sync_message ", message.type)
         if message.get_structure().get_name() == 'prepare-window-handle':
             imagesink = message.src
             imagesink.set_property("force-aspect-ratio", True)

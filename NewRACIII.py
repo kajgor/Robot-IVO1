@@ -7,7 +7,7 @@ import threading
 # import sys
 import time
 from config_rw import *
-from class_consoleIII import *
+from class_consoleIII import RacConnection, RacUio, RacDisplay
 import gi
 gi.require_version('Gst', '1.0')
 gi.require_version('Gtk', '3.0')
@@ -33,102 +33,106 @@ cfg_file = "./racII.cfg"
 GObject.threads_init()
 
 
-class GTK_Main:
+class window(Gtk.Window):
     def __init__(self):
+        super(window, self).__init__()
+
         # Read configuration
         config_read(self, cfg_file)
         # reset_save(cfg_file)
+        # self.ims = self.load_image()
 
         builder = Gtk.Builder()
-        builder.add_objects_from_file(GUI_file, ("MainWindow", "Adjustement_Port", "Adjustment_Resolution", "Action_StartTestServer"))
+        builder.add_objects_from_file(GUI_file, ("MainBox_CON", "Adjustement_Port", "Adjustment_Resolution", "Action_StartTestServer"))
         print("GUI file added: ", GUI_file)
-
-        self.window = builder.get_object("MainWindow")
-
-        self.counter = builder.get_object("counter")
-
-        self.movie_window = builder.get_object("DrawingArea_Cam")
-        self.movie_window.set_size_request(640, 480)
-
-        self.button_connect = builder.get_object("ToggleButton_Connect")
-
-        self.statusbar = builder.get_object("StatusBar")
-        self.context_id = self.statusbar.get_context_id("message")
-
-        self.checkbutton_localtest = builder.get_object("CheckButton_LocalTest")
-        self.checkbutton_cam = builder.get_object("CheckButton_Cam")
-
-        self.combobox_host = builder.get_object("ComboBox_Host")
-        self.comboboxtext_host = builder.get_object("ComboBoxTextEntry_Host")
-
-        self.spinbutton_port = builder.get_object("SpinButton_Port")
-
-        ##############################################
-        self.drawingarea_control = builder.get_object("DrawingArea_Control")
-        # self.drawingarea_control.set_flags(Gtk.CAN_DEFAULT | Gtk.CAN_FOCUS | Gtk.SENSITIVE | Gtk.PARENT_SENSITIVE)
-        self.drawingarea_control.set_can_default(True)
-        self.drawingarea_control.set_can_focus(True)
-        self.drawingarea_control.set_sensitive(True)
-        # self.drawingarea_control.set_parent_sensitive(True)
-        self.drawingarea_control.set_app_paintable(True)
-        self.drawingarea_control.set_size_request(150, 150)
-
-        # # self.drawingarea_control.set_events(Gtk.BUTTON_PRESS_MASK)
-        # self.drawingarea_control.connect("key-press-event", self.on_DrawingArea_Cam_key_press_event)
-
-        self.window.add(self.drawingarea_control)
-        self.drawingarea_control.realize()
-
-        # We need to flush the XLib event loop otherwise we can't
-        # access the XWindow which set_mode() requires
-        Gdk.flush()
-        pygame.init()
-        pygame.display.set_mode((0, 200), 0, 0)
-        self.screen = pygame.display.get_surface()
-
-        #############################################
-        # GObject.timeout_add(60, self.on_idle, None)
-        # GObject.idle_add(self.on_idle)
-        #############################################
-
-        self.window.show_all()
-
-        self.load_HostList(self.Host)
+        # Connect signals
         builder.connect_signals(self)
 
+        self.add(builder.get_object("MainBox_CON"))
+        self.connect("destroy", self.gtk_main_quit)
+
+        self.counter                = builder.get_object("counter")
+        self.button_connect         = builder.get_object("ToggleButton_Connect")
+        self.movie_window           = builder.get_object("DrawingArea_Cam")
+        self.checkbutton_localtest  = builder.get_object("CheckButton_LocalTest")
+        self.checkbutton_cam        = builder.get_object("CheckButton_Cam")
+        self.combobox_host          = builder.get_object("ComboBox_Host")
+        self.comboboxtext_host      = builder.get_object("ComboBoxTextEntry_Host")
+        self.spinbutton_port        = builder.get_object("SpinButton_Port")
+        self.drawingarea_control    = builder.get_object("DrawingArea_Control")
+        self.statusbar              = builder.get_object("StatusBar")
+        self.context_id             = self.statusbar.get_context_id("message")
+
+        self.init_ui()
+
+        self.load_HostList(self.Host)
+
+        # ToDo
         self.TEST_Host = "127.0.0.1"
         self.TEST_Port = 12344
-        # self.Host_store = Gtk.ListStore(str)
-        self.Host = ''
 
         if Debug > 1:
             print("Objects:")
             print(builder.get_objects().__str__())
 
-        self.SXID = self.drawingarea_control.get_property('window')
-        self.PXID = self.movie_window.get_property('window')
+        self.CAMXPROP = self.movie_window.get_property('window')
+        print("self.CAMXPROP", self.CAMXPROP)
 
         bus = Rac_connection.player.get_bus()
         bus.add_signal_watch()
         bus.enable_sync_message_emission()
-        bus.connect("message", self.on_message)
-        bus.connect("sync-message::element", self.on_sync_message)
+        bus.connect("message", self.on_cam_message)
+        bus.connect("sync-message::element", self.on_cam_sync_message)
 
-        self.background = RacDisplay(self.SXID, self.PXID, self.screen).background
-        self.screen.blit(self.background, (0, 0))
-        # pygame.display.flip()
+    def init_ui(self):
+        ###### Initiate UI start ######
+        self.movie_window.set_size_request(640, 480)
+        self.drawingarea_control.set_can_default(True)
+        self.drawingarea_control.set_can_focus(True)
+        self.drawingarea_control.set_sensitive(True)
+        self.drawingarea_control.set_app_paintable(True)
+        self.drawingarea_control.set_size_request(150, 150)
+        ####### Initiate UI end #######
+        self.drawingarea_control.realize()
+        self.CONTROLXPROP = self.drawingarea_control.get_property('window')
+        print("self.CONTROLXPROP", self.CONTROLXPROP)
+        self.show_all()
+
+        # We need to flush the XLib event loop otherwise we can't
+        # access the XWindow which set_mode() requires
+        # Gdk.flush()
+
+        # pygame.init()
+        # pygame.display.set_mode((0, 200), 0, 0)
+
+    def on_DrawingArea_Control_draw(self, bus, message):
+        RacDisplay(self.CAMXPROP).on_DrawingArea_Control_draw(message)
+        print("on_draw")
+
+    # def load_image(self):
+    #     ims = cairo.ImageSurface.create_from_png("images/HUD_small.png")
+    #     return ims
 
     def on_MainWindow_notify(self, bus, message):
         return
 
-    def on_message(self, bus, message):
-        retmsg = RacDisplay(self.SXID, self.PXID, self.screen).on_message(message)
+    def on_cam_message(self, bus, message):
+        retmsg = RacDisplay(self.CAMXPROP).on_message(message)
         if retmsg is not None:
             self.button_connect.set_active(False)
             self.statusbar.push(self.context_id, retmsg)
 
-    def on_sync_message(self, bus, message):
-        RacDisplay(self.SXID, self.PXID, self.screen).on_sync_message(message)
+    def on_control_message(self, bus, message):
+        retmsg = RacDisplay(self.CONTROLXPROP).on_message(message)
+        if retmsg is not None:
+            self.button_connect.set_active(False)
+            self.statusbar.push(self.context_id, retmsg)
+
+    def on_cam_sync_message(self, bus, message):
+        RacDisplay(self.CAMXPROP).on_sync_message(message)
+
+    def on_control_sync_message(self, bus, message):
+        RacDisplay(self.CONTROLXPROP).on_sync_message(message)
 
     def on_ComboBox_Host_changed(self, widget):
         model = self.combobox_host.get_model()
@@ -416,7 +420,7 @@ class UI(threading.Thread):
         # self.Unbind(event=wx.EVT_TIMER, handler=self.Update, source=self.timer)
         return
 
-gui = GTK_Main()
+gui = window()
 control = UI(gui)
 control.start()
 

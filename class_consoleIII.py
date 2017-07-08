@@ -3,16 +3,18 @@ import pygame
 import socket
 from os import system
 import os
+import cairo
 # from thread import *
 
 from init_variables import *
 # from pygame.locals import *
 import gi
 gi.require_version('Gst', '1.0')
+gi.require_version('Gdk', '3.0')
 gi.require_version('GstVideo', '1.0')
 from gi.repository import Gst, GstVideo, Gdk
 
-pygame.init()
+# pygame.init()
 Gst.init(None)
 
 class RacConnection:
@@ -138,35 +140,67 @@ class RacConnection:
 
 
 class RacDisplay:
-    green_arrow = pygame.image.load('images/green_arrow.png')
-    red_arrow = pygame.image.load('images/red_arrow.png')
-    cyan_arrow = pygame.image.load('images/cyan_arrow.png')
-    gray_arrow = pygame.image.load('images/gray_arrow.png')
-    background = pygame.image.load('images/HUD_small.jpg')
+    background = cairo.ImageSurface.create_from_png("images/HUD_small.png")
     RacConnection = RacConnection()
 
-    def __init__(self, SXID, PXID, scr):
-        self.SXID = SXID
-        self.PXID = PXID
-        self.screen = scr
+    def __init__(self, XPROP):
+        self.SXID = XPROP
+        self.screen = pygame.display.get_surface()
 
-    def disp_text(self, rawtext, x, y, f_color, b_color):
-        #    font = pygame.font.Font(None, 15)
-        myfont = pygame.font.SysFont("monospace", 15)
-        out_text = myfont.render(str(rawtext), 1, f_color, b_color)
-        self.screen.blit(out_text, (x, y))
 
-    def disp_big_text(self, rawtext, x, y, f_color, b_color):
-        #    font = pygame.font.Font(None, 20)
-        myfont = pygame.font.SysFont("monospace", 20)
-        out_text = myfont.render(str(rawtext), 1, f_color, b_color)
-        self.screen.blit(out_text, (x, y))
+    def on_DrawingArea_Control_draw(self, message):
+        print("on_draw")
+        # w, h = self.get_size()
 
-    def disp_small_text(self, rawtext, x, y, f_color, b_color):
-        #    font = pygame.font.Font(None, 10)
-        myfont = pygame.font.SysFont("monospace", 10)
-        out_text = myfont.render(str(rawtext), 1, f_color, b_color)
-        self.screen.blit(out_text, (x, y))
+        message.set_source_surface(self.background, 15, 0)
+        message.paint()
+
+        message.set_source_rgb(0, 0.44, 0.7)
+        message.set_line_width(1)
+
+        message.translate(105, 81)
+
+        self.angle = 0
+
+        message.rotate(self.angle)
+        # cr.scale(self.scale, self.scale)
+
+        for i in range(5):
+            message.line_to(arrow.points[i][0], arrow.points[i][1])
+
+        message.fill()
+
+    def on_message(self, message):
+        msgtype = message.type
+        # print("msgtype:", msgtype)
+        if msgtype == Gst.MessageType.EOS:
+            RacConnection().player.set_state(Gst.State.NULL)
+            if Debug > 1:
+                # self.statusbar.push(self.context_id, "VIDEO CONNECTION EOS: SIGNAL LOST")
+                print ("EOS: SIGNAL LOST")
+            return "VIDEO CONNECTION EOS: SIGNAL LOST"
+
+        elif msgtype == Gst.MessageType.ERROR:
+            RacConnection().player.set_state(Gst.State.NULL)
+            err, debug = message.parse_error()
+            debug_s = debug.split("\n")
+            if Debug > 0:
+                # self.statusbar.push(self.context_id, debug_s[debug_s.__len__() - 1])
+                print ("ERROR:", debug_s)
+
+            return debug_s[debug_s.__len__() - 1]
+
+        else:
+            return None
+
+    def on_sync_message(self, message):
+        if message.get_structure().get_name() == 'prepare-window-handle':
+            imagesink = message.src
+            imagesink.set_property("force-aspect-ratio", True)
+            imagesink.set_window_handle(self.SXID.get_xid())
+        # else:
+        #     print("message.get_structure().get_name():", message.get_structure().get_name())
+
 
     def plot_screen(self, Motor_Power, speed, direction):
         self.screen.blit(self.background, (0, 0))
@@ -205,50 +239,6 @@ class RacDisplay:
         # self.disp_text("CamV: " + str(mouse[X_AXIS]) + " ", 350, 210, CYAN, DDBLUE)
         # self.disp_text("CamH: " + str(mouse[Y_AXIS]) + " ", 350, 230, CYAN, DDBLUE)
 
-    def control_screen_init(self, SXID):
-        # Force SDL to write on our drawing area
-        os.putenv('SDL_WINDOWID', str(SXID.get_xid()))
-        # We need to flush the XLib event loop otherwise we can't
-        # access the XWindow which set_mode() requires
-        Gdk.flush()
-
-        pygame.init()
-        pygame.display.set_mode((0, 200), 0, 0)
-        screen = pygame.display.get_surface()
-
-        return screen
-
-    def on_message(self, message):
-        msgtype = message.type
-        if msgtype == Gst.MessageType.EOS:
-            RacConnection().player.set_state(Gst.State.NULL)
-            if Debug > 1:
-                # self.statusbar.push(self.context_id, "VIDEO CONNECTION EOS: SIGNAL LOST")
-                print ("EOS: SIGNAL LOST")
-            return "VIDEO CONNECTION EOS: SIGNAL LOST"
-
-        elif msgtype == Gst.MessageType.ERROR:
-            RacConnection().player.set_state(Gst.State.NULL)
-            err, debug = message.parse_error()
-            debug_s = debug.split("\n")
-            if Debug > 0:
-                # self.statusbar.push(self.context_id, debug_s[debug_s.__len__() - 1])
-                print ("ERROR:", debug_s)
-
-            return debug_s[debug_s.__len__() - 1]
-
-        else:
-            return None
-
-    def on_sync_message(self, message):
-        if message.get_structure().get_name() == 'prepare-window-handle':
-            imagesink = message.src
-            imagesink.set_property("force-aspect-ratio", True)
-            imagesink.set_window_handle(self.PXID.get_xid())
-        # else:
-        #     print("message.get_structure().get_name():", message.get_structure().get_name())
-
-        return
 
 class RacUio:
     # def __init__(self):
@@ -370,3 +360,12 @@ class RacUio:
 
         # raw_input("Press enter")
         return retcode
+
+class arrow(object):
+    points = (
+        (0, -35),
+        (-28, 35),
+        (0, 25),
+        (28, 35),
+        (0, -35)
+    )
