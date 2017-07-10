@@ -2,24 +2,22 @@
 # -*- coding: CP1252 -*-
 
 # import os
-import pygame
-import threading
+# import pygame
+# import threading
 # import sys
-import time
-from config_rw import *
-from class_consoleIII import RacConnection, RacUio, RacDisplay
+# import time
+
 import gi
 gi.require_version('Gst', '1.0')
 gi.require_version('Gtk', '3.0')
 gi.require_version('GstVideo', '1.0')
-from gi.repository import GObject, Gtk, Gdk, GdkX11
+from gi.repository import GObject, Gtk, Gdk, GdkX11, GLib
 
 from importlib import reload
-# from os import system
-# from thread import *
-# import threading
-# import pygame
-# from pygame import display, draw, event, mouse, Surface
+from init_variables import TIMEOUT_GUI
+
+from config_rw import *
+from class_consoleIII import RacConnection, RacUio, RacDisplay
 
 Rac_connection = RacConnection()
 # Rac_Display = RacDisplay()
@@ -30,27 +28,24 @@ GUI_file = "./gui_artifacts/MainConsole_extended.glade"
 cfg_file = "./racII.cfg"
 
 
-GObject.threads_init()
+# GObject.threads_init()
 
-
-class window(Gtk.Window):
+class GUI_window(Gtk.Window):
     def __init__(self):
-        super(window, self).__init__()
+        super(GUI_window, self).__init__()
 
         # Read configuration
         config_read(self, cfg_file)
         # reset_save(cfg_file)
-        # self.ims = self.load_image()
+
+        GLib.timeout_add(TIMEOUT_GUI, self.on_timer)
+
+        self.init_vars()
 
         builder = Gtk.Builder()
         builder.add_objects_from_file(GUI_file, ("MainBox_CON", "Adjustement_Port", "Adjustment_Resolution", "Action_StartTestServer"))
         print("GUI file added: ", GUI_file)
-        # Connect signals
-        builder.connect_signals(self)
-
         self.add(builder.get_object("MainBox_CON"))
-        self.connect("destroy", self.gtk_main_quit)
-
         self.counter                = builder.get_object("counter")
         self.button_connect         = builder.get_object("ToggleButton_Connect")
         self.movie_window           = builder.get_object("DrawingArea_Cam")
@@ -64,6 +59,8 @@ class window(Gtk.Window):
         self.context_id             = self.statusbar.get_context_id("message")
 
         self.init_ui()
+        # Connect signals
+        builder.connect_signals(self)
 
         self.load_HostList(self.Host)
 
@@ -86,6 +83,9 @@ class window(Gtk.Window):
 
     def init_ui(self):
         ###### Initiate UI start ######
+        self.connect("destroy", self.gtk_main_quit)
+        self.connect("key-press-event", RacUio.on_key_press)
+        self.connect("key-release-event", RacUio.on_key_release)
         self.movie_window.set_size_request(640, 480)
         self.drawingarea_control.set_can_default(True)
         self.drawingarea_control.set_can_focus(True)
@@ -93,46 +93,40 @@ class window(Gtk.Window):
         self.drawingarea_control.set_app_paintable(True)
         self.drawingarea_control.set_size_request(150, 150)
         ####### Initiate UI end #######
-        self.drawingarea_control.realize()
-        self.CONTROLXPROP = self.drawingarea_control.get_property('window')
-        print("self.CONTROLXPROP", self.CONTROLXPROP)
+        # self.drawingarea_control.realize()
+        # self.CONTROLXPROP = self.drawingarea_control.get_property('window')
+        # print("self.CONTROLXPROP", self.CONTROLXPROP)
         self.show_all()
 
-        # We need to flush the XLib event loop otherwise we can't
-        # access the XWindow which set_mode() requires
-        # Gdk.flush()
+    def init_vars(self):
+        self.delta = 0
 
-        # pygame.init()
-        # pygame.display.set_mode((0, 200), 0, 0)
+    def on_timer(self):
+        self.delta += 1
+
+        Rac_Uio.get_speed_and_direction()
+        self.counter.set_text("Frame %i" % self.delta)
+        self.drawingarea_control.queue_draw()
+        self.statusbar.queue_draw()
+        # print("RACUIO", RacUio.speed, RacUio.direction)
+
+        return True
 
     def on_DrawingArea_Control_draw(self, bus, message):
-        RacDisplay(self.CAMXPROP).on_DrawingArea_Control_draw(message)
-        print("on_draw")
-
-    # def load_image(self):
-    #     ims = cairo.ImageSurface.create_from_png("images/HUD_small.png")
-    #     return ims
+        RacDisplay().on_DrawingArea_Control_draw(message)
+        # RacDisplay().on_DrawingArea_Control_draw(message, RacUio.speed, RacUio.direction)
 
     def on_MainWindow_notify(self, bus, message):
         return
 
     def on_cam_message(self, bus, message):
-        retmsg = RacDisplay(self.CAMXPROP).on_message(message)
-        if retmsg is not None:
-            self.button_connect.set_active(False)
-            self.statusbar.push(self.context_id, retmsg)
-
-    def on_control_message(self, bus, message):
-        retmsg = RacDisplay(self.CONTROLXPROP).on_message(message)
+        retmsg = RacDisplay().on_message(message)
         if retmsg is not None:
             self.button_connect.set_active(False)
             self.statusbar.push(self.context_id, retmsg)
 
     def on_cam_sync_message(self, bus, message):
-        RacDisplay(self.CAMXPROP).on_sync_message(message)
-
-    def on_control_sync_message(self, bus, message):
-        RacDisplay(self.CONTROLXPROP).on_sync_message(message)
+        RacDisplay().on_sync_message(message, self.CAMXPROP)
 
     def on_ComboBox_Host_changed(self, widget):
         model = self.combobox_host.get_model()
@@ -308,11 +302,11 @@ class window(Gtk.Window):
         for iter_x in range(0, event.iter_n()):
             print("iter_x:", iter_x)
 
-    def on_Grid_Control_focus(self, widget, data=None):
-        # if ev.keyval == Gdk.KEY_Escape: #If Escape pressed, reset text
-        print("focus", widget)
-        # print("key.keyval", key.keyval)
-        self.speed, self.direction = Rac_Uio.get_keyInput(widget, self.speed, self.direction)
+    # def on_Grid_Control_focus(self, widget, data=None):
+    #     # if ev.keyval == Gdk.KEY_Escape: #If Escape pressed, reset text
+    #     print("focus", widget)
+    #     # print("key.keyval", key.keyval)
+    #     self.speed, self.direction = Rac_Uio.get_speed_and_direction(self.speed, self.direction)
 
     def gtk_main_quit(self, dialog):
         Rac_connection.close_connection()
@@ -320,109 +314,25 @@ class window(Gtk.Window):
         # config_save(self, cfg_file)
         Gtk.main_quit ()
 
+###############################################################################
+###############################################################################
+###############################################################################
+###############################################################################
 
-class UI(threading.Thread):
-    Motor_PWR = Motor_RPM = Motor_ACK = Motor_Power = mouse = [0, 0]
-    Current = Voltage = speed = direction = 0
+def main():
+    GUI_window()
+    Gtk.main()
 
-    def __init__(self, GUI):
-        super(UI, self).__init__()
-        self.label = GUI.counter
-        self.quit = False
-
-    def update_label(self, counter):
-        self.label.set_text("Frame %i" % counter)
-        return False
-
-    def run(self):
-        print("***", self)
-        counter = 0
-        while not self.quit:
-            counter += 1
-            GObject.idle_add(self.update_label, counter)
-            time.sleep(0.01)
-
-            # try:
-            #     GTK_Main().screen.blit(GTK_Main().background, (0, 0))
-            # except:
-            #     None
-
-            # return
-            # Any update tasks would go here (moving sprites, advancing animation frames etc.)
-            if Rac_connection.conoff:
-                if Rac_connection.check_connection(""):
-                    if self.speed != "HALT":
-                        self.Motor_Power = [0, 0]
-                        self.Motor_Power[RIGHT] = self.speed - self.direction
-                        self.Motor_Power[LEFT] = self.speed + self.direction
-
-                        request = Rac_Uio.encode_transmission(self.Motor_Power, self.mouse, "")
-                        resp = Rac_connection.transmit(request)
-
-                        if resp is not None:
-                            self.Motor_PWR, self.Motor_RPM, self.Motor_ACK, self.Current, self.Voltage\
-                                = Rac_Uio.decode_transmission(resp)
-                    else:
-                        halt_cmd = self.direction
-                        Rac_connection.transmit(halt_cmd)
-                        Rac_connection.srv.close()
-                        Rac_connection.connected = False
-                        # sys.exit(0)  # quit the program
-
-                self.Redraw()
-
-    def Redraw(self):
-        # pygame.font.init()
-        # pygame.display.init()
-        # if self.draw_init:
-        #     self.draw_init = False
-        #     # Rac_Display = RacDisplay(self.display)
-        #     self.screen = pygame.Surface(self.size, 0, 32)
-        #     # self.hwnd = self.GetHandle()
-        #     # print self.hwnd
-        #     os.environ['SDL_WINDOWID'] == self.hwnd.__str__()
-        #
-        #     pygame.display.set_caption("Robot IVO-1 console", "IVO-1")
-        #     self.screen = pygame.display.set_mode((480, 360), pygame.DOUBLEBUF)
-        #
-        #     pygame.init()
-        #     pygame.display.flip()
-
-        # self.screen.fill((0, 0, 0))
-
-        Rac_display = RacDisplay(self.drawingarea_control)
-        Rac_display.plot_screen(self.Motor_Power, self.speed, self.direction)
-
-        # s = pygame.image.tostring(self.drawingarea_control, 'RGB')  # Convert the surface to an RGB string
-        # img = wx.Image(self.size[0], self.size[1], s)  # Load this string into a wx image
-        # bmp = wx.Bitmap(img)  # Get the image in bitmap form
-        # dc = wx.ClientDC(self)  # Device context for drawing the bitmap
-
-        # dc.DrawBitmap(bmp, 0, 0, False)  # Blit the bitmap image to the display
-        # del dc
-
-    def OnPaint(self, event):
-        # self.Redraw()
-        event.Skip()  # Make sure the parent frame gets told to redraw as well
+if __name__ == "__main__":
+    main()
 
 
-    def OnSize(self, event):
-        self.size = self.GetSize()
-        self.draw_init = True
 
 
-    def Kill(self, event):
-        # Make sure Pygame can't be asked to redraw /before/ quitting by unbinding all methods which
-        # call the Redraw() method
-        # (Otherwise wx seems to call Draw between quitting Pygame and destroying the frame)
-        # This may or may not be necessary now that Pygame is just drawing to surfaces
-        # self.Unbind(event=wx.EVT_PAINT, handler=self.OnPaint)
-        # self.Unbind(event=wx.EVT_TIMER, handler=self.Update, source=self.timer)
-        return
 
-gui = window()
-control = UI(gui)
-control.start()
-
-Gtk.main()
-control.quit = True
+# gui = GUI_window()
+# control = UI(gui)
+# control.start()
+#
+# Gtk.main()
+# control.quit = True

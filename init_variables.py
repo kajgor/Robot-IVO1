@@ -1,13 +1,8 @@
-k_up = 0
-k_down = 0
-k_left = 0
-k_right = 0
-speed = direction = 0
+TIMEOUT_GUI = 20
 mouseX = 100
 mouseY = 45
 position = (242, 135)
-TURN_SPEED = 1
-ACCELERATION = 1
+ACCELERATION = 0.03
 MAX_FORWARD_SPEED = 51
 MAX_REVERSE_SPEED = -51
 MAX_RIGHT_ANGLE = 25
@@ -37,4 +32,4 @@ X_AXIS = 0
 Y_AXIS = 1
 Gstreamer_Path = '/usr/bin/'
 Encoding = 'latin_1'
-Debug = 0
+Debug = 3

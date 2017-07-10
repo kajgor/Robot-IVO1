@@ -1,18 +1,16 @@
-import pygame
-# import wx
-import socket
-from os import system
-import os
-import cairo
-# from thread import *
-
-from init_variables import *
-# from pygame.locals import *
 import gi
 gi.require_version('Gst', '1.0')
 gi.require_version('Gdk', '3.0')
 gi.require_version('GstVideo', '1.0')
 from gi.repository import Gst, GstVideo, Gdk
+
+import socket
+from os import system
+# import os
+import cairo
+
+from init_variables import *
+# from pygame.locals import *
 
 # pygame.init()
 Gst.init(None)
@@ -141,29 +139,21 @@ class RacConnection:
 
 class RacDisplay:
     background = cairo.ImageSurface.create_from_png("images/HUD_small.png")
-    RacConnection = RacConnection()
-
-    def __init__(self, XPROP):
-        self.SXID = XPROP
-        self.screen = pygame.display.get_surface()
+    # def __init__(self):
 
 
     def on_DrawingArea_Control_draw(self, message):
-        print("on_draw")
-        # w, h = self.get_size()
+        # print("on_draw", direction)
 
         message.set_source_surface(self.background, 15, 0)
         message.paint()
 
-        message.set_source_rgb(0, 0.44, 0.7)
+        message.set_source_rgb(0, 0.44, 0.9)
         message.set_line_width(1)
 
         message.translate(105, 81)
 
-        self.angle = 0
-
-        message.rotate(self.angle)
-        # cr.scale(self.scale, self.scale)
+        message.rotate(COMM_vars.direction)
 
         for i in range(5):
             message.line_to(arrow.points[i][0], arrow.points[i][1])
@@ -193,112 +183,78 @@ class RacDisplay:
         else:
             return None
 
-    def on_sync_message(self, message):
+    def on_sync_message(self, message, SXID):
         if message.get_structure().get_name() == 'prepare-window-handle':
             imagesink = message.src
             imagesink.set_property("force-aspect-ratio", True)
-            imagesink.set_window_handle(self.SXID.get_xid())
+            imagesink.set_window_handle(SXID.get_xid())
         # else:
         #     print("message.get_structure().get_name():", message.get_structure().get_name())
-
-
-    def plot_screen(self, Motor_Power, speed, direction):
-        self.screen.blit(self.background, (0, 0))
-
-        return
-
-        if speed < 0:
-            rotated = pygame.transform.rotate(self.cyan_arrow, direction * 4 + 180)
-        elif speed > 0:
-            rotated = pygame.transform.rotate(self.cyan_arrow, direction * 4)
-        else:
-            if abs(Motor_Power[RIGHT]) + abs(Motor_Power[LEFT]) != 0:
-                rotated = pygame.transform.rotate(self.cyan_arrow, direction * 4)
-            else:
-                rotated = pygame.transform.rotate(self.gray_arrow, direction * 4)
-        # .. position the arrow on screen
-        # .. render the arrow to screen
-        rect = rotated.get_rect()
-        rect.center = position
-        self.screen.blit(rotated, rect)
-
-        power_displayed = int(Motor_Power[RIGHT] + Motor_Power[LEFT])
-        # power_displayed = int(Motor_Power[RIGHT] + Motor_Power[LEFT]) / 2.5
-        # print power_displayed
-        if abs(power_displayed) == 0:
-            self.disp_big_text("--", 70, 130, CYAN, BLACK)
-        elif abs(power_displayed) < 10:
-            self.disp_big_text(abs(power_displayed), 70 + 6, 130, DDBLUE, CYAN)
-        elif abs(power_displayed) < 100:
-            self.disp_big_text(abs(power_displayed), 70, 130, DDBLUE, CYAN)
-        elif abs(power_displayed) > 100:
-            self.disp_big_text("MAX", 70 - 6, 130, DRED, CYAN)
-        else:
-            self.disp_big_text(abs(power_displayed), 70 - 6, 130, DDBLUE, CYAN)
 
         # self.disp_text("CamV: " + str(mouse[X_AXIS]) + " ", 350, 210, CYAN, DDBLUE)
         # self.disp_text("CamH: " + str(mouse[Y_AXIS]) + " ", 350, 230, CYAN, DDBLUE)
 
 
 class RacUio:
+
     # def __init__(self):
-        # pygame.display.init()
+        # self.Left = False
+        # self.Right = False
 
-    def get_keyInput(self, event, speed, direction):
-        k_up = k_down = k_right = k_left = 0
+    def on_key_press(self, event):
+        keyname = Gdk.keyval_name(event.keyval)
+        # print("keypress", keyname)
+        if keyname == "Left":
+            KEY_control.Left = True
 
-#        ToDo:
-#         if event.type == pygame.QUIT:
-#             return "HALT", HALT_1, mouseX, mouseY
+        elif keyname == "Right":
+            KEY_control.Right = True
 
-        # key = event.keyval
-        events = pygame.event.get()
-        print("Pygame events:", events)
-        for event in events:
-            if event.type == pygame.KEYDOWN:
-                down = 1
-                print("Pygame key:", event.key)
-                if event.key == pygame.K_RIGHT:
-                    k_right = down * -TURN_SPEED
+        elif keyname == "Up":
+            KEY_control.Up = True
 
-                elif event.key == pygame.K_LEFT:
-                    k_left = down * TURN_SPEED
+        elif keyname == "Down":
+            KEY_control.Down = True
 
-                elif event.key == pygame.K_UP:
-                    if speed > MAX_REVERSE_SPEED:
-                        k_up = down * ACCELERATION
-                    else:
-                        k_up = down * 1
+        return keyname
 
-                elif event.key == pygame.K_DOWN:
-                    if speed < MAX_FORWARD_SPEED:
-                        k_down = down * -ACCELERATION
-                    else:
-                        k_down = down * -1
+    def on_key_release(self, event):
+        keyname = Gdk.keyval_name(event.keyval)
+        # print("keyrelease", keyname)
+        if keyname == "Left":
+            KEY_control.Left = False
 
-                elif event.key == pygame.K_SPACE:
-                    speed = 0
-                    direction = 0
+        elif keyname == "Right":
+            KEY_control.Right = False
 
-                elif event.key == pygame.K_ESCAPE:
-                    # transmit("R0L0")
-                    return "HALT", HALT_0
+        elif keyname == "Up":
+            KEY_control.Up = False
 
-        # SIMULATION
-        # .. new speed and direction based on acceleration and turn
-        speed += (k_up + k_down)
-        if speed > MAX_FORWARD_SPEED:
-            speed = MAX_FORWARD_SPEED
-        if speed < MAX_REVERSE_SPEED:
-            speed = MAX_REVERSE_SPEED
+        elif keyname == "Down":
+            KEY_control.Down = False
 
-        direction += (k_right + k_left)
-        if direction < MAX_LEFT_ANGLE:
-            direction = MAX_LEFT_ANGLE
-        if direction > MAX_RIGHT_ANGLE:
-            direction = MAX_RIGHT_ANGLE
+        return keyname
 
-        return speed, direction
+    def get_speed_and_direction(self):
+        print("reeee:", KEY_control.Down, KEY_control.Up, KEY_control.Left, KEY_control.Right, COMM_vars.speed, COMM_vars.direction)
+        if KEY_control.Down is True:
+            if COMM_vars.speed > MAX_REVERSE_SPEED:
+                COMM_vars.speed -= ACCELERATION
+
+        if KEY_control.Up is True:
+            if COMM_vars.speed < MAX_FORWARD_SPEED:
+                COMM_vars.speed += ACCELERATION
+
+        if KEY_control.Left is True:
+            if COMM_vars.direction > MAX_LEFT_ANGLE:
+                COMM_vars.direction -= ACCELERATION
+
+        if KEY_control.Right is True:
+            if COMM_vars.direction < MAX_RIGHT_ANGLE:
+                COMM_vars.direction += ACCELERATION
+
+        # print("get_speed_and_direction", self.speed, self.direction, ACCELERATION)
+        return COMM_vars.speed, COMM_vars.direction
 
     def get_mouseInput(self, event):
         mouseXY = event.GetPosition()
@@ -369,3 +325,15 @@ class arrow(object):
         (28, 35),
         (0, -35)
     )
+    SPEED = 20
+    TIMER_ID = 1
+
+class KEY_control:
+    Left = False
+    Right = False
+    Up = False
+    Down = False
+
+class COMM_vars:
+    speed = 0
+    direction = 0
