@@ -8,6 +8,7 @@ import socket
 from os import system
 # import os
 import cairo
+import math
 
 from init_variables import *
 # from pygame.locals import *
@@ -71,12 +72,12 @@ class RacConnection:
         if Debug > 1: print("Connection closed.")
 
     def estabilish_connection(self, Host, Port_Comm):
-        success = True
+        # success = True
         self.srv = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         server_address = (Host, Port_Comm)
         if Debug > 1: print("Connecting...")
         try:
-            retmsg = self.srv.connect(server_address)
+            self.srv.connect(server_address)
 
         except:
             retmsg = "Connection Error [" + server_address.__str__() + "]"
@@ -95,15 +96,8 @@ class RacConnection:
 
         if retmsg == Gst.StateChangeReturn.FAILURE:
             return False
-            # retmsg = "VIDEO CONNECTION ERROR: Unable to set the pipeline to the playing state."
-            # success = False
         else:
             return True
-            # retmsg = "VIDEO CONNECTION ESTABILISHED: OK"
-            # success = True
-
-        # if Debug > 1: print(retmsg)
-        # return retmsg, success
 
     def conect_micstream(self):
         retmsg = self.player.set_state(Gst.State.PLAYING)
@@ -138,26 +132,34 @@ class RacConnection:
 
 
 class RacDisplay:
-    background = cairo.ImageSurface.create_from_png("images/HUD_small.png")
-    # def __init__(self):
+    background_control = cairo.ImageSurface.create_from_png("images/HUD_small.png")
 
-
-    def on_DrawingArea_Control_draw(self, message):
-        # print("on_draw", direction)
-
-        message.set_source_surface(self.background, 15, 0)
+    def draw_arrow(self, message):
+        message.set_source_surface(self.background_control, 15, 0)
         message.paint()
 
-        message.set_source_rgb(0, 0.44, 0.9)
         message.set_line_width(1)
-
         message.translate(105, 81)
 
-        message.rotate(COMM_vars.direction)
+        if COMM_vars.speed >= 0:
+            message.rotate(COMM_vars.direction / (math.pi * 5))
+        else:
+            message.rotate((COMM_vars.direction + MAX_SPEED) / (math.pi * 5))
 
+        # Background arrow
+        message.set_source_rgb(0.25, 0.25, 0.25)
+        for i in range(4):
+            message.line_to(arrow.points[i][0], arrow.points[i][1])
+        message.fill()
+        message.set_source_rgb(0, 0.75, 0.75)
         for i in range(5):
             message.line_to(arrow.points[i][0], arrow.points[i][1])
-
+        message.stroke()
+        # Speed arrow
+        message.set_source_rgb(abs(COMM_vars.speed/MAX_SPEED), 1 - abs(COMM_vars.speed/MAX_SPEED), 0)
+        message.line_to(arrow.points[0][0], arrow.points[0][1] + 60 - abs((COMM_vars.speed / MAX_SPEED) * 50))
+        for i in range(1, 4):
+                message.line_to(arrow.points[i][0], arrow.points[i][1])
         message.fill()
 
     def on_message(self, message):
@@ -188,8 +190,6 @@ class RacDisplay:
             imagesink = message.src
             imagesink.set_property("force-aspect-ratio", True)
             imagesink.set_window_handle(SXID.get_xid())
-        # else:
-        #     print("message.get_structure().get_name():", message.get_structure().get_name())
 
         # self.disp_text("CamV: " + str(mouse[X_AXIS]) + " ", 350, 210, CYAN, DDBLUE)
         # self.disp_text("CamH: " + str(mouse[Y_AXIS]) + " ", 350, 230, CYAN, DDBLUE)
@@ -197,64 +197,73 @@ class RacDisplay:
 
 class RacUio:
 
-    # def __init__(self):
-        # self.Left = False
-        # self.Right = False
-
     def on_key_press(self, event):
         keyname = Gdk.keyval_name(event.keyval)
-        # print("keypress", keyname)
-        if keyname == "Left":
-            KEY_control.Left = True
-
-        elif keyname == "Right":
-            KEY_control.Right = True
-
-        elif keyname == "Up":
-            KEY_control.Up = True
-
-        elif keyname == "Down":
-            KEY_control.Down = True
-
+        self.key_set(keyname, True)
         return keyname
 
     def on_key_release(self, event):
         keyname = Gdk.keyval_name(event.keyval)
-        # print("keyrelease", keyname)
-        if keyname == "Left":
-            KEY_control.Left = False
-
-        elif keyname == "Right":
-            KEY_control.Right = False
-
-        elif keyname == "Up":
-            KEY_control.Up = False
-
-        elif keyname == "Down":
-            KEY_control.Down = False
-
+        self.key_set(keyname, False)
         return keyname
 
+    def key_set(RacUio, keyname, value):
+        print("key", keyname, value)
+        if keyname == "Left":
+            KEY_control.Left = value
+
+        elif keyname == "Right":
+            KEY_control.Right = value
+
+        elif keyname == "Up":
+            KEY_control.Up = value
+
+        elif keyname == "Down":
+            KEY_control.Down = value
+
+        elif keyname == "space":
+            COMM_vars.speed = 0
+            COMM_vars.direction = 0
+            KEY_control.Space = value
+
     def get_speed_and_direction(self):
-        print("reeee:", KEY_control.Down, KEY_control.Up, KEY_control.Left, KEY_control.Right, COMM_vars.speed, COMM_vars.direction)
+        # print("COMM_vars:", KEY_control.Down, KEY_control.Up, KEY_control.Left, KEY_control.Right, COMM_vars.speed, COMM_vars.direction)
         if KEY_control.Down is True:
-            if COMM_vars.speed > MAX_REVERSE_SPEED:
+            if COMM_vars.speed > -MAX_SPEED:
                 COMM_vars.speed -= ACCELERATION
 
         if KEY_control.Up is True:
-            if COMM_vars.speed < MAX_FORWARD_SPEED:
+            if COMM_vars.speed < MAX_SPEED:
                 COMM_vars.speed += ACCELERATION
 
         if KEY_control.Left is True:
-            if COMM_vars.direction > MAX_LEFT_ANGLE:
+            if COMM_vars.direction > -MAX_SPEED:
                 COMM_vars.direction -= ACCELERATION
+            else:
+                COMM_vars.direction = MAX_SPEED - ACCELERATION
 
         if KEY_control.Right is True:
-            if COMM_vars.direction < MAX_RIGHT_ANGLE:
+            if COMM_vars.direction < MAX_SPEED:
                 COMM_vars.direction += ACCELERATION
+            else:
+                COMM_vars.direction = -MAX_SPEED + ACCELERATION
 
-        # print("get_speed_and_direction", self.speed, self.direction, ACCELERATION)
         return COMM_vars.speed, COMM_vars.direction
+
+    def get_MotorPower(self):
+        speed = COMM_vars.speed
+        if COMM_vars.direction < MAX_SPEED/2 and COMM_vars.direction > -MAX_SPEED/2:
+            direction = COMM_vars.direction
+        else:
+            # if COMM_vars.direction > 0:
+            #     offset = MAX_SPEED
+            # else:
+            #     offset = -MAX_SPEED
+            offset = MAX_SPEED * (COMM_vars.direction / abs(COMM_vars.direction))
+            direction = (-COMM_vars.direction + offset)
+
+        return [int(speed - direction), int(speed + direction)]
+
 
     def get_mouseInput(self, event):
         mouseXY = event.GetPosition()
@@ -317,23 +326,3 @@ class RacUio:
         # raw_input("Press enter")
         return retcode
 
-class arrow(object):
-    points = (
-        (0, -35),
-        (-28, 35),
-        (0, 25),
-        (28, 35),
-        (0, -35)
-    )
-    SPEED = 20
-    TIMER_ID = 1
-
-class KEY_control:
-    Left = False
-    Right = False
-    Up = False
-    Down = False
-
-class COMM_vars:
-    speed = 0
-    direction = 0

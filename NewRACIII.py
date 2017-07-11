@@ -14,55 +14,53 @@ gi.require_version('GstVideo', '1.0')
 from gi.repository import GObject, Gtk, Gdk, GdkX11, GLib
 
 from importlib import reload
-from init_variables import TIMEOUT_GUI
+from init_variables import TIMEOUT_GUI, Paths, Debug
 
 from config_rw import *
 from class_consoleIII import RacConnection, RacUio, RacDisplay
 
 Rac_connection = RacConnection()
-# Rac_Display = RacDisplay()
+Rac_Display = RacDisplay()
 Rac_Uio = RacUio()
-
-Debug = 3
-GUI_file = "./gui_artifacts/MainConsole_extended.glade"
-cfg_file = "./racII.cfg"
-
 
 # GObject.threads_init()
 
 class GUI_window(Gtk.Window):
+    ###############################################################################
+    ################   MAIN LOOP START   ##########################################
+    ###############################################################################
+    def on_timer(self):
+        self.delta += 1
+
+        Rac_Uio.get_speed_and_direction()
+
+        Motor_Power = Rac_Uio.get_MotorPower()
+
+        self.counter.set_text("Frame %i" % self.delta)
+        self.drawingarea_control.queue_draw()
+        self.statusbar.queue_draw()
+        # print("RACUIO", RacUio.speed, RacUio.direction)
+        print("Motor_Power", Motor_Power)
+        return True
+    ###############################################################################
+    ################   MAIN LOOP END   ############################################
+    ###############################################################################
+
     def __init__(self):
         super(GUI_window, self).__init__()
 
-        # Read configuration
-        config_read(self, cfg_file)
-        # reset_save(cfg_file)
-
+        #### Main loop definition ##################
         GLib.timeout_add(TIMEOUT_GUI, self.on_timer)
-
-        self.init_vars()
-
-        builder = Gtk.Builder()
-        builder.add_objects_from_file(GUI_file, ("MainBox_CON", "Adjustement_Port", "Adjustment_Resolution", "Action_StartTestServer"))
-        print("GUI file added: ", GUI_file)
-        self.add(builder.get_object("MainBox_CON"))
-        self.counter                = builder.get_object("counter")
-        self.button_connect         = builder.get_object("ToggleButton_Connect")
-        self.movie_window           = builder.get_object("DrawingArea_Cam")
-        self.checkbutton_localtest  = builder.get_object("CheckButton_LocalTest")
-        self.checkbutton_cam        = builder.get_object("CheckButton_Cam")
-        self.combobox_host          = builder.get_object("ComboBox_Host")
-        self.comboboxtext_host      = builder.get_object("ComboBoxTextEntry_Host")
-        self.spinbutton_port        = builder.get_object("SpinButton_Port")
-        self.drawingarea_control    = builder.get_object("DrawingArea_Control")
-        self.statusbar              = builder.get_object("StatusBar")
-        self.context_id             = self.statusbar.get_context_id("message")
+        ############################################
+        builder = self.init_vars()
 
         self.init_ui()
+
+        self.CAMXPROP = self.movie_window.get_property('window')
+        print("self.CAMXPROP", self.CAMXPROP)
+
         # Connect signals
         builder.connect_signals(self)
-
-        self.load_HostList(self.Host)
 
         # ToDo
         self.TEST_Host = "127.0.0.1"
@@ -71,9 +69,6 @@ class GUI_window(Gtk.Window):
         if Debug > 1:
             print("Objects:")
             print(builder.get_objects().__str__())
-
-        self.CAMXPROP = self.movie_window.get_property('window')
-        print("self.CAMXPROP", self.CAMXPROP)
 
         bus = Rac_connection.player.get_bus()
         bus.add_signal_watch()
@@ -99,34 +94,49 @@ class GUI_window(Gtk.Window):
         self.show_all()
 
     def init_vars(self):
+        # Read configuration
+        config_read(self, Paths.cfg_file)
+        # reset_save(cfg_file)
+
         self.delta = 0
+        builder = Gtk.Builder()
+        builder.add_objects_from_file(Paths.GUI_file, ("MainBox_CON", "Adjustement_Port", "Adjustment_Resolution", "Action_StartTestServer"))
+        print("GUI file added: ", Paths.GUI_file)
+        self.add(builder.get_object("MainBox_CON"))
+        self.counter                = builder.get_object("counter")
+        self.button_connect         = builder.get_object("ToggleButton_Connect")
+        self.movie_window           = builder.get_object("DrawingArea_Cam")
+        self.checkbutton_localtest  = builder.get_object("CheckButton_LocalTest")
+        self.checkbutton_cam        = builder.get_object("CheckButton_Cam")
+        self.combobox_host          = builder.get_object("ComboBox_Host")
+        self.comboboxtext_host      = builder.get_object("ComboBoxTextEntry_Host")
+        self.spinbutton_port        = builder.get_object("SpinButton_Port")
+        self.drawingarea_control    = builder.get_object("DrawingArea_Control")
+        self.statusbar              = builder.get_object("StatusBar")
+        self.context_id             = self.statusbar.get_context_id("message")
 
-    def on_timer(self):
-        self.delta += 1
+        self.load_HostList(self.Host)
 
-        Rac_Uio.get_speed_and_direction()
-        self.counter.set_text("Frame %i" % self.delta)
-        self.drawingarea_control.queue_draw()
-        self.statusbar.queue_draw()
-        # print("RACUIO", RacUio.speed, RacUio.direction)
+        return builder
 
-        return True
+    def key_set(self, keyname, value):
+        RacUio().key_set(keyname, value)
 
     def on_DrawingArea_Control_draw(self, bus, message):
-        RacDisplay().on_DrawingArea_Control_draw(message)
+        Rac_Display.draw_arrow(message)
         # RacDisplay().on_DrawingArea_Control_draw(message, RacUio.speed, RacUio.direction)
 
     def on_MainWindow_notify(self, bus, message):
         return
 
     def on_cam_message(self, bus, message):
-        retmsg = RacDisplay().on_message(message)
+        retmsg = Rac_Display.on_message(message)
         if retmsg is not None:
             self.button_connect.set_active(False)
             self.statusbar.push(self.context_id, retmsg)
 
     def on_cam_sync_message(self, bus, message):
-        RacDisplay().on_sync_message(message, self.CAMXPROP)
+        Rac_Display.on_sync_message(message, self.CAMXPROP)
 
     def on_ComboBox_Host_changed(self, widget):
         model = self.combobox_host.get_model()
@@ -136,7 +146,7 @@ class GUI_window(Gtk.Window):
         print("Changed:", self.combobox_host.get_active(), Port)
 
     def on_CheckButton_Cam_toggled(self,widget):
-        if self.checkbutton_cam.get_active() == True:
+        if self.checkbutton_cam.get_active() is True:
             retmsg = Rac_connection.connect_camstream(True)
             if retmsg is True:
                 retmsg = "VIDEO CONNECTION ESTABILISHED: OK"
@@ -152,9 +162,9 @@ class GUI_window(Gtk.Window):
         self.statusbar.push(self.context_id, retmsg)
 
     def on_CheckButton_LocalTest_toggled(self, widget):
-        if self.checkbutton_localtest.get_active() == True:
+        if self.checkbutton_localtest.get_active() is True:
             ret = self.HostList_get(self.TEST_Host)
-            if self.HostList_get(self.TEST_Host) == False:
+            if self.HostList_get(self.TEST_Host) is False:
                 ret = 0
                 self.combobox_host.insert(ret, self.TEST_Port.__str__(), self.TEST_Host)
 
@@ -162,6 +172,7 @@ class GUI_window(Gtk.Window):
             self.spinbutton_port.set_value(self.TEST_Port)
             self.combobox_host.set_sensitive(False)
             self.spinbutton_port.set_sensitive(False)
+# ToDo:
             try:
                 print("try")
                 import Test_Srv_GTK
@@ -173,7 +184,7 @@ class GUI_window(Gtk.Window):
             self.spinbutton_port.set_sensitive(True)
 
     def on_ToggleButton_Connect_toggled(self, widget):
-        if self.button_connect.get_active() == True:
+        if self.button_connect.get_active() is True:
             self.connect_gui()
 
             Host, Port_Comm = self.get_host_and_port()
@@ -204,7 +215,7 @@ class GUI_window(Gtk.Window):
             self.disconnect_gui()
 
     def get_host_and_port(self):
-        if self.checkbutton_localtest.get_active() == True:
+        if self.checkbutton_localtest.get_active() is True:
             Host = self.TEST_Host
             Port_Comm = self.TEST_Port.__int__()
         else:
@@ -236,7 +247,7 @@ class GUI_window(Gtk.Window):
             try:
                 Port = Port[:Port.index('.')]
             except:
-                None
+                Port = Port
             print("Selected: Port=%s, Host=%s" % (int(Port), Host))
         else:
             entry = self.combobox_host.get_child()
@@ -325,9 +336,6 @@ def main():
 
 if __name__ == "__main__":
     main()
-
-
-
 
 
 # gui = GUI_window()
