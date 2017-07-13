@@ -1,23 +1,48 @@
+#!/usr/bin/env python
+# -*- coding: CP1252 -*-
+
+import socket
+import cairo
+import math
+
 import gi
 gi.require_version('Gst', '1.0')
 gi.require_version('Gdk', '3.0')
 gi.require_version('GstVideo', '1.0')
 from gi.repository import Gst, GstVideo, Gdk
-
-import socket
 from os import system
-# import os
-import cairo
-import math
-
 from init_variables import *
-# from pygame.locals import *
 
-# pygame.init()
-Gst.init(None)
+###############################################################################
+################   MAIN LOOP START   ##########################################
+###############################################################################
+class MainLoop:
+    def __init__(self, GUI):
+        self.delta = 0
+        self.GUI = GUI
+
+    def on_timer(self):
+        self.delta += 1
+
+        RacUio().get_speed_and_direction()
+
+        Motor_Power = RacUio().get_MotorPower()
+        Mouse = RacUio().mouseInput()
+
+        # self.GUI.counter.set_text("Frame %i" % self.delta)
+        self.GUI.statusbar2.push(self.GUI.context_id2, self.delta.__str__())
+        self.GUI.drawingarea_control.queue_draw()
+
+        # print("Motor_Power", Motor_Power, "Mouse", Mouse)
+        return True
+
+###############################################################################
+################   MAIN LOOP END   ############################################
+###############################################################################
 
 class RacConnection:
     def __init__(self):
+        Gst.init(None)
         self.srv = None
         self.conoff = False
 
@@ -130,6 +155,81 @@ class RacConnection:
             if Debug > 1: print(">>>FlushBuffer>>>")
             return
 
+    def get_host_and_port(self, GUI):
+        if GUI.checkbutton_localtest.get_active() is True:
+            Host = GUI.TEST_Host
+            Port_Comm = GUI.TEST_Port.__int__()
+        else:
+            Host = GUI.combobox_host.get_active_text()
+            Port_Comm = GUI.spinbutton_port.get_value().__int__()
+
+        return Host, Port_Comm
+
+    def update_server_list(self, GUI):
+        list_iter = GUI.combobox_host.get_active_iter()
+        if list_iter is not None:
+            model = GUI.combobox_host.get_model()
+            Host, Port = model[list_iter][:2]
+            try:
+                Port = Port[:Port.index('.')]
+            except:
+                Port = Port
+            print("Selected: Port=%s, Host=%s" % (int(Port), Host))
+        else:
+            entry = GUI.combobox_host.get_child()
+            GUI.combobox_host.insert(0, GUI.spinbutton_port.get_value().__str__(), entry.get_text())
+            GUI.combobox_host.set_active(0)
+
+            print("New entry: %s" % entry.get_text())
+            print("New port: %s" % GUI.spinbutton_port.get_value().__str__())
+
+    def HostList_get(self, GUI, HostToFind):
+        HostList_str = []
+        model = GUI.combobox_host.get_model()
+        for iter_x in range(0, model.iter_n_children()):
+            if HostToFind is None:
+                HostList_str.append(model[iter_x][0] + ":" + model[iter_x][1])
+            else:
+                if model[iter_x][0] == HostToFind:
+                    return iter_x
+
+        if HostToFind is None:
+            print("HostList_str: [%d]" % model.iter_n_children(), HostList_str)
+            return HostList_str
+        else:
+            return False
+
+    def config_snapshot(self, Host):
+        self.Host = Host
+        # ToDo:
+        self.Port_Comm = "5000"
+        self.Port_Video = "5001"
+        self.Port_Audio = "5002"
+        self.Gstreamer_Path = "/usr/bin"
+
+    def load_HostList(self, GUI, HostList_str):
+        x = 0
+        for HostName in HostList_str:
+            Host = HostName.split(":")[0]
+            Port = HostName.split(":")[1]
+            GUI.combobox_host.insert(x, Port, Host)
+            x += 1
+
+    def connect_gui(self, GUI):
+        GUI.combobox_host.set_sensitive(False)
+        GUI.checkbutton_localtest.set_sensitive(False)
+        GUI.spinbutton_port.set_sensitive(False)
+
+    def disconnect_gui(self, GUI):
+        GUI.statusbar.push(GUI.context_id, "Disconnected.")
+
+        GUI.button_connect.set_active(False)
+        GUI.checkbutton_localtest.set_sensitive(True)
+
+        if GUI.checkbutton_localtest.get_active() is False:
+            GUI.combobox_host.set_sensitive(True)
+            GUI.spinbutton_port.set_sensitive(True)
+
 
 class RacDisplay:
     background_control = cairo.ImageSurface.create_from_png("images/HUD_small.png")
@@ -164,14 +264,12 @@ class RacDisplay:
 
     def on_message(self, message):
         msgtype = message.type
-        # print("msgtype:", msgtype)
         if msgtype == Gst.MessageType.EOS:
             RacConnection().player.set_state(Gst.State.NULL)
             if Debug > 1:
                 # self.statusbar.push(self.context_id, "VIDEO CONNECTION EOS: SIGNAL LOST")
                 print ("EOS: SIGNAL LOST")
             return "VIDEO CONNECTION EOS: SIGNAL LOST"
-
         elif msgtype == Gst.MessageType.ERROR:
             RacConnection().player.set_state(Gst.State.NULL)
             err, debug = message.parse_error()
@@ -179,9 +277,7 @@ class RacDisplay:
             if Debug > 0:
                 # self.statusbar.push(self.context_id, debug_s[debug_s.__len__() - 1])
                 print ("ERROR:", debug_s)
-
             return debug_s[debug_s.__len__() - 1]
-
         else:
             return None
 
@@ -191,40 +287,55 @@ class RacDisplay:
             imagesink.set_property("force-aspect-ratio", True)
             imagesink.set_window_handle(SXID.get_xid())
 
-        # self.disp_text("CamV: " + str(mouse[X_AXIS]) + " ", 350, 210, CYAN, DDBLUE)
-        # self.disp_text("CamH: " + str(mouse[Y_AXIS]) + " ", 350, 230, CYAN, DDBLUE)
-
 
 class RacUio:
-
     def on_key_press(self, event):
-        keyname = Gdk.keyval_name(event.keyval)
-        self.key_set(keyname, True)
-        return keyname
+        RacUio().keybuffer_set(event, True)
+        return True
 
     def on_key_release(self, event):
-        keyname = Gdk.keyval_name(event.keyval)
-        self.key_set(keyname, False)
-        return keyname
+        key_name = RacUio().keybuffer_set(event, False)
+        return key_name
 
-    def key_set(RacUio, keyname, value):
-        print("key", keyname, value)
-        if keyname == "Left":
+    def keybuffer_set(RacUio, event, value):
+        key_name = Gdk.keyval_name(event.keyval)
+        # print("key", keyname, value)
+        if key_name == "Left":
             KEY_control.Left = value
 
-        elif keyname == "Right":
+        elif key_name == "Right":
             KEY_control.Right = value
 
-        elif keyname == "Up":
+        elif key_name == "Up":
             KEY_control.Up = value
 
-        elif keyname == "Down":
+        elif key_name == "Down":
             KEY_control.Down = value
 
-        elif keyname == "space":
+        elif key_name == "space":
             COMM_vars.speed = 0
             COMM_vars.direction = 0
             KEY_control.Space = value
+
+        return key_name
+
+    def on_mouse_press(self, widget, mouse_event):
+        self.mousebuffer_set(mouse_event, True)
+
+    def on_mouse_release(self, widget, mouse_event):
+        self.mousebuffer_set(mouse_event, False)
+
+    def mousebuffer_set(RacUio, mouse_event, value):
+        if mouse_event.button == Gdk.BUTTON_PRIMARY:
+            KEY_control.Mouse_L = value
+            KEY_control.mouseXY = [mouse_event.x, mouse_event.y]
+
+        if mouse_event.button == Gdk.BUTTON_SECONDARY:
+            KEY_control.Mouse_R = value
+            KEY_control.mouseXY = [None, None]
+
+    def on_motion_notify(self, widget, mouse_event):
+        KEY_control.mouseXY = [mouse_event.x, mouse_event.y]
 
     def get_speed_and_direction(self):
         # print("COMM_vars:", KEY_control.Down, KEY_control.Up, KEY_control.Left, KEY_control.Right, COMM_vars.speed, COMM_vars.direction)
@@ -255,30 +366,28 @@ class RacUio:
         if COMM_vars.direction < MAX_SPEED/2 and COMM_vars.direction > -MAX_SPEED/2:
             direction = COMM_vars.direction
         else:
-            # if COMM_vars.direction > 0:
-            #     offset = MAX_SPEED
-            # else:
-            #     offset = -MAX_SPEED
             offset = MAX_SPEED * (COMM_vars.direction / abs(COMM_vars.direction))
             direction = (-COMM_vars.direction + offset)
 
         return [int(speed - direction), int(speed + direction)]
 
+    def mouseInput(self):
+        # if KEY_control.Mouse_L is True:
+        # mouseX = KEY_control.Mouse_L
+        # mouseY = KEY_control.Mouse_R
 
-    def get_mouseInput(self, event):
-        mouseXY = event.GetPosition()
-        mouseX = int(MOUSEX_MAX - mouseXY[0] / 2)
-        mouseY = int(MOUSEY_MAX - mouseXY[1] / 2)
-        if mouseX > MOUSEX_MAX:
-            mouseX = MOUSEX_MAX
-        if mouseX < MOUSEX_MIN:
-            mouseX = MOUSEX_MIN
-        if mouseY > MOUSEY_MAX:
-            mouseY = MOUSEY_MAX
-        if mouseY < MOUSEY_MIN:
-            mouseY = MOUSEY_MIN
+        # mouseX = int(MOUSEX_MAX - mouseXY[0] / 2)
+        # mouseY = int(MOUSEY_MAX - mouseXY[1] / 2)
+        # if mouseX > MOUSEX_MAX:
+        #     mouseX = MOUSEX_MAX
+        # if mouseX < MOUSEX_MIN:
+        #     mouseX = MOUSEX_MIN
+        # if mouseY > MOUSEY_MAX:
+        #     mouseY = MOUSEY_MAX
+        # if mouseY < MOUSEY_MIN:
+        #     mouseY = MOUSEY_MIN
         # print mouseX.__str__() + "<>" + mouseY.__str__()
-        return [mouseX, mouseY]
+        return KEY_control.mouseXY
 
     def decode_transmission(self, resp):
         # Motor_ACK - last value accepted by the driver
@@ -322,7 +431,5 @@ class RacUio:
             if Debug > 1: print("\nCommand executed successfully")
         else:
             if Debug > 1: print("\nCommand terminated with error: " + str(retcode))
-
         # raw_input("Press enter")
         return retcode
-

@@ -13,6 +13,9 @@ class KEY_control:
     Up      = False
     Down    = False
     Space   = False
+    Mouse_R = False
+    Mouse_L = False
+    mouseXY = [0, 0]
 
 class COMM_vars:
     speed       = 0
@@ -23,11 +26,9 @@ class COMM_vars:
     display     = False
     speakers    = False
     Motor_Power = (0, 0)
-    mouse       = (100, 45)
-
+    Mouse       = (100, 45)
     mouseX = 100
     mouseY = 45
-
 
 TIMEOUT_GUI = 20
 position = (242, 135)

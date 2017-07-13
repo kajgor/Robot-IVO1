@@ -89,7 +89,6 @@ class GTK_TSMain(WinType):
             self.closesrv()
 
     def gtk_main_quit(self, dialog):
-        self.closesrv()
         Gtk.main_quit ()
 
 GTK_TSMain()
