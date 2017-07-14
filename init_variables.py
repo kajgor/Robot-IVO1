@@ -18,6 +18,7 @@ class KEY_control:
     mouseXY = [0, 0]
 
 class COMM_vars:
+    connected   = False
     speed       = 0
     direction   = 0
     camera      = True

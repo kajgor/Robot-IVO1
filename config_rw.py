@@ -13,7 +13,7 @@ def config_read(self, filename):
         self.Reserved_4 = pickle.load(iniFile)
         self.Local_Test = pickle.load(iniFile)
         self.END_CFG = pickle.load(iniFile)
-    print ("Configuration read.")
+    print ("Configuration read from", filename)
 
 def config_save(self, filename):
     with open(filename, "wb") as iniFile:
@@ -33,7 +33,7 @@ def config_save(self, filename):
 
 def reset_save(filename):
     with open(filename, "wb") as iniFile:
-        for item in ("127.0.0.1",
+        for item in (["127.0.0.1:12344", "localhost:5000"],
                      5000,
                      5101,
                      5102,

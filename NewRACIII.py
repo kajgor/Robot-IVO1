@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: CP1252 -*-
-
+import time
 import gi
 gi.require_version('Gst', '1.0')
 gi.require_version('Gtk', '3.0')
@@ -49,8 +49,8 @@ class GUI_window(Gtk.Window):
 
     def init_vars(self):
         # Read configuration
+        reset_save(Paths.cfg_file)
         config_read(self, Paths.cfg_file)
-        # reset_save(cfg_file)
 
         builder = Gtk.Builder()
         builder.add_objects_from_file(Paths.GUI_file, ("MainBox_CON", "Adjustement_Port", "Adjustment_Resolution", "Action_StartTestServer"))
@@ -101,7 +101,7 @@ class GUI_window(Gtk.Window):
 
     def on_ComboBox_Host_changed(self, widget):
         model = self.combobox_host.get_model()
-        Port = int(model[self.combobox_host.get_active()][1])
+        Port = int(float(model[self.combobox_host.get_active()][1]))
         self.spinbutton_port.set_value(Port)
         print("Changed:", self.combobox_host.get_active(), Port)
 
@@ -154,7 +154,7 @@ class GUI_window(Gtk.Window):
 
             # Gstreamer setup start
             Rac_connection.source.set_property("host", Host)
-            Rac_connection.source.set_property("port", Port_Comm)
+            Rac_connection.source.set_property("port", Port_Comm + 1)
             # Gstreamer setup end
 
             retmsg, success = Rac_connection.estabilish_connection(Host, Port_Comm)
@@ -162,6 +162,7 @@ class GUI_window(Gtk.Window):
             if success is True:
                 Rac_connection.update_server_list(self)
                 if self.checkbutton_cam.get_active() is True:
+                    time.sleep(1)
                     retmsg = Rac_connection.connect_camstream(True)
                     if retmsg is True:
                         retmsg = "VIDEO CONNECTION ESTABILISHED: OK"
@@ -172,6 +173,7 @@ class GUI_window(Gtk.Window):
             else:
                 Rac_connection.disconnect_gui(self)
 
+            Rac_Uio.connected = success
             self.statusbar.push(self.context_id, retmsg)
         else:
             Rac_connection.close_connection()
