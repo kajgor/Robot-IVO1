@@ -12,9 +12,10 @@ from init_variables import *
 
 HOST = 'localhost'   # Symbolic name meaning all available interfaces
 C_PORT = 5000  # Arbitrary non-privileged port
-V_PORT = 12344
+V_PORT = 5001
 srv_address = (HOST, C_PORT)
 
+Debug = 3
 # Function for handling connections. This will be used to create threads
 def clientthread(conn):
     # Sending message to connected client
@@ -84,11 +85,11 @@ try:
     srv.bind(srv_address)
 
 except socket.error as msg:
-    print('Bind failed. Error Code : ' + str(msg[0]) + ' Message ' + msg[1])
+    print('Bind failed. Error Code : ' + msg.__str__())
     sys.exit()
 
 except OSError as msg:
-    print('Bind failed. Error Code : ' + str(msg[0]) + ' Message ' + msg[1])
+    print('Bind failed. Error Code : ' + msg.__str__())
     print('Advice: check for python process to kill it!')
     sys.exit()
 

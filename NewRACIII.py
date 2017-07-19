@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: CP1252 -*-
-import time
+# import time
 import gi
 gi.require_version('Gst', '1.0')
 gi.require_version('Gtk', '3.0')
@@ -157,19 +157,20 @@ class GUI_window(Gtk.Window):
             Rac_connection.source.set_property("port", Port_Comm + 1)
             # Gstreamer setup end
 
-            retmsg, success = Rac_connection.estabilish_connection(Host, Port_Comm)
+            retmsg, success = Rac_connection.estabilish_connection(self, Host, Port_Comm)
+            print("retmsg/success", retmsg, success)
 
             if success is True:
                 Rac_connection.update_server_list(self)
                 if self.checkbutton_cam.get_active() is True:
-                    time.sleep(1)
+                    # time.sleep(1)
                     retmsg = Rac_connection.connect_camstream(True)
                     if retmsg is True:
                         retmsg = "VIDEO CONNECTION ESTABILISHED: OK"
                     else:
                         retmsg = "VIDEO CONNECTION ERROR: Unable to set the pipeline to the playing state."
 
-                self.drawingarea_control.grab_focus()
+                # self.drawingarea_control.grab_focus()
             else:
                 Rac_connection.disconnect_gui(self)
 

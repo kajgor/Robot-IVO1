@@ -26,10 +26,15 @@ class COMM_vars:
     mic         = False
     display     = False
     speakers    = False
-    Motor_Power = (0, 0)
     Mouse       = (100, 45)
     mouseX = 100
     mouseY = 45
+    Motor_Power = (0, 0)
+    Motor_PWR = Motor_Power
+    Motor_RPM = Motor_Power
+    Motor_ACK = Motor_Power
+    Current = 0
+    Voltage = 0
 
 TIMEOUT_GUI = 20
 position = (242, 135)
@@ -60,7 +65,7 @@ LEFT = 1
 ######################
 X_AXIS = 0
 Y_AXIS = 1
-Debug = 3
+Debug = 1
 Encoding = 'latin_1'
 
 class Paths:
