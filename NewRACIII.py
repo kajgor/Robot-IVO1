@@ -17,6 +17,8 @@ Rac_connection = RacConnection()
 Rac_Display = RacDisplay()
 Rac_Uio = RacUio()
 
+
+# noinspection PyAttributeOutsideInit
 class GUI_window(Gtk.Window):
     def __init__(self):
         super(GUI_window, self).__init__()
@@ -223,17 +225,10 @@ class GUI_window(Gtk.Window):
 ###############################################################################
 ###############################################################################
 
+
 def main():
     GUI_window()
     Gtk.main()
 
 if __name__ == "__main__":
     main()
-
-
-# gui = GUI_window()
-# control = UI(gui)
-# control.start()
-#
-# Gtk.main()
-# control.quit = True

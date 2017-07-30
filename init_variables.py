@@ -36,7 +36,7 @@ class COMM_vars:
     Current = 0
     Voltage = 0
 
-TIMEOUT_GUI = 20
+TIMEOUT_GUI = 50
 position = (242, 135)
 ACCELERATION = 0.5
 MAX_SPEED = 50
@@ -70,6 +70,6 @@ Encoding = 'latin_1'
 
 class Paths:
     Gstreamer_Path = '/usr/bin/'
-    GUI_file = "./gui_artifacts/MainConsole_extended.glade"
+    GUI_file = "./gui_artifacts/MainConsole_extendedIII.glade"
     cfg_file = "./racII.cfg"
 
