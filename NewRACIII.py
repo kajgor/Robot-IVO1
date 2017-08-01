@@ -26,7 +26,7 @@ class GUI_window(Gtk.Window):
         builder = self.init_vars()
         Rac_connection.load_HostList(self, self.Host)
 
-        #### Main loop definition ##################
+        ####### Main loop definition ###############
         GLib.timeout_add(TIMEOUT_GUI, MainLoop(self).on_timer)
         ############################################
         self.init_ui()
@@ -87,6 +87,7 @@ class GUI_window(Gtk.Window):
         self.movie_window.set_size_request(640, 480)
         self.movie_window.set_can_default(True)
         ####### Initiate UI end #######
+
         self.show_all()
 
     def on_DrawingArea_Control_draw(self, bus, message):
@@ -159,7 +160,7 @@ class GUI_window(Gtk.Window):
             Rac_connection.source.set_property("port", Port_Comm + 1)
             # Gstreamer setup end
 
-            retmsg, success = Rac_connection.estabilish_connection(self, Host, Port_Comm)
+            retmsg, success = Rac_connection.estabilish_connection(Host, Port_Comm)
             print("retmsg/success", retmsg, success)
 
             if success is True:

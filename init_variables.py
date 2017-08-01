@@ -8,6 +8,7 @@ class arrow(object):
     )
 
 class KEY_control:
+    Shift   = False
     Left    = False
     Right   = False
     Up      = False

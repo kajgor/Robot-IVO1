@@ -97,8 +97,8 @@ class RacConnection:
         COMM_vars.connected = False
         if Debug > 1: print("Connection closed.")
 
-    def estabilish_connection(self, GUI, Host, Port_Comm):
-        start_new_thread(self.connectionthread, (GUI, Host, Port_Comm))
+    def estabilish_connection(self, Host, Port_Comm):
+        start_new_thread(self.connectionthread, (Host, Port_Comm))
         time.sleep(1)
         if COMM_vars.connected is True:
             retmsg = "Server connected! " + self.srv.getsockname().__str__()
@@ -110,10 +110,10 @@ class RacConnection:
         return retmsg, COMM_vars.connected
 
     ###############################################################################
-    ################   COMM LOOP START   ##########################################
+    ################   COMMUNICATION LOOP START   #################################
     ###############################################################################
 
-    def connectionthread(self, GUI, Host, Port_Comm):
+    def connectionthread(self, Host, Port_Comm):
         if Debug > 1: print("Connecting...")
         RacConnection.srv = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
@@ -136,8 +136,7 @@ class RacConnection:
 
             counter += 1
             time.sleep(0.01)
-            # MainLoop(GUI).on_timer(counter)
-        # if COMM_vars.connected is True:
+
             if RacConnection().check_connection(""):
                 if COMM_vars.speed != "HALT":
                     request = RacConnection().encode_transmission(Motor_Power, Mouse, "")
@@ -151,7 +150,8 @@ class RacConnection:
                 else:
                     halt_cmd = HALT_0
                     RacConnection().transmit(halt_cmd)
-                    self.GUI.srv.close()
+                    # self.close_connection()
+                    # GUI.srv.close()
                     COMM_vars.connected = False
                     # sys.exit(0)  # quit the program
 
