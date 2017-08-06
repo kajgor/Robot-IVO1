@@ -13,7 +13,7 @@ gi.require_version('GstVideo', '1.0')
 from gi.repository import Gst, GObject, Gtk, GstVideo
 
 # from _thread import *
-from init_variables import Encoding, LEFT, RIGHT, COMM_BITSHIFT
+from init_variables import Encoding, LEFT, RIGHT, COMM_BITSHIFT, calc_checksum
 
 # import atexit
 # GUI_file = "./gui_artifacts/TestServer_extended.glade"
@@ -81,7 +81,9 @@ class clientthread(threading.Thread):
                 nodata_cnt = 0
                 # data_decoded = self.encode_data(data)
                 # reply = data_decoded.ljust(15, chr(10).encode(Encoding))
-                reply = data.ljust(15, chr(10).encode(Encoding))
+                retstr = data[:6] + chr(calc_checksum(data)).encode(Encoding) + data[8:]
+                print("chksum", chr(calc_checksum(data)))
+                reply = retstr.ljust(15, chr(10).encode(Encoding))
 
                 if Debug > 2:
                     print("DATA_IN>> " + data.__str__())

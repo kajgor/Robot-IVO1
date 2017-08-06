@@ -42,6 +42,7 @@
             <property name="numeric">True</property>
             <property name="update_policy">if-valid</property>
             <property name="value">5000</property>
+            <signal name="value-changed" handler="on_SpinButton_Port_value_changed" swapped="no"/>
           </object>
           <packing>
             <property name="left_attach">3</property>
@@ -724,7 +725,7 @@
                           </packing>
                         </child>
                         <child>
-                          <object class="GtkLabel" id="LabelCamPosY">
+                          <object class="GtkLabel" id="LabelCamPosV">
                             <property name="visible">True</property>
                             <property name="can_focus">False</property>
                             <property name="label" translatable="yes">0</property>
@@ -925,7 +926,7 @@
                           </packing>
                         </child>
                         <child>
-                          <object class="GtkLabel" id="label10">
+                          <object class="GtkLabel" id="LabelS1Dist">
                             <property name="visible">True</property>
                             <property name="can_focus">False</property>
                             <property name="halign">end</property>
@@ -970,7 +971,7 @@
                           </packing>
                         </child>
                         <child>
-                          <object class="GtkLabel" id="LabelPower">
+                          <object class="GtkLabel" id="LabelPowerA">
                             <property name="visible">True</property>
                             <property name="can_focus">False</property>
                             <property name="halign">end</property>

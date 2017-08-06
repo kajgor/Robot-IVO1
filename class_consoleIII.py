@@ -15,12 +15,12 @@ from os import system
 from _thread import *
 from init_variables import *
 
-###############################################################################
-################   MAIN LOOP START   ##########################################
-###############################################################################
+
 class MainLoop:
+    ###############################################################################
+    ################   MAIN LOOP START   ##########################################
+    ###############################################################################
     def __init__(self, GUI):
-        # self.counter = 0
         self.GUI = GUI
         self.counter = 0
 
@@ -29,18 +29,50 @@ class MainLoop:
         # print("RacConnection().connected", COMM_vars.connected)
         # localhost 5000
         # Any update tasks would go here (moving sprites, advancing animation frames etc.)
+
+        self.UpdateMonitorData()
+
         # self.GUI.counter.set_text("Frame %i" % self.delta)
         self.GUI.statusbar2.push(self.GUI.context_id2, self.counter.__str__())
         self.GUI.drawingarea_control.queue_draw()
 
+        if CommunicationFFb is False and COMM_vars.connected is True:
+            RacUio().get_speed_and_direction()  # Keyboard input
+            RacUio().calculate_MotorPower()
+            RacUio().mouseInput()               # Mouse input
+
         return True
+
+    def UpdateMonitorData(self):
+        self.GUI.LabelRpmL.set_text(COMM_vars.Motor_RPM[LEFT].__str__())
+        self.GUI.LabelRpmR.set_text(COMM_vars.Motor_RPM[RIGHT].__str__())
+        self.GUI.LabelRpmReqL.set_text(COMM_vars.Motor_Power[LEFT].__str__())
+        self.GUI.LabelRpmReqR.set_text(COMM_vars.Motor_Power[RIGHT].__str__())
+        self.GUI.LabelRpmAckL.set_text(COMM_vars.Motor_ACK[LEFT].__str__())
+        self.GUI.LabelRpmAckR.set_text(COMM_vars.Motor_ACK[RIGHT].__str__())
+        self.GUI.LabelCamPosH.set_text(COMM_vars.CamPos[X_AXIS].__str__())
+        self.GUI.LabelCamPosV.set_text(COMM_vars.CamPos[Y_AXIS].__str__())
+
+        self.GUI.LabelCoreTemp.set_text(COMM_vars.CoreTemp.__str__())
+        self.GUI.LabelBattV.set_text(COMM_vars.Voltage.__str__())
+        self.GUI.LabelPowerA.set_text(COMM_vars.Current.__str__())
+        self.GUI.LabelS1Dist.set_text(COMM_vars.DistanceS1.__str__())
+
+        return
 
 ###############################################################################
 ################   MAIN LOOP END   ############################################
 ###############################################################################
 
+
+# noinspection PyPep8Naming
 class RacConnection:
+    Gdk.threads_init()
+    # print("checksum", calc_checksum("ABCD174")
     srv = None
+    LocalTest = False
+    Host = None
+    Port_Comm = None
 
     def __init__(self):
         # --- Gstreamer setup begin ---
@@ -61,11 +93,12 @@ class RacConnection:
             vconvert.link(self.sink)
         # --- Gstreamer setup end ---
 
-    def check_connection(self, HostIp):
+    @staticmethod
+    def check_connection(HostIp):
         try:
             # status = self.srv.getsockname()
-            status = self.srv.getpeername()
-            print("Status", status)
+            status = RacConnection.srv.getpeername()
+            # print("Status", status)
         except OSError:
             status = (False, False)
 
@@ -90,74 +123,85 @@ class RacConnection:
             if Debug > 1: print("...not connected!")
 
         try:
-            self.srv.close()
+            RacConnection.srv.close()
         except AttributeError:
-            self.srv = None
+            RacConnection.srv = None
 
         COMM_vars.connected = False
         if Debug > 1: print("Connection closed.")
 
-    def estabilish_connection(self, Host, Port_Comm):
-        start_new_thread(self.connectionthread, (Host, Port_Comm))
+    def establish_connection(self):
+        if Debug > 2: print("Estabilishing Connection:", self.Host, self.Port_Comm)
+
+        # Gstreamer setup start
+        self.source.set_property("host", self.Host)
+        self.source.set_property("port", self.Port_Comm.__int__() + 1)
+        # Gstreamer setup end
+
+        start_new_thread(self.connection_thread, (self.Host, self.Port_Comm))
         time.sleep(1)
         if COMM_vars.connected is True:
             retmsg = "Server connected! " + self.srv.getsockname().__str__()
             # print("self.srv.getpeername()", self.srv.getpeername())
+            if Debug > 2: print(retmsg)
         else:
-            retmsg = "Connection Error [" + (Host, Port_Comm).__str__() + "]"
+            retmsg = "Connection Error [" + (self.Host, self.Port_Comm).__str__() + "]"
+            if Debug > 0: print(retmsg)
 
-        if Debug > 1: print(retmsg)
         return retmsg, COMM_vars.connected
 
     ###############################################################################
     ################   COMMUNICATION LOOP START   #################################
     ###############################################################################
 
-    def connectionthread(self, Host, Port_Comm):
-        if Debug > 1: print("Connecting...")
+    def connection_thread(self, Host, Port_Comm):
+        if Debug > 2: print("Connecting...")
         RacConnection.srv = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
         COMM_vars.connected = True
         server_address = (Host, Port_Comm)
         try:
             self.srv.connect(server_address)
-            print("self.srv.getpeername()", self.srv.getpeername())
+            if Debug > 2: print("Connected! self.srv.getpeername()", self.srv.getpeername())
         except:
             COMM_vars.connected = False
+            if Debug > 0: print("COMM_vars.connected is", COMM_vars.connected)
 
-        print("COMM_vars.connected is", COMM_vars.connected)
-        time.sleep(0.98)
+        time.sleep(1.48)
         counter = 0
-        while COMM_vars.connected is True:
-            RacUio().get_speed_and_direction()
 
-            Motor_Power = RacUio().get_MotorPower()
-            Mouse = RacUio().mouseInput()
+        while COMM_vars.connected is True:
+            if CommunicationFFb is True:
+                RacUio().get_speed_and_direction()  # Keyboard input
+                RacUio().calculate_MotorPower()
+                RacUio().mouseInput()
 
             counter += 1
             time.sleep(0.01)
 
-            if RacConnection().check_connection(""):
-                if COMM_vars.speed != "HALT":
-                    request = RacConnection().encode_transmission(Motor_Power, Mouse, "")
-                    resp = RacConnection().transmit(request)
-
-                    print("request/resp:", request, resp)
-
-                    if resp is not None:
-                        COMM_vars.Motor_PWR, COMM_vars.Motor_RPM, COMM_vars.Motor_ACK, COMM_vars.Current, COMM_vars.Voltage\
-                            = RacConnection().decode_transmission(resp)
-                else:
-                    halt_cmd = HALT_0
-                    RacConnection().transmit(halt_cmd)
-                    # self.close_connection()
-                    # GUI.srv.close()
-                    COMM_vars.connected = False
-                    # sys.exit(0)  # quit the program
+            if self.check_connection(None) is True:
+                self.send_and_receive()
 
         self.close_connection()
         print("Closing Thread, COMM_vars.connected is", COMM_vars.connected)
         exit_thread()
+
+    def send_and_receive(self):
+        if COMM_vars.speed != "HALT":
+            request = self.encode_transmission()
+            resp, checksum = self.transmit(request)
+            if resp is not None:
+                RacConnection().decode_transmission(resp)
+                if Debug > 2: print("CheckSum Sent/Received:", checksum, COMM_vars.CheckSum)
+                if checksum == COMM_vars.CheckSum:
+                    COMM_vars.Motor_ACK = COMM_vars.Motor_Power
+        else:
+            halt_cmd = HALT_0
+            RacConnection().transmit(halt_cmd)
+            # self.close_connection()
+            # GUI.srv.close()
+            COMM_vars.connected = False
+            # sys.exit(0)  # quit the program
 
     ###############################################################################
     ################   CONN LOOP END   ############################################
@@ -187,28 +231,28 @@ class RacConnection:
         return retmsg, success
 
     def transmit(self, out_str):
-        sendenc = chr(COMM_BITSHIFT - 1) + out_str + chr(10)
-        if Debug > 2: print("CLISENT[len]: " + len(sendenc).__str__())
+        sendstr = chr(COMM_BITSHIFT - 1).encode(Encoding) + out_str + chr(10).encode(Encoding)
+        if Debug > 2: print("CLISENT[len]: " + len(sendstr).__str__())
 
         if self.srv is None:
             print("self.srv is NONE!")
-            return None
+            return None, None
         try:
-            self.srv.sendall(bytes(sendenc, Encoding))
+            self.srv.sendall(sendstr)
         except BrokenPipeError:
             print("transmit: BrokenPipeError")
-            return None
+            return None, None
         except AttributeError:
             print("transmit: AttributeError")
-            return None
+            return None, None
         except OSError:
             print("transmit: OSError (server lost)")
-            return None
+            return None, None
 
         try:
             data = self.srv.recv(15).decode(Encoding)
         except ConnectionResetError:
-            return None
+            return None, None
 
         if Debug > 2: print("CLIRCVD[len]: " + len(data).__str__())
 
@@ -220,27 +264,27 @@ class RacConnection:
             data_end = False
 
         if data_start == chr(COMM_BITSHIFT - 1) and data_end == chr(10):
-            return data
+            return data, calc_checksum(sendstr)
         else:
             try:
                 self.srv.recv(1024)  # flush buffer
             except OSError:
                 print("transmit [flush]: OSError (server lost)")
-                return None
+                return None, None
 
             if Debug > 1: print(">>>FlushBuffer>>>")
-            return
-
-    def get_host_and_port(self, GUI):
-        if GUI.checkbutton_localtest.get_active() is True:
-            Host = GUI.TEST_Host
-            Port_Comm = GUI.TEST_Port.__int__()
-        else:
-            Host = GUI.combobox_host.get_active_text()
-            Port_Comm = GUI.spinbutton_port.get_value().__int__()
-
-        return Host, Port_Comm
-
+            return None, None
+# Todo:
+#     def get_host_and_port(self, GUI):
+#         if self.LocalTest is True:
+#             Host = GUI.TEST_Host
+#             Port_Comm = GUI.TEST_Port.__int__()
+#         else:
+#             Host = GUI.combobox_host.get_active_text()
+#             Port_Comm = GUI.spinbutton_port.get_value().__int__()
+#
+#         return self.Host, self.Port_Comm
+#
     def update_server_list(self, GUI):
         list_iter = GUI.combobox_host.get_active_iter()
         if list_iter is not None:
@@ -260,19 +304,18 @@ class RacConnection:
             print("New entry: %s" % entry.get_text())
             print("New port: %s" % GUI.spinbutton_port.get_value().__str__())
 
-    def HostList_get(self, GUI, HostToFind):
-        HostList_str = []
-        model = GUI.combobox_host.get_model()
+    def HostList_get(self, model, HostToFind):
+        HostList = []
         for iter_x in range(0, model.iter_n_children()):
             if HostToFind is None:
-                HostList_str.append(model[iter_x][0] + ":" + model[iter_x][1])
+                HostList.append(model[iter_x][0] + ":" + model[iter_x][1])
             else:
                 if model[iter_x][0] == HostToFind:
                     return iter_x
 
         if HostToFind is None:
-            print("HostList_str: [%d]" % model.iter_n_children(), HostList_str)
-            return HostList_str
+            print("HostList_str: [%d]" % model.iter_n_children(), HostList)
+            return HostList
         else:
             return False
 
@@ -284,18 +327,13 @@ class RacConnection:
         self.Port_Audio = "5002"
         self.Gstreamer_Path = "/usr/bin"
 
-    def load_HostList(self, GUI, HostList_str):
+    def load_HostList(self, combobox_host, HostList_str):
         x = 0
         for HostName in HostList_str:
             Host = HostName.split(":")[0]
             Port = HostName.split(":")[1]
-            GUI.combobox_host.insert(x, Port, Host)
+            combobox_host.insert(x, Port, Host)
             x += 1
-
-    def connect_gui(self, GUI):
-        GUI.combobox_host.set_sensitive(False)
-        GUI.checkbutton_localtest.set_sensitive(False)
-        GUI.spinbutton_port.set_sensitive(False)
 
     def disconnect_gui(self, GUI):
         GUI.statusbar.push(GUI.context_id, "Disconnected.")
@@ -303,46 +341,48 @@ class RacConnection:
         GUI.button_connect.set_active(False)
         GUI.checkbutton_localtest.set_sensitive(True)
 
-        if GUI.checkbutton_localtest.get_active() is False:
+        if self.LocalTest is False:
             GUI.combobox_host.set_sensitive(True)
             GUI.spinbutton_port.set_sensitive(True)
 
-    def decode_transmission(self, resp):
-        # Motor_ACK - last value accepted by the driver
+    @staticmethod
+    def decode_transmission(resp):
+        # checksum  - transmission checksum
         # Motor_PWR - power delivered to motors
         # Motor_RPM - Motor rotations
 
-        Motor_PWR = [0, 0]
-        Motor_PWR[RIGHT] = (ord(resp[0]) - COMM_BITSHIFT) + (ord(resp[1]) - COMM_BITSHIFT)
-        Motor_PWR[LEFT] = (10 * ((ord(resp[0]) - COMM_BITSHIFT) % 10)) + (ord(resp[2]) - COMM_BITSHIFT)
+        # Motor_PWR = [0, 0]
+        COMM_vars.Motor_PWR[RIGHT] = (ord(resp[0]) - COMM_BITSHIFT) + (ord(resp[1]) - COMM_BITSHIFT)
+        COMM_vars.Motor_PWR[LEFT] = (10 * ((ord(resp[0]) - COMM_BITSHIFT) % 10)) + (ord(resp[2]) - COMM_BITSHIFT)
 
-        Motor_RPM = [0, 0]
-        Motor_RPM[RIGHT] = (ord(resp[3]) - COMM_BITSHIFT) + (ord(resp[4]) - COMM_BITSHIFT)
-        Motor_RPM[LEFT] = (10 * ((ord(resp[3]) - COMM_BITSHIFT) % 10)) + (ord(resp[5]) - COMM_BITSHIFT)
+        # Motor_RPM = [0, 0]
+        COMM_vars.Motor_RPM[RIGHT] = (ord(resp[3]) - COMM_BITSHIFT) + (ord(resp[4]) - COMM_BITSHIFT)
+        COMM_vars.Motor_RPM[LEFT] = (10 * ((ord(resp[3]) - COMM_BITSHIFT) % 10)) + (ord(resp[5]) - COMM_BITSHIFT)
 
-        Motor_ACK = [0, 0]
-        Motor_ACK[RIGHT] = (ord(resp[6]) - 51 - COMM_BITSHIFT) * 5
-        Motor_ACK[LEFT] = (ord(resp[7]) - 51 - COMM_BITSHIFT) * 5
-        print("Motor_ACK", Motor_ACK, Motor_PWR, Motor_RPM)
+        # checksum
+        COMM_vars.CheckSum = ord(resp[6])
+        # print("Motor_ACK/PWR/RPM", COMM_vars.CheckSum, COMM_vars.Motor_PWR, COMM_vars.Motor_RPM)
 
-        Current = (ord(resp[8]) - COMM_BITSHIFT) * 100 + (ord(resp[9]) - COMM_BITSHIFT)
-        Voltage = float((ord(resp[10]) - COMM_BITSHIFT) * 100 + (ord(resp[11]) - COMM_BITSHIFT)) * 0.1
+        COMM_vars.Current = (ord(resp[8]) - COMM_BITSHIFT) * 100 + (ord(resp[9]) - COMM_BITSHIFT)
+        COMM_vars.Voltage = float((ord(resp[10]) - COMM_BITSHIFT) * 100 + (ord(resp[11]) - COMM_BITSHIFT)) * 0.1
 
-        return Motor_PWR,\
-               Motor_RPM,\
-               Motor_ACK,\
-               Current,\
-               Voltage
+        # return Motor_PWR,\
+        #        Motor_RPM,\
+        #        Motor_ACK,\
+        #        Current,\
+        #        Voltage
 
-    def encode_transmission(self, Motor_Power, mouse, request):
+    @staticmethod
+    def encode_transmission():
         # print("MP l/r:", Motor_Power[RIGHT], Motor_Power[LEFT])
-        if not request:
-            request = chr(Motor_Power[RIGHT] + 51 + COMM_BITSHIFT)
-            request += chr(Motor_Power[LEFT] + 51 + COMM_BITSHIFT)
-            request += chr(mouse[X_AXIS])
-            request += chr(mouse[Y_AXIS])
+        # print("COMM_vars.Motor_Power", COMM_vars.Motor_Power)
 
-        return request
+        requestMsg = chr(COMM_vars.Motor_Power[RIGHT] + 51 + COMM_BITSHIFT)
+        requestMsg += chr(COMM_vars.Motor_Power[LEFT] + 51 + COMM_BITSHIFT)
+        requestMsg += chr(COMM_vars.CamPos[X_AXIS])
+        requestMsg += chr(COMM_vars.CamPos[Y_AXIS])
+
+        return requestMsg.encode(Encoding)
 
 
 class RacDisplay:
@@ -388,7 +428,6 @@ class RacDisplay:
         # for i in range(1, 4):
         #         message.line_to(arrow.points[i][0], arrow.points[i][1])
         message.stroke()
-
 
     def on_message(self, message):
         msgtype = message.type
@@ -445,6 +484,10 @@ class RacUio:
             COMM_vars.direction = 0
             KEY_control.Space = value
 
+        if event.state:  # & Gdk.KEY_Shift_L:
+            KEY_control.Shift = Gdk.KEY_Shift_L
+            print("DHIIIIIIIIIIIIIIIFT")
+
         return key_name
 
     def on_mouse_press(self, widget, mouse_event):
@@ -455,17 +498,18 @@ class RacUio:
 
     def mousebuffer_set(RacUio, mouse_event, value):
         if mouse_event.button == Gdk.BUTTON_PRIMARY:
-            KEY_control.Mouse_L = value
-            KEY_control.mouseXY = [int(mouse_event.x), int(mouse_event.y)]
+            KEY_control.MouseBtn[LEFT] = value
+            KEY_control.MouseXY = [int(mouse_event.x), int(mouse_event.y)]
 
         if mouse_event.button == Gdk.BUTTON_SECONDARY:
-            KEY_control.Mouse_R = value
-            KEY_control.mouseXY = [None, None]
+            KEY_control.MouseBtn[RIGHT] = value
+            KEY_control.MouseXY = [None, None]
 
     def on_motion_notify(self, widget, mouse_event):
-        KEY_control.mouseXY = [int(mouse_event.x), int(mouse_event.y)]
+        KEY_control.MouseXY = [int(mouse_event.x), int(mouse_event.y)]
 
-    def get_speed_and_direction(self):
+    @staticmethod
+    def get_speed_and_direction():
         # print("COMM_vars:", KEY_control.Down, KEY_control.Up, KEY_control.Left, KEY_control.Right, COMM_vars.speed, COMM_vars.direction)
         if KEY_control.Down is True:
             if COMM_vars.speed > -MAX_SPEED:
@@ -489,34 +533,36 @@ class RacUio:
 
         return COMM_vars.speed, COMM_vars.direction
 
-    def get_MotorPower(self):
-        speed = COMM_vars.speed
+    @staticmethod
+    def calculate_MotorPower():
         if COMM_vars.direction < MAX_SPEED/2 and COMM_vars.direction > -MAX_SPEED/2:
             direction = COMM_vars.direction
         else:
             offset = MAX_SPEED * (COMM_vars.direction / abs(COMM_vars.direction))
             direction = (-COMM_vars.direction + offset)
 
-        return [int(speed - direction), int(speed + direction)]
+        COMM_vars.Motor_Power = [int(COMM_vars.speed - direction), int(COMM_vars.speed + direction)]
+        return COMM_vars.Motor_Power
 
-    def mouseInput(self):
+    @staticmethod
+    def mouseInput():
         # if KEY_control.Mouse_L is True:
         # mouseX = KEY_control.mouseXY[RIGHT]
         # mouseY = KEY_control.mouseXY[LEFT]
 
-        mouseX = int(MOUSEX_MAX - KEY_control.mouseXY[RIGHT] / 2)
-        mouseY = int(MOUSEY_MAX - KEY_control.mouseXY[LEFT] / 2)
+        mouseX = int(MOUSEX_MAX - KEY_control.MouseXY[RIGHT] / 2)
+        mouseY = int(MOUSEY_MAX - KEY_control.MouseXY[LEFT] / 2)
         if mouseX > MOUSEX_MAX:
-            KEY_control.mouseXY[RIGHT] = MOUSEX_MAX
+            KEY_control.MouseXY[RIGHT] = MOUSEX_MAX
         if mouseX < MOUSEX_MIN:
-            KEY_control.mouseXY[RIGHT] = MOUSEX_MIN
+            KEY_control.MouseXY[RIGHT] = MOUSEX_MIN
         if mouseY > MOUSEY_MAX:
-            KEY_control.mouseXY[LEFT] = MOUSEY_MAX
+            KEY_control.MouseXY[LEFT] = MOUSEY_MAX
             mouseY = MOUSEY_MAX
         if mouseY < MOUSEY_MIN:
-            KEY_control.mouseXY[LEFT] = MOUSEY_MIN
+            KEY_control.MouseXY[LEFT] = MOUSEY_MIN
         # print mouseX.__str__() + "<>" + mouseY.__str__()
-        return KEY_control.mouseXY
+        return KEY_control.MouseXY
 
     def execute_cmd(self, cmd_string):
         #  system("clear")

@@ -23,8 +23,12 @@ class GUI_window(Gtk.Window):
     def __init__(self):
         super(GUI_window, self).__init__()
 
-        builder = self.init_vars()
-        Rac_connection.load_HostList(self, self.Host)
+        builder = self.init_vars
+        self.context_id             = self.statusbar.get_context_id("message")
+        self.context_id1            = self.statusbar1.get_context_id("message")
+        self.context_id2            = self.statusbar2.get_context_id("message")
+
+        Rac_connection.load_HostList(self.combobox_host, self.Host)
 
         ####### Main loop definition ###############
         GLib.timeout_add(TIMEOUT_GUI, MainLoop(self).on_timer)
@@ -49,6 +53,7 @@ class GUI_window(Gtk.Window):
         bus.connect("message", self.on_cam_message)
         bus.connect("sync-message::element", self.on_cam_sync_message)
 
+    @property
     def init_vars(self):
         # Read configuration
         reset_save(Paths.cfg_file)
@@ -69,9 +74,20 @@ class GUI_window(Gtk.Window):
         self.statusbar              = builder.get_object("StatusBar")
         self.statusbar1             = builder.get_object("StatusBar")
         self.statusbar2             = builder.get_object("StatusBar2")
-        self.context_id             = self.statusbar.get_context_id("message")
-        self.context_id1            = self.statusbar1.get_context_id("message")
-        self.context_id2            = self.statusbar2.get_context_id("message")
+
+        self.LabelRpmL              = builder.get_object("LabelRpmL")
+        self.LabelRpmR              = builder.get_object("LabelRpmR")
+        self.LabelRpmReqL           = builder.get_object("LabelRpmReqL")
+        self.LabelRpmReqR           = builder.get_object("LabelRpmReqR")
+        self.LabelRpmAckL           = builder.get_object("LabelRpmAckL")
+        self.LabelRpmAckR           = builder.get_object("LabelRpmAckR")
+        self.LabelCamPosH           = builder.get_object("LabelCamPosH")
+        self.LabelCamPosV           = builder.get_object("LabelCamPosV")
+
+        self.LabelCoreTemp          = builder.get_object("LabelCoreTemp")
+        self.LabelBattV             = builder.get_object("LabelBattV")
+        self.LabelPowerA            = builder.get_object("LabelPowerA")
+        self.LabelS1Dist            = builder.get_object("LabelS1Dist")
 
         return builder
 
@@ -90,7 +106,8 @@ class GUI_window(Gtk.Window):
 
         self.show_all()
 
-    def on_DrawingArea_Control_draw(self, bus, message):
+    @staticmethod
+    def on_DrawingArea_Control_draw(bus, message):
         Rac_Display.draw_arrow(message)
 
     def on_cam_message(self, bus, message):
@@ -103,13 +120,18 @@ class GUI_window(Gtk.Window):
         Rac_Display.on_sync_message(message, self.CAMXPROP)
 
     def on_ComboBox_Host_changed(self, widget):
-        model = self.combobox_host.get_model()
-        Port = int(float(model[self.combobox_host.get_active()][1]))
-        self.spinbutton_port.set_value(Port)
-        print("Changed:", self.combobox_host.get_active(), Port)
+        RacConnection.Host = widget.get_active_text()
+        RacConnection.Port_Comm = int(float(widget.get_model()[widget.get_active()][1]))
+        self.spinbutton_port.set_value(RacConnection.Port_Comm)
+        # print("Changed:", model.get_active(), RacConnection.Port_Comm)
 
-    def on_CheckButton_Cam_toggled(self,widget):
-        if self.checkbutton_cam.get_active() is True:
+    @staticmethod
+    def on_SpinButton_Port_value_changed(widget):
+        RacConnection.Port_Comm = widget.get_value_as_int()
+        print("RacConnection.Port_Comm", RacConnection.Port_Comm)
+
+    def on_CheckButton_Cam_toggled(self, widget):
+        if widget.get_active() is True:
             retmsg = Rac_connection.connect_camstream(True)
             if retmsg is True:
                 retmsg = "VIDEO CONNECTION ESTABILISHED: OK"
@@ -125,23 +147,30 @@ class GUI_window(Gtk.Window):
         self.statusbar.push(self.context_id, retmsg)
 
     def on_CheckButton_LocalTest_toggled(self, widget):
-        if self.checkbutton_localtest.get_active() is True:
-            ret = Rac_connection.HostList_get(self, self.TEST_Host)
-            if ret is False:
-                ret = 0
-                self.combobox_host.insert(ret, self.TEST_Port.__str__(), self.TEST_Host)
+        Rac_connection.LocalTest = widget.get_active()
 
-            self.combobox_host.set_active(ret)
-            self.spinbutton_port.set_value(self.TEST_Port)
+        if Rac_connection.LocalTest is True:
             self.combobox_host.set_sensitive(False)
             self.spinbutton_port.set_sensitive(False)
 # ToDo:
             try:
-                print("try")
+                print("import TestSRV")
                 import Test_Srv_GTKII
             except:
-                print("except")
+                print("reload TestSRV")
                 reload(self.Test_Srv_GTKII)
+
+            Rac_connection.Host = self.TEST_Host
+            Rac_connection.Port_Comm = self.TEST_Port
+
+            ret = Rac_connection.HostList_get(self.combobox_host.get_model(), self.TEST_Host)
+            if ret is False:
+                ret = 25
+                self.combobox_host.insert(ret, self.TEST_Port.__str__(), self.TEST_Host)
+
+            self.combobox_host.set_active(ret)
+            self.spinbutton_port.set_value(self.TEST_Port)
+
         else:
             self.combobox_host.set_sensitive(True)
             self.spinbutton_port.set_sensitive(True)
@@ -149,18 +178,12 @@ class GUI_window(Gtk.Window):
             del self.Test_Srv_GTKII
 
     def on_ToggleButton_Connect_toggled(self, widget):
-        if self.button_connect.get_active() is True:
+        if widget.get_active() is True:
+            self.combobox_host.set_sensitive(False)
+            self.spinbutton_port.set_sensitive(False)
+            self.checkbutton_localtest.set_sensitive(False)
 
-            Rac_connection.connect_gui(self)
-
-            Host, Port_Comm = Rac_connection.get_host_and_port(self)
-
-            # Gstreamer setup start
-            Rac_connection.source.set_property("host", Host)
-            Rac_connection.source.set_property("port", Port_Comm + 1)
-            # Gstreamer setup end
-
-            retmsg, success = Rac_connection.estabilish_connection(Host, Port_Comm)
+            retmsg, success = Rac_connection.establish_connection()
             print("retmsg/success", retmsg, success)
 
             if success is True:
@@ -210,12 +233,12 @@ class GUI_window(Gtk.Window):
     def on_Button_Preferences_clicked(self, widget):
         print("TEXT IN COMBOBOX: ", self.combobox_host.get_active_text())
         print("NO OF ITEMS:", self.combobox_host.get_model().iter_n_children())
-        Host_list = Rac_connection.HostList_get(self, None)
+        Host_list = Rac_connection.HostList_get(self.combobox_host.get_model(), None)
         Rac_connection.config_snapshot(Host_list)
 
     def gtk_main_quit(self, dialog):
         Rac_connection.close_connection()
-        Host_list = Rac_connection.HostList_get(self, None)
+        Host_list = Rac_connection.HostList_get(self.combobox_host.get_model(), None)
         Rac_connection.config_snapshot(Host_list)
 
         # config_save(self, cfg_file)
