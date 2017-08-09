@@ -23,6 +23,10 @@ class GUI_window(Gtk.Window):
     def __init__(self):
         super(GUI_window, self).__init__()
 
+        # Read configuration
+        reset_save(Paths.cfg_file)
+        config_read(self, Paths.cfg_file)
+
         builder = self.init_vars
         self.context_id             = self.statusbar.get_context_id("message")
         self.context_id1            = self.statusbar1.get_context_id("message")
@@ -55,10 +59,6 @@ class GUI_window(Gtk.Window):
 
     @property
     def init_vars(self):
-        # Read configuration
-        reset_save(Paths.cfg_file)
-        config_read(self, Paths.cfg_file)
-
         builder = Gtk.Builder()
         builder.add_objects_from_file(Paths.GUI_file, ("MainBox_CON", "Adjustement_Port", "Adjustment_Resolution", "Action_StartTestServer"))
         print("GUI file added: ", Paths.GUI_file)
@@ -74,6 +74,7 @@ class GUI_window(Gtk.Window):
         self.statusbar              = builder.get_object("StatusBar")
         self.statusbar1             = builder.get_object("StatusBar")
         self.statusbar2             = builder.get_object("StatusBar2")
+        self.spinner_connection     = builder.get_object("spinner1")
 
         self.LabelRpmL              = builder.get_object("LabelRpmL")
         self.LabelRpmR              = builder.get_object("LabelRpmR")
@@ -94,17 +95,29 @@ class GUI_window(Gtk.Window):
     def init_ui(self):
         ###### Initiate UI start ######
         self.connect("destroy", self.gtk_main_quit)
-        self.connect("key-press-event", RacUio.on_key_press)
-        self.connect("key-release-event", RacUio.on_key_release)
-        self.connect("button-press-event", Rac_Uio.on_mouse_press)
-        self.connect("button-release-event", Rac_Uio.on_mouse_release)
-        self.connect("motion-notify-event", Rac_Uio.on_motion_notify)
         # self.movie_window.connect("button-press-event", self.on_DrawingArea_Cam_button_press_event)
         self.movie_window.set_size_request(640, 480)
         self.movie_window.set_can_default(True)
         ####### Initiate UI end #######
 
         self.show_all()
+
+    def disconnect_gui(self):
+        self.statusbar.push(self.context_id, "Disconnected.")
+
+        self.button_connect.set_active(False)
+        self.checkbutton_localtest.set_sensitive(True)
+
+        if Rac_connection.LocalTest is False:
+            self.combobox_host.set_sensitive(True)
+            self.spinbutton_port.set_sensitive(True)
+
+        if self.on_key_press_handler is not None:
+            self.disconnect(self.on_key_press_handler)
+            self.disconnect(self.on_key_release_handler)
+            self.disconnect(self.on_mouse_press_handler)
+            self.disconnect(self.on_mouse_release_handler)
+            self.disconnect(self.on_motion_notify_handler)
 
     @staticmethod
     def on_DrawingArea_Control_draw(bus, message):
@@ -178,6 +191,7 @@ class GUI_window(Gtk.Window):
             del self.Test_Srv_GTKII
 
     def on_ToggleButton_Connect_toggled(self, widget):
+        self.on_key_press_handler = None
         if widget.get_active() is True:
             self.combobox_host.set_sensitive(False)
             self.spinbutton_port.set_sensitive(False)
@@ -187,6 +201,13 @@ class GUI_window(Gtk.Window):
             print("retmsg/success", retmsg, success)
 
             if success is True:
+
+                self.on_key_press_handler     = self.connect("key-press-event", RacUio.on_key_press)
+                self.on_key_release_handler   = self.connect("key-release-event", RacUio.on_key_release)
+                self.on_mouse_press_handler   = self.connect("button-press-event", Rac_Uio.on_mouse_press)
+                self.on_mouse_release_handler = self.connect("button-release-event", Rac_Uio.on_mouse_release)
+                self.on_motion_notify_handler = self.connect("motion-notify-event", Rac_Uio.on_motion_notify)
+
                 Rac_connection.update_server_list(self)
                 if self.checkbutton_cam.get_active() is True:
                     # time.sleep(1)
@@ -198,13 +219,12 @@ class GUI_window(Gtk.Window):
 
                 # self.drawingarea_control.grab_focus()
             else:
-                Rac_connection.disconnect_gui(self)
+                self.disconnect_gui()
 
-            Rac_Uio.connected = success
             self.statusbar.push(self.context_id, retmsg)
         else:
             Rac_connection.close_connection()
-            Rac_connection.disconnect_gui(self)
+            self.disconnect_gui()
 
     def on_CheckButton_Speakers_toggled(self, widget):
         return

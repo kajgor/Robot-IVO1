@@ -1,4 +1,5 @@
 TIMEOUT_GUI = 30
+COMM_IDLE   = 10
 position = (242, 135)
 MAX_SPEED = 50
 MOUSEX_MIN = 40
@@ -19,6 +20,7 @@ DBLUE = (0, 0, 128)
 DDBLUE = (0, 0, 30)
 ######################
 COMM_BITSHIFT = 30
+RECMSGLEN = 15
 HALT_0 = chr(COMM_BITSHIFT + 51) + chr(COMM_BITSHIFT + 51) + chr(COMM_BITSHIFT) + chr(COMM_BITSHIFT)
 HALT_1 = chr(COMM_BITSHIFT + 51) + chr(COMM_BITSHIFT + 51) + chr(100) + chr(45)
 RIGHT = 0
@@ -52,19 +54,20 @@ class KEY_control:
 
 class COMM_vars:
     connected   = False
+    comm_link_idle = 0
     speed       = 0
     direction   = 0
     camera      = True
     light       = False
-    mic         = False
+    mic         = True
     display     = False
     speakers    = False
+    laser       = False
     CamPos      = [100, 45]
     Motor_Power = [0, 0]
     Motor_PWR   = [0, 0]
     Motor_RPM   = [0, 0]
     Motor_ACK   = [0, 0]
-    CheckSum    = 0
     Current     = 0
     Voltage     = 0
     CoreTemp    = 0
@@ -85,10 +88,7 @@ else:
 import binascii
 def calc_checksum(string):
     """
-    Calculates checksum for sending commands to the ELKM1.
-    Sums the ASCII character values mod256 and takes
-    the lower byte of the two's complement of that value.
+    Calculates checksum for sending commands to the server.
     """
-    # return '%2X' % (-(sum(ord(c) for c in string.__str__()) % 256) & 0xFF)
     return binascii.crc32(string) % 256
 

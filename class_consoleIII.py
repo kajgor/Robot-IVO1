@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: CP1252 -*-
 
+import datetime
 import socket
 import cairo
 import math
@@ -25,15 +26,25 @@ class MainLoop:
         self.counter = 0
 
     def on_timer(self):
-        self.counter += 1
-        # print("RacConnection().connected", COMM_vars.connected)
-        # localhost 5000
-        # Any update tasks would go here (moving sprites, advancing animation frames etc.)
+        if COMM_vars.connected:
+            self.counter += .03
 
+        if COMM_vars.comm_link_idle > COMM_IDLE:
+            self.GUI.spinner_connection.stop()
+            COMM_vars.comm_link_idle = COMM_IDLE  # Do not need to increase counter anymore
+        else:
+            self.GUI.spinner_connection.start()
+
+        COMM_vars.comm_link_idle += 1
+        # else:
+        #     self.GUI.spinner_connection.stop()
+        # print("COMM_vars.comm_link_idle", COMM_vars.comm_link_idle)
+
+        # Any update tasks would go here (moving sprites, advancing animation frames etc.)
         self.UpdateMonitorData()
 
         # self.GUI.counter.set_text("Frame %i" % self.delta)
-        self.GUI.statusbar2.push(self.GUI.context_id2, self.counter.__str__())
+        self.GUI.statusbar2.push(self.GUI.context_id2, datetime.timedelta(seconds=int(self.counter)).__str__())
         self.GUI.drawingarea_control.queue_draw()
 
         if CommunicationFFb is False and COMM_vars.connected is True:
@@ -119,7 +130,7 @@ class RacConnection:
 
         try:
             self.srv.shutdown(socket.SHUT_RDWR)
-        except:
+        except OSError:
             if Debug > 1: print("...not connected!")
 
         try:
@@ -168,16 +179,12 @@ class RacConnection:
             if Debug > 0: print("COMM_vars.connected is", COMM_vars.connected)
 
         time.sleep(1.48)
-        counter = 0
 
         while COMM_vars.connected is True:
             if CommunicationFFb is True:
                 RacUio().get_speed_and_direction()  # Keyboard input
                 RacUio().calculate_MotorPower()
                 RacUio().mouseInput()
-
-            counter += 1
-            time.sleep(0.01)
 
             if self.check_connection(None) is True:
                 self.send_and_receive()
@@ -188,16 +195,16 @@ class RacConnection:
 
     def send_and_receive(self):
         if COMM_vars.speed != "HALT":
-            request = self.encode_transmission()
-            resp, checksum = self.transmit(request)
+            request  = self.encode_message()
+            checksum = self.transmit_message(request)
+            resp     = self.receive_message()
             if resp is not None:
-                RacConnection().decode_transmission(resp)
-                if Debug > 2: print("CheckSum Sent/Received:", checksum, COMM_vars.CheckSum)
-                if checksum == COMM_vars.CheckSum:
+                if Debug > 1: print("CheckSum Sent/Received:", checksum, ord(resp[0]))
+                if checksum == ord(resp[0]):
+                    RacConnection().decode_transmission(resp)
                     COMM_vars.Motor_ACK = COMM_vars.Motor_Power
         else:
-            halt_cmd = HALT_0
-            RacConnection().transmit(halt_cmd)
+            self.transmit_message(HALT_0)
             # self.close_connection()
             # GUI.srv.close()
             COMM_vars.connected = False
@@ -230,50 +237,54 @@ class RacConnection:
         if Debug > 1: print(retmsg)
         return retmsg, success
 
-    def transmit(self, out_str):
+    def transmit_message(self, out_str):
         sendstr = chr(COMM_BITSHIFT - 1).encode(Encoding) + out_str + chr(10).encode(Encoding)
         if Debug > 2: print("CLISENT[len]: " + len(sendstr).__str__())
 
         if self.srv is None:
             print("self.srv is NONE!")
-            return None, None
+            return None
         try:
             self.srv.sendall(sendstr)
         except BrokenPipeError:
-            print("transmit: BrokenPipeError")
-            return None, None
+            print("transmit_message: BrokenPipeError")
+            return None
         except AttributeError:
-            print("transmit: AttributeError")
-            return None, None
+            print("transmit_message: AttributeError")
+            return None
         except OSError:
-            print("transmit: OSError (server lost)")
-            return None, None
+            print("transmit_message: OSError (server lost)")
+            return None
 
+        return calc_checksum(sendstr)
+
+    def receive_message(self):
         try:
-            data = self.srv.recv(15).decode(Encoding)
+            data = self.srv.recv(RECMSGLEN).decode(Encoding)
         except ConnectionResetError:
-            return None, None
+            return None
+        except OSError:
+            return None
 
         if Debug > 2: print("CLIRCVD[len]: " + len(data).__str__())
 
         try:
-            data_start = data[0]
             data_end = data[14]
         except IndexError:
-            data_start = False
             data_end = False
 
-        if data_start == chr(COMM_BITSHIFT - 1) and data_end == chr(10):
-            return data, calc_checksum(sendstr)
+        if data_end == chr(10):
+            COMM_vars.comm_link_idle = 0
+            return data
         else:
             try:
                 self.srv.recv(1024)  # flush buffer
             except OSError:
-                print("transmit [flush]: OSError (server lost)")
-                return None, None
+                print("transmit_message [flush]: OSError (server lost)")
+                return None
 
             if Debug > 1: print(">>>FlushBuffer>>>")
-            return None, None
+            return None
 # Todo:
 #     def get_host_and_port(self, GUI):
 #         if self.LocalTest is True:
@@ -285,6 +296,7 @@ class RacConnection:
 #
 #         return self.Host, self.Port_Comm
 #
+
     def update_server_list(self, GUI):
         list_iter = GUI.combobox_host.get_active_iter()
         if list_iter is not None:
@@ -335,52 +347,42 @@ class RacConnection:
             combobox_host.insert(x, Port, Host)
             x += 1
 
-    def disconnect_gui(self, GUI):
-        GUI.statusbar.push(GUI.context_id, "Disconnected.")
-
-        GUI.button_connect.set_active(False)
-        GUI.checkbutton_localtest.set_sensitive(True)
-
-        if self.LocalTest is False:
-            GUI.combobox_host.set_sensitive(True)
-            GUI.spinbutton_port.set_sensitive(True)
-
     @staticmethod
     def decode_transmission(resp):
         # checksum  - transmission checksum
         # Motor_PWR - power delivered to motors
         # Motor_RPM - Motor rotations
 
-        # Motor_PWR = [0, 0]
-        COMM_vars.Motor_PWR[RIGHT] = (ord(resp[0]) - COMM_BITSHIFT) + (ord(resp[1]) - COMM_BITSHIFT)
-        COMM_vars.Motor_PWR[LEFT] = (10 * ((ord(resp[0]) - COMM_BITSHIFT) % 10)) + (ord(resp[2]) - COMM_BITSHIFT)
-
-        # Motor_RPM = [0, 0]
-        COMM_vars.Motor_RPM[RIGHT] = (ord(resp[3]) - COMM_BITSHIFT) + (ord(resp[4]) - COMM_BITSHIFT)
-        COMM_vars.Motor_RPM[LEFT] = (10 * ((ord(resp[3]) - COMM_BITSHIFT) % 10)) + (ord(resp[5]) - COMM_BITSHIFT)
-
         # checksum
-        COMM_vars.CheckSum = ord(resp[6])
+        # CheckSum = ord(resp[0])
+
+        COMM_vars.Motor_PWR[RIGHT] = (ord(resp[1]) - COMM_BITSHIFT) + (ord(resp[2]) - COMM_BITSHIFT)
+        COMM_vars.Motor_PWR[LEFT] = (10 * ((ord(resp[1]) - COMM_BITSHIFT) % 10)) + (ord(resp[3]) - COMM_BITSHIFT)
+
+        COMM_vars.Motor_RPM[RIGHT] = (ord(resp[4]) - COMM_BITSHIFT) + (ord(resp[5]) - COMM_BITSHIFT)
+        COMM_vars.Motor_RPM[LEFT] = (10 * ((ord(resp[4]) - COMM_BITSHIFT) % 10)) + (ord(resp[6]) - COMM_BITSHIFT)
+
         # print("Motor_ACK/PWR/RPM", COMM_vars.CheckSum, COMM_vars.Motor_PWR, COMM_vars.Motor_RPM)
 
-        COMM_vars.Current = (ord(resp[8]) - COMM_BITSHIFT) * 100 + (ord(resp[9]) - COMM_BITSHIFT)
-        COMM_vars.Voltage = float((ord(resp[10]) - COMM_BITSHIFT) * 100 + (ord(resp[11]) - COMM_BITSHIFT)) * 0.1
-
-        # return Motor_PWR,\
-        #        Motor_RPM,\
-        #        Motor_ACK,\
-        #        Current,\
-        #        Voltage
+        COMM_vars.CoreTemp = float(ord(resp[7]) - 50) * 0.5
+        COMM_vars.Current  = float(ord(resp[8]) - COMM_BITSHIFT) * 100 + (ord(resp[9]) - COMM_BITSHIFT) * 0.1
+        COMM_vars.Voltage  = float((ord(resp[10]) - COMM_BITSHIFT) * 100 + (ord(resp[11]) - COMM_BITSHIFT)) * 0.1
 
     @staticmethod
-    def encode_transmission():
+    def encode_message():
         # print("MP l/r:", Motor_Power[RIGHT], Motor_Power[LEFT])
         # print("COMM_vars.Motor_Power", COMM_vars.Motor_Power)
+        res = 0
+        for idx, x in enumerate([COMM_vars.light, COMM_vars.camera, COMM_vars.speakers, COMM_vars.mic,
+                                 COMM_vars.display, COMM_vars.laser, 0, 0]):
+            res |= (x << idx)
 
         requestMsg = chr(COMM_vars.Motor_Power[RIGHT] + 51 + COMM_BITSHIFT)
         requestMsg += chr(COMM_vars.Motor_Power[LEFT] + 51 + COMM_BITSHIFT)
         requestMsg += chr(COMM_vars.CamPos[X_AXIS])
         requestMsg += chr(COMM_vars.CamPos[Y_AXIS])
+        requestMsg += chr(res)
+        # print("requestMsg", requestMsg)
 
         return requestMsg.encode(Encoding)
 
@@ -416,12 +418,11 @@ class RacDisplay:
                 message.line_to(arrow.points[i][0], arrow.points[i][1])
         message.fill()
 
-
         message.set_source_rgb(0, 0.75, 0.75)
-        speed_ACK = abs(COMM_vars.Motor_PWR[0] + COMM_vars.Motor_PWR[1]) * 0.5
+        speed_ACK = abs(COMM_vars.Motor_ACK[0] + COMM_vars.Motor_ACK[1]) * 0.5
         # print("speed_ACK", speed_ACK, COMM_vars.Motor_ACK)
         message.line_to(arrow.points[1][0], arrow.points[1][1])
-        message.line_to(arrow.points[0][0], arrow.points[0][1] + 155 - speed_ACK)
+        message.line_to(arrow.points[0][0], arrow.points[0][1] + 60 - speed_ACK)
         # message.line_to(arrow.points[2][0], arrow.points[2][1])
         message.line_to(arrow.points[3][0], arrow.points[3][1])
         # message.line_to(arrow.points[4][0], arrow.points[0][1] + 155 - speed_ACK)
@@ -464,7 +465,7 @@ class RacUio:
         key_name = RacUio().keybuffer_set(event, False)
         return key_name
 
-    def keybuffer_set(RacUio, event, value):
+    def keybuffer_set(self, event, value):
         key_name = Gdk.keyval_name(event.keyval)
         # print("key", keyname, value)
         if key_name == "Left":
@@ -484,9 +485,9 @@ class RacUio:
             COMM_vars.direction = 0
             KEY_control.Space = value
 
-        if event.state:  # & Gdk.KEY_Shift_L:
+        if event.state is True and Gdk.KEY_Shift_L is not KEY_control.Shift:
             KEY_control.Shift = Gdk.KEY_Shift_L
-            print("DHIIIIIIIIIIIIIIIFT")
+            print("SHIIIIIIIIIIIIIIIFT!!!")
 
         return key_name
 

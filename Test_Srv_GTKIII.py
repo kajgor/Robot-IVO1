@@ -13,25 +13,24 @@ gi.require_version('GstVideo', '1.0')
 from gi.repository import Gst, GObject, Gtk, GstVideo
 
 # from _thread import *
-from init_variables import Encoding, LEFT, RIGHT, COMM_BITSHIFT, calc_checksum
+from init_variables import Encoding, LEFT, RIGHT, COMM_BITSHIFT, calc_checksum, RECMSGLEN
 
 # import atexit
 # GUI_file = "./gui_artifacts/TestServer_extended.glade"
 GUI_file = "./gui_artifacts/MainConsole_extended.glade"
 
-WinType = Gtk.Window
-
 HOST = 'localhost'   # Symbolic name meaning all available interfaces
 Port_COMM = 5000
-Debug = 1
+Debug = 0
+RESP_DELAY = 0.025
 
-class clientthread(threading.Thread):
+class ClientThread(threading.Thread):
     srv = None
+    on_btn = False
 
-    def __init__(self, GUI):
+    def __init__(self):
         threading.Thread.__init__(self)
 
-        self.GUI = GUI
         # The shutdown_flag is a threading.Event object that
         # indicates whether the thread should be terminated.
         # self.shutdown_flag = threading.Event()
@@ -64,26 +63,26 @@ class clientthread(threading.Thread):
 
         nodata_cnt = 0
         # infinite loop so that function do not terminate and thread do not end.
-        while self.GUI.switch_ServerStart.get_active():
+        while self.on_btn is True:
             # Receiving from client
             try:
-                data = conn.recv(6)
+                data = conn.recv(7)
             except socket.error:
-                data = ''
+                data = None
                 print("Socket error!")
 
-            if not data:
+            if data is None:
                 nodata_cnt += 1
-                if nodata_cnt >= 10:
+                if nodata_cnt >= 15:
                     print("NO DATA - closing connection")
                     break
             else:
                 nodata_cnt = 0
                 # data_decoded = self.encode_data(data)
                 # reply = data_decoded.ljust(15, chr(10).encode(Encoding))
-                retstr = data[:6] + chr(calc_checksum(data)).encode(Encoding) + data[8:]
-                print("chksum", chr(calc_checksum(data)))
-                reply = retstr.ljust(15, chr(10).encode(Encoding))
+                retstr = chr(calc_checksum(data)).encode(Encoding) + data[1:8]
+                if Debug > 0: print("chksum", chr(calc_checksum(data)))
+                reply = retstr.ljust(RECMSGLEN, chr(10).encode(Encoding))
 
                 if Debug > 2:
                     print("DATA_IN>> " + data.__str__())
@@ -91,31 +90,33 @@ class clientthread(threading.Thread):
                 if Debug > 2:
                     print("DATA_OUT>> " + reply.__str__())
 
-                time.sleep(0.01)
+                time.sleep(RESP_DELAY)
                 try:
                     conn.sendall(reply)
                 except BrokenPipeError:
-                    print("transmit: BrokenPipeError")
-                    return None
+                    print("transmit_message: BrokenPipeError")
+                    break
+                    # return None
                 except AttributeError:
-                    print("transmit: AttributeError")
-                    return None
+                    print("transmit_message: AttributeError")
+                    break
+                    # return None
                 except OSError:
-                    print("transmit: OSError (client lost)")
-                    return None
+                    print("transmit_message: OSError (client lost)")
+                    break
+                    # return None
 
         if conn:
             # came out of loop
             conn.close()
             self.closesrv()
             print('Connection with ' + addr[0] + ':' + str(addr[1]) + " closed. EXITING THREAD!")
-            # start_new_thread(self.thread_restart, (None,))
-            # exit_thread()
 
         # ... Clean shutdown code here ...
         print('Thread #%s stopped' % self.ident)
 
-    def encode_data(self, data):
+    @staticmethod
+    def encode_data(data):
         Motor_PWR = [0, 0]
         Motor_PWR[RIGHT] = data[0] - COMM_BITSHIFT + data[1] - COMM_BITSHIFT
         Motor_PWR[LEFT] = (10 * (data[0] - COMM_BITSHIFT) % 10) + (data[2] - COMM_BITSHIFT)
@@ -123,15 +124,16 @@ class clientthread(threading.Thread):
         print("Motor_PWR", Motor_PWR)
         return Motor_PWR
 
-    def create_socket(self):
+    @staticmethod
+    def create_socket():
         # Create Socket
-        clientthread.srv = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        ClientThread.srv = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         # GTK_TSMain.srv.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         print('Socket created')
         srv_address = (HOST, Port_COMM)
 
         try:
-            clientthread.srv.bind(srv_address)
+            ClientThread.srv.bind(srv_address)
 
         except socket.error as msg:
             print('Bind failed. Error Code : ' + msg.__str__())
@@ -155,23 +157,26 @@ class clientthread(threading.Thread):
             except OSError:
                 pass
 
-            self.srv.close()
-            GTK_TSMain.player.set_state(Gst.State.NULL)
-            clientthread.srv = None
+            try:
+                self.srv.close()
+            except AttributeError:
+                pass
+
+            GtkTsMain.player.set_state(Gst.State.NULL)
+            ClientThread.srv = None
 
 
 # Function for handling connections. This will be used to create threads
-class thread_restart(threading.Thread):
-    def __init__(self, GUI):
+class ThreadRestart(threading.Thread):
+    def __init__(self):
         threading.Thread.__init__(self)
-        self.GUI = GUI
 
     def run(self):
-        while self.GUI.switch_ServerStart.get_active() is True:
-            if not clientthread(self.GUI).srv:
+        while ClientThread.on_btn is True:
+            if not ClientThread().srv:
                 # self.create_socket()
-                clientthread(self.GUI).start()
-            time.sleep(0.1)
+                ClientThread().start()
+            time.sleep(1)
         return True
 
 
@@ -182,19 +187,19 @@ class ServiceExit(Exception):
     """
     pass
 
-class GTK_TSMain(WinType):
+
+class GtkTsMain(Gtk.Window):
     Gst.init(None)
     player = Gst.Pipeline.new("player")
     Host = "localhost"
     VID_Port = Port_COMM + 1
 
     def __init__(self):
-        super(GTK_TSMain, self).__init__()
-
+        super(GtkTsMain, self).__init__()
 
         # Register the signal handlers
-        signal.signal(signal.SIGTERM, clientthread(self).closesrv)
-        signal.signal(signal.SIGINT, clientthread(self).closesrv)
+        signal.signal(signal.SIGTERM, ClientThread().closesrv)
+        signal.signal(signal.SIGINT, ClientThread().closesrv)
 
         builder = Gtk.Builder()
         # builder.add_from_file(GUI_file)
@@ -209,14 +214,14 @@ class GTK_TSMain(WinType):
         self.set_title("TEST SERVER")
         self.connect("destroy", self.gtk_main_quit)
         self.connect("delete-event", Gtk.main_quit)
-        self.switch_ServerStart = builder.get_object("Switch_ServerStart")
+        self.switch_ServerStart   = builder.get_object("Switch_ServerStart")
         # self.switch_ServerStart.connect("notify::active", self.on_Switch_ServerStart_activate)
         self.statusbar_TestServer = builder.get_object("StatusBar_TestServer")
         self.context_id           = self.statusbar_TestServer.get_context_id("message")
 
         self.show_all()
         builder.connect_signals(self)
-        atexit.register(clientthread(self).closesrv)
+        atexit.register(ClientThread().closesrv)
 
         self.source = Gst.ElementFactory.make("videotestsrc", "video-source")
         self.source.set_property("pattern", "smpte")
@@ -241,26 +246,29 @@ class GTK_TSMain(WinType):
 
     def on_Switch_ServerStart_activate(self, widget, event):
         # now keep talking with the client
-        while self.switch_ServerStart.get_active() and clientthread.srv is None:
+        ClientThread.on_btn = widget.get_active()
+        # self.switch_ServerStart.get_active()
+
+        while ClientThread.on_btn is True and ClientThread.srv is None:
         # if self.switch_ServerStart.get_active() is True:
             self.player.set_state(Gst.State.PLAYING)
             self.statusbar_TestServer.push(self.context_id, "Streaming on port " + self.VID_Port.__str__())
 
             # start_new_thread(self.clientthread, (None,))
-            Conn_thread = thread_restart(self)
+            # Conn_thread = ThreadRestart()
+            Conn_thread = ClientThread()
             Conn_thread.start()
             time.sleep(.25)
 
-        if self.switch_ServerStart.get_active() is False and clientthread.srv is not None:
-            clientthread(self).closesrv()
+        if ClientThread.on_btn is False and ClientThread.srv is not None:
+            ClientThread().closesrv()
             self.statusbar_TestServer.push(self.context_id, "Port " + self.VID_Port.__str__() + " closed.")
 
     def gtk_main_quit(self, dialog):
-        clientthread(self).closesrv()
-        Gtk.main_quit ()
+        ClientThread().closesrv()
+        Gtk.main_quit()
 
 
-
-GTK_TSMain()
+GtkTsMain()
 # GObject.threads_init()
 Gtk.main()
