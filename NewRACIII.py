@@ -1,14 +1,13 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3.5
 # -*- coding: CP1252 -*-
-# import time
 import gi
 gi.require_version('Gst', '1.0')
 gi.require_version('Gtk', '3.0')
 gi.require_version('GstVideo', '1.0')
 from gi.repository import GObject, Gtk, Gdk, GdkX11, GLib
 
-from importlib import reload
-from init_variables import TIMEOUT_GUI, Paths, Debug
+# from importlib import reload
+from init_variables import TIMEOUT_GUI, Paths, Debug, COMM_vars
 
 from config_rw import *
 from class_consoleIII import RacConnection, RacUio, RacDisplay, MainLoop
@@ -19,9 +18,9 @@ Rac_Uio = RacUio()
 
 
 # noinspection PyAttributeOutsideInit
-class GUI_window(Gtk.Window):
+class MainWindow(Gtk.Window):
     def __init__(self):
-        super(GUI_window, self).__init__()
+        super(MainWindow, self).__init__()
 
         # Read configuration
         reset_save(Paths.cfg_file)
@@ -60,7 +59,7 @@ class GUI_window(Gtk.Window):
     @property
     def init_vars(self):
         builder = Gtk.Builder()
-        builder.add_objects_from_file(Paths.GUI_file, ("MainBox_CON", "Adjustement_Port", "Adjustment_Resolution", "Action_StartTestServer"))
+        builder.add_objects_from_file(Paths.GUI_file, ("MainBox_CON", "Adjustement_Port", "ListStoreResolution", "Action_StartTestServer"))
         print("GUI file added: ", Paths.GUI_file)
         self.add(builder.get_object("MainBox_CON"))
         self.button_connect         = builder.get_object("ToggleButton_Connect")
@@ -78,6 +77,8 @@ class GUI_window(Gtk.Window):
 
         self.LabelRpmL              = builder.get_object("LabelRpmL")
         self.LabelRpmR              = builder.get_object("LabelRpmR")
+        self.LabelPowerL            = builder.get_object("LabelPowerL")
+        self.LabelPowerR            = builder.get_object("LabelPowerR")
         self.LabelRpmReqL           = builder.get_object("LabelRpmReqL")
         self.LabelRpmReqR           = builder.get_object("LabelRpmReqR")
         self.LabelRpmAckL           = builder.get_object("LabelRpmAckL")
@@ -89,6 +90,11 @@ class GUI_window(Gtk.Window):
         self.LabelBattV             = builder.get_object("LabelBattV")
         self.LabelPowerA            = builder.get_object("LabelPowerA")
         self.LabelS1Dist            = builder.get_object("LabelS1Dist")
+
+        self.LevelBar_Voltage       = builder.get_object("LevelBar_Voltage")
+        self.LevelBar_Current       = builder.get_object("LevelBar_Current")
+        self.LeverBar_PowerL        = builder.get_object("LeverBar_PowerL")
+        self.LeverBar_PowerR        = builder.get_object("LeverBar_PowerR")
 
         return builder
 
@@ -143,22 +149,6 @@ class GUI_window(Gtk.Window):
         RacConnection.Port_Comm = widget.get_value_as_int()
         print("RacConnection.Port_Comm", RacConnection.Port_Comm)
 
-    def on_CheckButton_Cam_toggled(self, widget):
-        if widget.get_active() is True:
-            retmsg = Rac_connection.connect_camstream(True)
-            if retmsg is True:
-                retmsg = "VIDEO CONNECTION ESTABILISHED: OK"
-            else:
-                retmsg = "VIDEO CONNECTION ERROR: Unable to set the pipeline to the playing state."
-        else:
-            retmsg = Rac_connection.connect_camstream(False)
-            if retmsg is True:
-                retmsg = "VIDEO DISCONNECTED: OK"
-            else:
-                retmsg = "VIDEO NOT CONNECTED!"
-
-        self.statusbar.push(self.context_id, retmsg)
-
     def on_CheckButton_LocalTest_toggled(self, widget):
         Rac_connection.LocalTest = widget.get_active()
 
@@ -170,8 +160,8 @@ class GUI_window(Gtk.Window):
                 print("import TestSRV")
                 import Test_Srv_GTKII
             except:
-                print("reload TestSRV")
-                reload(self.Test_Srv_GTKII)
+                print("TestSRV initialization error")
+                # reload(self.Test_Srv_GTKII)
 
             Rac_connection.Host = self.TEST_Host
             Rac_connection.Port_Comm = self.TEST_Port
@@ -197,10 +187,15 @@ class GUI_window(Gtk.Window):
             self.spinbutton_port.set_sensitive(False)
             self.checkbutton_localtest.set_sensitive(False)
 
-            retmsg, success = Rac_connection.establish_connection()
-            print("retmsg/success", retmsg, success)
+            success = Rac_connection.establish_connection()
+
+            if Debug > 0:
+                print("success:", success)
 
             if success is True:
+                retmsg = "Server connected! " + Rac_connection.srv.getsockname().__str__()
+                # print("self.srv.getpeername()", self.srv.getpeername())
+                if Debug > 2: print(retmsg)
 
                 self.on_key_press_handler     = self.connect("key-press-event", RacUio.on_key_press)
                 self.on_key_release_handler   = self.connect("key-release-event", RacUio.on_key_release)
@@ -217,8 +212,9 @@ class GUI_window(Gtk.Window):
                     else:
                         retmsg = "VIDEO CONNECTION ERROR: Unable to set the pipeline to the playing state."
 
-                # self.drawingarea_control.grab_focus()
             else:
+                retmsg = "Connection Error [" + (Rac_connection.Host, Rac_connection.Port_Comm).__str__() + "]"
+                if Debug > 0: print(retmsg)
                 self.disconnect_gui()
 
             self.statusbar.push(self.context_id, retmsg)
@@ -226,14 +222,37 @@ class GUI_window(Gtk.Window):
             Rac_connection.close_connection()
             self.disconnect_gui()
 
+    def on_CheckButton_Cam_toggled(self, widget):
+        COMM_vars.camera = widget.get_active()
+        if COMM_vars.camera is True:
+            retmsg = Rac_connection.connect_camstream(True)
+            if retmsg is True:
+                retmsg = "VIDEO CONNECTION ESTABILISHED: OK"
+            else:
+                retmsg = "VIDEO CONNECTION ERROR: Unable to set the pipeline to the playing state."
+        else:
+            retmsg = Rac_connection.connect_camstream(False)
+            if retmsg is True:
+                retmsg = "VIDEO DISCONNECTED: OK"
+            else:
+                retmsg = "VIDEO NOT CONNECTED!"
+
+        self.statusbar.push(self.context_id, retmsg)
+
     def on_CheckButton_Speakers_toggled(self, widget):
-        return
+        COMM_vars.speakers = widget.get_active()
 
     def on_CheckButton_Display_toggled(self, widget):
-        return
+        COMM_vars.display = widget.get_active()
 
     def on_CheckButton_Lights_toggled(self, widget):
-        return
+        COMM_vars.light = widget.get_active()
+
+    def on_CheckButton_Mic_toggled(self, widget):
+        COMM_vars.mic = widget.get_active()
+
+    def on_CheckButton_Laser_toggled(self, widget):
+        COMM_vars.laser = widget.get_active()
 
     def on_MainWindow_notify(self, bus, message):
         return
@@ -265,13 +284,10 @@ class GUI_window(Gtk.Window):
         Gtk.main_quit ()
 
 ###############################################################################
-###############################################################################
-###############################################################################
-###############################################################################
 
 
 def main():
-    GUI_window()
+    MainWindow()
     Gtk.main()
 
 if __name__ == "__main__":

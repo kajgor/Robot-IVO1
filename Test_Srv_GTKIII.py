@@ -30,7 +30,11 @@ class ClientThread(threading.Thread):
 
     def __init__(self):
         threading.Thread.__init__(self)
-
+        self.volt = chr(130) + chr(35)
+        self.current = chr(60) + chr(39)
+        self.Motor_PWR = [60, 50]
+        self.Motor_RPM = [80, 80]
+        self.CPUtemp = chr(160)
         # The shutdown_flag is a threading.Event object that
         # indicates whether the thread should be terminated.
         # self.shutdown_flag = threading.Event()
@@ -63,10 +67,18 @@ class ClientThread(threading.Thread):
 
         nodata_cnt = 0
         # infinite loop so that function do not terminate and thread do not end.
+        inc = 30
+        adx = 1
         while self.on_btn is True:
+            inc += adx
+            if inc > 250 or inc < 30:
+                adx = -adx
+
+            self.current = chr(60 + int(inc/10)) + chr(int(inc % 100))
+
             # Receiving from client
             try:
-                data = conn.recv(7)
+                data = conn.recv(8)
             except socket.error:
                 data = None
                 print("Socket error!")
@@ -80,9 +92,23 @@ class ClientThread(threading.Thread):
                 nodata_cnt = 0
                 # data_decoded = self.encode_data(data)
                 # reply = data_decoded.ljust(15, chr(10).encode(Encoding))
-                retstr = chr(calc_checksum(data)).encode(Encoding) + data[1:8]
-                if Debug > 0: print("chksum", chr(calc_checksum(data)))
-                reply = retstr.ljust(RECMSGLEN, chr(10).encode(Encoding))
+
+                # retstr = chr(calc_checksum(data)).encode(Encoding) + data[1:9]
+
+                retstr = chr(calc_checksum(data))
+                retstr += chr(self.Motor_PWR[RIGHT])
+                retstr += chr(self.Motor_PWR[LEFT])
+                retstr += chr(self.Motor_RPM[RIGHT])
+                retstr += chr(self.Motor_RPM[LEFT])
+                retstr += chr(data[5])  # CntrlMask1
+                retstr += chr(data[6])  # CntrlMask2
+                retstr += chr(10) + chr(10)
+                retstr += self.CPUtemp
+                retstr += self.current
+                retstr += self.volt
+
+                if Debug > 0: print("chksum", retstr[0])
+                reply = retstr.encode(Encoding).ljust(RECMSGLEN, chr(10).encode(Encoding))
 
                 if Debug > 2:
                     print("DATA_IN>> " + data.__str__())

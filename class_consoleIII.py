@@ -41,6 +41,7 @@ class MainLoop:
         # print("COMM_vars.comm_link_idle", COMM_vars.comm_link_idle)
 
         # Any update tasks would go here (moving sprites, advancing animation frames etc.)
+        self.UpdateControlData()
         self.UpdateMonitorData()
 
         # self.GUI.counter.set_text("Frame %i" % self.delta)
@@ -57,6 +58,8 @@ class MainLoop:
     def UpdateMonitorData(self):
         self.GUI.LabelRpmL.set_text(COMM_vars.Motor_RPM[LEFT].__str__())
         self.GUI.LabelRpmR.set_text(COMM_vars.Motor_RPM[RIGHT].__str__())
+        self.GUI.LabelPowerL.set_text(COMM_vars.Motor_PWR[LEFT].__str__())
+        self.GUI.LabelPowerR.set_text(COMM_vars.Motor_PWR[RIGHT].__str__())
         self.GUI.LabelRpmReqL.set_text(COMM_vars.Motor_Power[LEFT].__str__())
         self.GUI.LabelRpmReqR.set_text(COMM_vars.Motor_Power[RIGHT].__str__())
         self.GUI.LabelRpmAckL.set_text(COMM_vars.Motor_ACK[LEFT].__str__())
@@ -64,13 +67,21 @@ class MainLoop:
         self.GUI.LabelCamPosH.set_text(COMM_vars.CamPos[X_AXIS].__str__())
         self.GUI.LabelCamPosV.set_text(COMM_vars.CamPos[Y_AXIS].__str__())
 
-        self.GUI.LabelCoreTemp.set_text(COMM_vars.CoreTemp.__str__())
-        self.GUI.LabelBattV.set_text(COMM_vars.Voltage.__str__())
-        self.GUI.LabelPowerA.set_text(COMM_vars.Current.__str__())
+        self.GUI.LabelCoreTemp.set_text("{:.2f}".format(COMM_vars.CoreTemp).__str__())
+        self.GUI.LabelBattV.set_text("{:.2f}".format(COMM_vars.Voltage).__str__())
+        self.GUI.LabelPowerA.set_text("{:.2f}".format(COMM_vars.Current).__str__())
         self.GUI.LabelS1Dist.set_text(COMM_vars.DistanceS1.__str__())
 
         return
 
+    def UpdateControlData(self):
+        self.GUI.LevelBar_Voltage.set_value(int(COMM_vars.Voltage * 10))
+        self.GUI.LevelBar_Current.set_value(int(COMM_vars.Current * 10))
+        self.GUI.LeverBar_PowerL.set_value(65)
+        self.GUI.LeverBar_PowerR.set_value(65)
+        # print("int(COMM_vars.Current * 10) - 70", int(COMM_vars.Current * 10))
+
+        return
 ###############################################################################
 ################   MAIN LOOP END   ############################################
 ###############################################################################
@@ -104,6 +115,41 @@ class RacConnection:
             vconvert.link(self.sink)
         # --- Gstreamer setup end ---
 
+    def establish_connection(self):
+        if Debug > 2: print("Estabilishing Connection:", self.Host, self.Port_Comm)
+
+        # Gstreamer setup start
+        self.source.set_property("host", self.Host)
+        self.source.set_property("port", self.Port_Comm.__int__() + 1)
+        # Gstreamer setup end
+
+        start_new_thread(self.connection_thread, (self.Host, self.Port_Comm))
+        time.sleep(1)
+
+        return COMM_vars.connected
+
+    def close_connection(self):
+        if Debug > 1:
+            print("Closing connection...")
+        self.player.set_state(Gst.State.NULL)
+
+        try:
+            self.srv.shutdown(socket.SHUT_RDWR)
+        except OSError:
+            if Debug > 1:
+                print("...not connected!")
+        except AttributeError:
+            if Debug > 1:
+                print("...not connected!")
+
+        try:
+            RacConnection.srv.close()
+        except AttributeError:
+            RacConnection.srv = None
+
+        COMM_vars.connected = False
+        if Debug > 1: print("Connection closed.")
+
     @staticmethod
     def check_connection(HostIp):
         try:
@@ -123,43 +169,6 @@ class RacConnection:
         else:
             if Debug > 1: print("Not connected.")
             return False
-
-    def close_connection(self):
-        if Debug > 1: print("Closing connection...")
-        self.player.set_state(Gst.State.NULL)
-
-        try:
-            self.srv.shutdown(socket.SHUT_RDWR)
-        except OSError:
-            if Debug > 1: print("...not connected!")
-
-        try:
-            RacConnection.srv.close()
-        except AttributeError:
-            RacConnection.srv = None
-
-        COMM_vars.connected = False
-        if Debug > 1: print("Connection closed.")
-
-    def establish_connection(self):
-        if Debug > 2: print("Estabilishing Connection:", self.Host, self.Port_Comm)
-
-        # Gstreamer setup start
-        self.source.set_property("host", self.Host)
-        self.source.set_property("port", self.Port_Comm.__int__() + 1)
-        # Gstreamer setup end
-
-        start_new_thread(self.connection_thread, (self.Host, self.Port_Comm))
-        time.sleep(1)
-        if COMM_vars.connected is True:
-            retmsg = "Server connected! " + self.srv.getsockname().__str__()
-            # print("self.srv.getpeername()", self.srv.getpeername())
-            if Debug > 2: print(retmsg)
-        else:
-            retmsg = "Connection Error [" + (self.Host, self.Port_Comm).__str__() + "]"
-            if Debug > 0: print(retmsg)
-
-        return retmsg, COMM_vars.connected
 
     ###############################################################################
     ################   COMMUNICATION LOOP START   #################################
@@ -205,10 +214,7 @@ class RacConnection:
                     COMM_vars.Motor_ACK = COMM_vars.Motor_Power
         else:
             self.transmit_message(HALT_0)
-            # self.close_connection()
-            # GUI.srv.close()
             COMM_vars.connected = False
-            # sys.exit(0)  # quit the program
 
     ###############################################################################
     ################   CONN LOOP END   ############################################
@@ -362,27 +368,32 @@ class RacConnection:
         COMM_vars.Motor_RPM[RIGHT] = (ord(resp[4]) - COMM_BITSHIFT) + (ord(resp[5]) - COMM_BITSHIFT)
         COMM_vars.Motor_RPM[LEFT] = (10 * ((ord(resp[4]) - COMM_BITSHIFT) % 10)) + (ord(resp[6]) - COMM_BITSHIFT)
 
-        # print("Motor_ACK/PWR/RPM", COMM_vars.CheckSum, COMM_vars.Motor_PWR, COMM_vars.Motor_RPM)
+        CntrlMask1 = ord(resp[7])
+        CntrlMask2 = ord(resp[8])
 
-        COMM_vars.CoreTemp = float(ord(resp[7]) - 50) * 0.5
-        COMM_vars.Current  = float(ord(resp[8]) - COMM_BITSHIFT) * 100 + (ord(resp[9]) - COMM_BITSHIFT) * 0.1
-        COMM_vars.Voltage  = float((ord(resp[10]) - COMM_BITSHIFT) * 100 + (ord(resp[11]) - COMM_BITSHIFT)) * 0.1
+        COMM_vars.CoreTemp = float(ord(resp[9]) - 50) * 0.5
+        COMM_vars.Current  = float((ord(resp[10]) - COMM_BITSHIFT) * 10 + (ord(resp[11]) - COMM_BITSHIFT)) * 0.01
+        COMM_vars.Voltage  = float((ord(resp[12]) - COMM_BITSHIFT) * 10 + (ord(resp[13]) - COMM_BITSHIFT)) * 0.01
+        # print("Motor_ACK/PWR/RPM", COMM_vars.CheckSum, COMM_vars.Motor_PWR, COMM_vars.Motor_RPM)
 
     @staticmethod
     def encode_message():
         # print("MP l/r:", Motor_Power[RIGHT], Motor_Power[LEFT])
         # print("COMM_vars.Motor_Power", COMM_vars.Motor_Power)
-        res = 0
+        CntrlMask1 = 0
         for idx, x in enumerate([COMM_vars.light, COMM_vars.camera, COMM_vars.speakers, COMM_vars.mic,
                                  COMM_vars.display, COMM_vars.laser, 0, 0]):
-            res |= (x << idx)
+            CntrlMask1 |= (x << idx)
 
         requestMsg = chr(COMM_vars.Motor_Power[RIGHT] + 51 + COMM_BITSHIFT)
         requestMsg += chr(COMM_vars.Motor_Power[LEFT] + 51 + COMM_BITSHIFT)
         requestMsg += chr(COMM_vars.CamPos[X_AXIS])
         requestMsg += chr(COMM_vars.CamPos[Y_AXIS])
-        requestMsg += chr(res)
-        # print("requestMsg", requestMsg)
+        requestMsg += chr(CntrlMask1)
+        CntrlMask2 = CntrlMask1
+        requestMsg += chr(CntrlMask2)
+        if Debug == 2:
+            print("requestMsg", requestMsg)
 
         return requestMsg.encode(Encoding)
 
@@ -402,7 +413,7 @@ class RacDisplay:
         else:
             message.rotate((COMM_vars.direction + MAX_SPEED) / (math.pi * 5))
 
-        # Background arrow
+        # Direction arrow
         message.set_source_rgb(0.25, 0.25, 0.25)
         for i in range(4):
             message.line_to(arrow.points[i][0], arrow.points[i][1])
@@ -411,23 +422,20 @@ class RacDisplay:
         for i in range(5):
             message.line_to(arrow.points[i][0], arrow.points[i][1])
         message.stroke()
-        # Speed arrow
+
+        # Speed arrow (REQ)
         message.set_source_rgb(abs(COMM_vars.speed/MAX_SPEED), 1 - abs(COMM_vars.speed/MAX_SPEED), 0)
         message.line_to(arrow.points[0][0], arrow.points[0][1] + 60 - abs((COMM_vars.speed / MAX_SPEED) * 50))
         for i in range(1, 4):
                 message.line_to(arrow.points[i][0], arrow.points[i][1])
         message.fill()
 
+        # Speed arrow (ACK)
         message.set_source_rgb(0, 0.75, 0.75)
         speed_ACK = abs(COMM_vars.Motor_ACK[0] + COMM_vars.Motor_ACK[1]) * 0.5
-        # print("speed_ACK", speed_ACK, COMM_vars.Motor_ACK)
         message.line_to(arrow.points[1][0], arrow.points[1][1])
         message.line_to(arrow.points[0][0], arrow.points[0][1] + 60 - speed_ACK)
-        # message.line_to(arrow.points[2][0], arrow.points[2][1])
         message.line_to(arrow.points[3][0], arrow.points[3][1])
-        # message.line_to(arrow.points[4][0], arrow.points[0][1] + 155 - speed_ACK)
-        # for i in range(1, 4):
-        #         message.line_to(arrow.points[i][0], arrow.points[i][1])
         message.stroke()
 
     def on_message(self, message):
@@ -497,17 +505,33 @@ class RacUio:
     def on_mouse_release(self, widget, mouse_event):
         self.mousebuffer_set(mouse_event, False)
 
-    def mousebuffer_set(RacUio, mouse_event, value):
+    def mousebuffer_set(self, mouse_event, value):
         if mouse_event.button == Gdk.BUTTON_PRIMARY:
             KEY_control.MouseBtn[LEFT] = value
-            KEY_control.MouseXY = [int(mouse_event.x), int(mouse_event.y)]
+            if value is True:
+                KEY_control.MouseXY = [int(mouse_event.x) / 2,
+                                       int(mouse_event.y) / 2]
 
         if mouse_event.button == Gdk.BUTTON_SECONDARY:
             KEY_control.MouseBtn[RIGHT] = value
-            KEY_control.MouseXY = [None, None]
+            KEY_control.MouseXY = [0, 0]
 
     def on_motion_notify(self, widget, mouse_event):
-        KEY_control.MouseXY = [int(mouse_event.x), int(mouse_event.y)]
+        mouseX = int(mouse_event.x) / 2
+        mouseY = int(mouse_event.y) / 2
+        if KEY_control.MouseBtn[LEFT] is True:
+            tmp = mouseX - KEY_control.MouseXY[X_AXIS]
+            if abs(tmp) >= 1:
+                COMM_vars.CamPos[X_AXIS] += int(tmp)
+
+            tmp = mouseY - KEY_control.MouseXY[Y_AXIS]
+            if abs(tmp) >= 1:
+                COMM_vars.CamPos[Y_AXIS] += int(tmp)
+
+            KEY_control.MouseXY = [mouseX, mouseY]
+
+        if KEY_control.MouseBtn[RIGHT] is True:
+            print("KEY_control.MouseXY[right]", KEY_control.MouseXY)
 
     @staticmethod
     def get_speed_and_direction():
@@ -550,20 +574,26 @@ class RacUio:
         # if KEY_control.Mouse_L is True:
         # mouseX = KEY_control.mouseXY[RIGHT]
         # mouseY = KEY_control.mouseXY[LEFT]
-
-        mouseX = int(MOUSEX_MAX - KEY_control.MouseXY[RIGHT] / 2)
-        mouseY = int(MOUSEY_MAX - KEY_control.MouseXY[LEFT] / 2)
-        if mouseX > MOUSEX_MAX:
-            KEY_control.MouseXY[RIGHT] = MOUSEX_MAX
-        if mouseX < MOUSEX_MIN:
-            KEY_control.MouseXY[RIGHT] = MOUSEX_MIN
-        if mouseY > MOUSEY_MAX:
-            KEY_control.MouseXY[LEFT] = MOUSEY_MAX
-            mouseY = MOUSEY_MAX
-        if mouseY < MOUSEY_MIN:
-            KEY_control.MouseXY[LEFT] = MOUSEY_MIN
+        if COMM_vars.CamPos[X_AXIS] > MOUSEX_MAX:
+            COMM_vars.CamPos[X_AXIS] = MOUSEX_MAX
+        if COMM_vars.CamPos[X_AXIS] < MOUSEX_MIN:
+            COMM_vars.CamPos[X_AXIS] = MOUSEX_MIN
+        if COMM_vars.CamPos[Y_AXIS] > MOUSEY_MAX:
+            COMM_vars.CamPos[Y_AXIS] = MOUSEY_MAX
+        if COMM_vars.CamPos[Y_AXIS] < MOUSEY_MIN:
+            COMM_vars.CamPos[Y_AXIS] = MOUSEY_MIN
+        # mouseX = int(KEY_control.MouseXY[RIGHT] / 2)
+        # mouseY = int(MOUSEY_MAX - KEY_control.MouseXY[LEFT] / 2)
+        # if KEY_control.MouseXY[RIGHT] > MOUSEX_MAX:
+        #     KEY_control.MouseXY[RIGHT] = MOUSEX_MAX
+        # if KEY_control.MouseXY[RIGHT] < MOUSEX_MIN:
+        #     KEY_control.MouseXY[RIGHT] = MOUSEX_MIN
+        # if KEY_control.MouseXY[LEFT] > MOUSEY_MAX:
+        #     KEY_control.MouseXY[LEFT] = MOUSEY_MAX
+        # if KEY_control.MouseXY[LEFT] < MOUSEY_MIN:
+        #     KEY_control.MouseXY[LEFT] = MOUSEY_MIN
         # print mouseX.__str__() + "<>" + mouseY.__str__()
-        return KEY_control.MouseXY
+        return COMM_vars.CamPos
 
     def execute_cmd(self, cmd_string):
         #  system("clear")
