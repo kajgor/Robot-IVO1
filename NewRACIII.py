@@ -12,10 +12,6 @@ from init_variables import TIMEOUT_GUI, Paths, Debug, COMM_vars
 from config_rw import *
 from class_consoleIII import RacConnection, RacUio, RacDisplay, MainLoop
 
-Rac_connection = RacConnection()
-Rac_Display = RacDisplay()
-Rac_Uio = RacUio()
-
 
 # noinspection PyAttributeOutsideInit
 class MainWindow(Gtk.Window):
@@ -59,7 +55,7 @@ class MainWindow(Gtk.Window):
     @property
     def init_vars(self):
         builder = Gtk.Builder()
-        builder.add_objects_from_file(Paths.GUI_file, ("MainBox_CON", "Adjustement_Port", "ListStoreResolution", "Action_StartTestServer"))
+        builder.add_objects_from_file(Paths.GUI_file, ("MainBox_CON", "Adjustement_Port", "Action_StartTestServer"))
         print("GUI file added: ", Paths.GUI_file)
         self.add(builder.get_object("MainBox_CON"))
         self.button_connect         = builder.get_object("ToggleButton_Connect")
@@ -96,34 +92,44 @@ class MainWindow(Gtk.Window):
         self.LeverBar_PowerL        = builder.get_object("LeverBar_PowerL")
         self.LeverBar_PowerR        = builder.get_object("LeverBar_PowerR")
 
+        self.ComboBoxResolution     = builder.get_object("ComboBoxResolution")
+
         return builder
 
     def init_ui(self):
         ###### Initiate UI start ######
         self.connect("destroy", self.gtk_main_quit)
-        # self.movie_window.connect("button-press-event", self.on_DrawingArea_Cam_button_press_event)
-        self.movie_window.set_size_request(640, 480)
+        # self.movie_window.set_size_request(640, 480)
         self.movie_window.set_can_default(True)
         ####### Initiate UI end #######
 
         self.show_all()
 
+    def connect_gui(self):
+        self.combobox_host.set_sensitive(False)
+        self.spinbutton_port.set_sensitive(False)
+        self.checkbutton_localtest.set_sensitive(False)
+
+    def connect_gui_handlers(self):
+        self.on_key_press_handler = self.connect("key-press-event", RacUio.on_key_press)
+        self.on_key_release_handler = self.connect("key-release-event", RacUio.on_key_release)
+        self.on_mouse_press_handler = self.connect("button-press-event", Rac_Uio.on_mouse_press)
+        self.on_mouse_release_handler = self.connect("button-release-event", Rac_Uio.on_mouse_release)
+        self.on_motion_notify_handler = self.connect("motion-notify-event", Rac_Uio.on_motion_notify)
+
     def disconnect_gui(self):
-        self.statusbar.push(self.context_id, "Disconnected.")
-
-        self.button_connect.set_active(False)
-        self.checkbutton_localtest.set_sensitive(True)
-
-        if Rac_connection.LocalTest is False:
-            self.combobox_host.set_sensitive(True)
-            self.spinbutton_port.set_sensitive(True)
-
         if self.on_key_press_handler is not None:
             self.disconnect(self.on_key_press_handler)
             self.disconnect(self.on_key_release_handler)
             self.disconnect(self.on_mouse_press_handler)
             self.disconnect(self.on_mouse_release_handler)
             self.disconnect(self.on_motion_notify_handler)
+
+        self.button_connect.set_active(False)
+        self.checkbutton_localtest.set_sensitive(True)
+        if Rac_connection.LocalTest is False:
+            self.combobox_host.set_sensitive(True)
+            self.spinbutton_port.set_sensitive(True)
 
     @staticmethod
     def on_DrawingArea_Control_draw(bus, message):
@@ -139,53 +145,35 @@ class MainWindow(Gtk.Window):
         Rac_Display.on_sync_message(message, self.CAMXPROP)
 
     def on_ComboBox_Host_changed(self, widget):
+        print("widget", widget.get_model()[widget.get_active()][1])
         RacConnection.Host = widget.get_active_text()
         RacConnection.Port_Comm = int(float(widget.get_model()[widget.get_active()][1]))
         self.spinbutton_port.set_value(RacConnection.Port_Comm)
-        # print("Changed:", model.get_active(), RacConnection.Port_Comm)
 
     @staticmethod
     def on_SpinButton_Port_value_changed(widget):
         RacConnection.Port_Comm = widget.get_value_as_int()
-        print("RacConnection.Port_Comm", RacConnection.Port_Comm)
+        # print("RacConnection.Port_Comm", RacConnection.Port_Comm)
 
     def on_CheckButton_LocalTest_toggled(self, widget):
         Rac_connection.LocalTest = widget.get_active()
-
         if Rac_connection.LocalTest is True:
+            Rac_connection.Last_Active = self.combobox_host.get_active()
             self.combobox_host.set_sensitive(False)
             self.spinbutton_port.set_sensitive(False)
-# ToDo:
-            try:
-                print("import TestSRV")
-                import Test_Srv_GTKII
-            except:
-                print("TestSRV initialization error")
-                # reload(self.Test_Srv_GTKII)
-
-            Rac_connection.Host = self.TEST_Host
-            Rac_connection.Port_Comm = self.TEST_Port
-
-            ret = Rac_connection.HostList_get(self.combobox_host.get_model(), self.TEST_Host)
-            if ret is False:
-                ret = 25
-                self.combobox_host.insert(ret, self.TEST_Port.__str__(), self.TEST_Host)
-
-            self.combobox_host.set_active(ret)
-            self.spinbutton_port.set_value(self.TEST_Port)
-
+            self.combobox_host.prepend(self.TEST_Port.__str__(), self.TEST_Host)
+            self.combobox_host.set_active(0)
         else:
+            self.combobox_host.remove(0)
             self.combobox_host.set_sensitive(True)
             self.spinbutton_port.set_sensitive(True)
-
-            del self.Test_Srv_GTKII
+            self.combobox_host.set_active(Rac_connection.Last_Active)
 
     def on_ToggleButton_Connect_toggled(self, widget):
         self.on_key_press_handler = None
         if widget.get_active() is True:
-            self.combobox_host.set_sensitive(False)
-            self.spinbutton_port.set_sensitive(False)
-            self.checkbutton_localtest.set_sensitive(False)
+            widget.set_label(Gtk.STOCK_DISCONNECT)
+            self.connect_gui()
 
             success = Rac_connection.establish_connection()
 
@@ -193,17 +181,12 @@ class MainWindow(Gtk.Window):
                 print("success:", success)
 
             if success is True:
+                self.connect_gui_handlers()
                 retmsg = "Server connected! " + Rac_connection.srv.getsockname().__str__()
-                # print("self.srv.getpeername()", self.srv.getpeername())
-                if Debug > 2: print(retmsg)
+                if Debug > 2:
+                    print(retmsg)
 
-                self.on_key_press_handler     = self.connect("key-press-event", RacUio.on_key_press)
-                self.on_key_release_handler   = self.connect("key-release-event", RacUio.on_key_release)
-                self.on_mouse_press_handler   = self.connect("button-press-event", Rac_Uio.on_mouse_press)
-                self.on_mouse_release_handler = self.connect("button-release-event", Rac_Uio.on_mouse_release)
-                self.on_motion_notify_handler = self.connect("motion-notify-event", Rac_Uio.on_motion_notify)
-
-                Rac_connection.update_server_list(self)
+                Rac_connection.update_server_list(self.combobox_host, self.spinbutton_port.get_value())
                 if self.checkbutton_cam.get_active() is True:
                     # time.sleep(1)
                     retmsg = Rac_connection.connect_camstream(True)
@@ -219,7 +202,9 @@ class MainWindow(Gtk.Window):
 
             self.statusbar.push(self.context_id, retmsg)
         else:
+            widget.set_label(Gtk.STOCK_CONNECT)
             Rac_connection.close_connection()
+            self.statusbar.push(self.context_id, "Disconnected.")
             self.disconnect_gui()
 
     def on_CheckButton_Cam_toggled(self, widget):
@@ -239,6 +224,21 @@ class MainWindow(Gtk.Window):
 
         self.statusbar.push(self.context_id, retmsg)
 
+    def on_ComboBoxResolution_changed(self, widget):
+        COMM_vars.resolution = widget.get_active() + 1
+
+        if COMM_vars.resolution == 1:
+            self.movie_window.set_size_request(640, 480)
+        if COMM_vars.resolution == 2:
+            self.movie_window.set_size_request(640, 480)
+        if COMM_vars.resolution == 3:
+            self.movie_window.set_size_request(800, 600)
+        if COMM_vars.resolution == 4:
+            self.movie_window.set_size_request(1280, 800)
+        if COMM_vars.resolution == 5:
+            self.movie_window.set_size_request(1280, 800)
+
+
     def on_CheckButton_Speakers_toggled(self, widget):
         COMM_vars.speakers = widget.get_active()
 
@@ -256,18 +256,6 @@ class MainWindow(Gtk.Window):
 
     def on_MainWindow_notify(self, bus, message):
         return
-
-    # def on_DrawingArea_Cam_motion_notify_event(self, widget, event):
-    #     print("motion!!!!!!!")
-    #     Rac_Uio.on_motion_notify(event)
-    #     return True
-    #
-    # def on_DrawingArea_Cam_button_press_event(self, widget, mouse_event):
-    #     print("*********************** BUTTON!!! ", widget)
-    #     Rac_Uio.on_mouse_press(mouse_event)
-    #
-    # def on_DrawingArea_Cam_button_release_event(self, widget, mouse_event):
-    #     Rac_Uio.on_mouse_release(mouse_event)
 
     def on_Button_Preferences_clicked(self, widget):
         print("TEXT IN COMBOBOX: ", self.combobox_host.get_active_text())
@@ -291,4 +279,7 @@ def main():
     Gtk.main()
 
 if __name__ == "__main__":
+    Rac_connection = RacConnection()
+    Rac_Display = RacDisplay()
+    Rac_Uio = RacUio()
     main()

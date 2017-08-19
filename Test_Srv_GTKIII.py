@@ -24,6 +24,7 @@ Port_COMM = 5000
 Debug = 0
 RESP_DELAY = 0.025
 
+
 class ClientThread(threading.Thread):
     srv = None
     on_btn = False
@@ -58,17 +59,16 @@ class ClientThread(threading.Thread):
             print("User break")
 
         if conn is None:
-            print("conn is None!!")
-            # return
+            print("No connection interrupted.")
         else:
             print('Connected with ' + addr[0] + ':' + str(addr[1]))
             # Sending message to connected client
             conn.send('AWAITING CONNECTION: ENGINE\n'.encode('ascii'))  # send only takes string
 
+        lastresolution = 0
+
         nodata_cnt = 0
-        # infinite loop so that function do not terminate and thread do not end.
-        inc = 30
-        adx = 1
+        inc = 30; adx = 1
         while self.on_btn is True:
             inc += adx
             if inc > 250 or inc < 30:
@@ -83,17 +83,41 @@ class ClientThread(threading.Thread):
                 data = None
                 print("Socket error!")
 
-            if data is None:
+            if len(data) < 8:
                 nodata_cnt += 1
                 if nodata_cnt >= 15:
                     print("NO DATA - closing connection")
                     break
             else:
-                nodata_cnt = 0
-                # data_decoded = self.encode_data(data)
-                # reply = data_decoded.ljust(15, chr(10).encode(Encoding))
+                # print("data[6]", data[6])
+                resolution = data[6] - COMM_BITSHIFT
+                if lastresolution != resolution:
+                    if resolution == 0:
+                        print("Stopping Gstreamer.")
+                        GtkTsMain.player.set_state(Gst.State.PAUSED)
+                    elif resolution == 1:
+                        caps = Gst.Caps.from_string("video/x-raw, width=320, height=240, framerate=15/1")
+                        GtkTsMain.filter.set_property("caps", caps)
+                    elif resolution == 2:
+                        caps = Gst.Caps.from_string("video/x-raw, width=640, height=480, framerate=15/1")
+                        GtkTsMain.filter.set_property("caps", caps)
+                    elif resolution == 3:
+                        caps = Gst.Caps.from_string("video/x-raw, width=800, height=600, framerate=15/1")
+                        GtkTsMain.filter.set_property("caps", caps)
+                    elif resolution == 4:
+                        caps = Gst.Caps.from_string("video/x-raw, width=1280, height=800, framerate=15/1")
+                        GtkTsMain.filter.set_property("caps", caps)
+                    elif resolution == 5:
+                        caps = Gst.Caps.from_string("video/x-raw, width=1920, height=1080, framerate=15/1")
+                        GtkTsMain.filter.set_property("caps", caps)
 
-                # retstr = chr(calc_checksum(data)).encode(Encoding) + data[1:9]
+                    if lastresolution == 0:
+                        print("Starting Gstreamer.")
+                        GtkTsMain.player.set_state(Gst.State.PLAYING)
+
+                    lastresolution = resolution
+
+                nodata_cnt = 0
 
                 retstr = chr(calc_checksum(data))
                 retstr += chr(self.Motor_PWR[RIGHT])
@@ -136,7 +160,7 @@ class ClientThread(threading.Thread):
             # came out of loop
             conn.close()
             self.closesrv()
-            print('Connection with ' + addr[0] + ':' + str(addr[1]) + " closed. EXITING THREAD!")
+            print('Connection with ' + addr[0] + ':' + str(addr[1]) + " closed.")
 
         # ... Clean shutdown code here ...
         print('Thread #%s stopped' % self.ident)
@@ -154,7 +178,7 @@ class ClientThread(threading.Thread):
     def create_socket():
         # Create Socket
         ClientThread.srv = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        # GTK_TSMain.srv.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        # ClientThread.srv.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         print('Socket created')
         srv_address = (HOST, Port_COMM)
 
@@ -176,7 +200,7 @@ class ClientThread(threading.Thread):
         return True
 
     def closesrv(self):
-        print("Closing socket[*]")
+        print("Closing socket[-]")
         if self.srv is not None:
             try:
                 self.srv.shutdown(socket.SHUT_RDWR)
@@ -188,7 +212,7 @@ class ClientThread(threading.Thread):
             except AttributeError:
                 pass
 
-            GtkTsMain.player.set_state(Gst.State.NULL)
+            GtkTsMain.player.set_state(Gst.State.PAUSED)
             ClientThread.srv = None
 
 
@@ -200,9 +224,8 @@ class ThreadRestart(threading.Thread):
     def run(self):
         while ClientThread.on_btn is True:
             if not ClientThread().srv:
-                # self.create_socket()
                 ClientThread().start()
-            time.sleep(1)
+            time.sleep(0.35)
         return True
 
 
@@ -219,6 +242,7 @@ class GtkTsMain(Gtk.Window):
     player = Gst.Pipeline.new("player")
     Host = "localhost"
     VID_Port = Port_COMM + 1
+    filter = Gst.ElementFactory.make("capsfilter", "filter")
 
     def __init__(self):
         super(GtkTsMain, self).__init__()
@@ -241,7 +265,6 @@ class GtkTsMain(Gtk.Window):
         self.connect("destroy", self.gtk_main_quit)
         self.connect("delete-event", Gtk.main_quit)
         self.switch_ServerStart   = builder.get_object("Switch_ServerStart")
-        # self.switch_ServerStart.connect("notify::active", self.on_Switch_ServerStart_activate)
         self.statusbar_TestServer = builder.get_object("StatusBar_TestServer")
         self.context_id           = self.statusbar_TestServer.get_context_id("message")
 
@@ -256,12 +279,6 @@ class GtkTsMain(Gtk.Window):
         self.sink.set_property("host", self.Host)
         self.sink.set_property("port", self.VID_Port)
 
-        caps = Gst.Caps.from_string("video/x-raw, width=640, height=480, framerate=15/1")
-        self.filter = Gst.ElementFactory.make("capsfilter", "filter")
-        self.filter.set_property("caps", caps)
-        # self.filter.set_property("width", 640)
-        # self.filter.set_property("height", 480)
-
         self.encoder = Gst.ElementFactory.make("gdppay", "encoder")
 
         self.player.add(self.source, self.filter, self.encoder, self.sink)
@@ -269,26 +286,24 @@ class GtkTsMain(Gtk.Window):
         self.source.link(self.filter)
         self.filter.link(self.encoder)
         self.encoder.link(self.sink)
+        GtkTsMain.player.set_state(Gst.State.READY)
 
     def on_Switch_ServerStart_activate(self, widget, event):
         # now keep talking with the client
         ClientThread.on_btn = widget.get_active()
-        # self.switch_ServerStart.get_active()
 
-        while ClientThread.on_btn is True and ClientThread.srv is None:
-        # if self.switch_ServerStart.get_active() is True:
-            self.player.set_state(Gst.State.PLAYING)
-            self.statusbar_TestServer.push(self.context_id, "Streaming on port " + self.VID_Port.__str__())
+        if ClientThread.on_btn is True:  # and ClientThread.srv is None:
+            self.statusbar_TestServer.push(self.context_id, "Waiting on port " + Port_COMM.__str__())
 
-            # start_new_thread(self.clientthread, (None,))
-            # Conn_thread = ThreadRestart()
-            Conn_thread = ClientThread()
-            Conn_thread.start()
-            time.sleep(.25)
+            if ClientThread.srv is None:
+                Conn_thread = ThreadRestart()
+                Conn_thread.start()
+        else:
+            time.sleep(0.5)
 
-        if ClientThread.on_btn is False and ClientThread.srv is not None:
-            ClientThread().closesrv()
-            self.statusbar_TestServer.push(self.context_id, "Port " + self.VID_Port.__str__() + " closed.")
+            if ClientThread.on_btn is False and ClientThread.srv is not None:
+                ClientThread().closesrv()
+                self.statusbar_TestServer.push(self.context_id, "Port " + Port_COMM.__str__() + " closed.")
 
     def gtk_main_quit(self, dialog):
         ClientThread().closesrv()

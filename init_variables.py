@@ -55,8 +55,10 @@ class KEY_control:
 class COMM_vars:
     connected   = False
     comm_link_idle = 0
+    ConnErr     = 0
     speed       = 0
     direction   = 0
+    resolution  = 1
     camera      = True
     light       = False
     mic         = True

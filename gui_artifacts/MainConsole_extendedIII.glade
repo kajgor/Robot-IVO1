@@ -10,36 +10,6 @@
     <property name="step_increment">1</property>
     <property name="page_increment">10</property>
   </object>
-  <object class="GtkAdjustment" id="Adjustment_Resolution">
-    <property name="lower">1</property>
-    <property name="upper">3</property>
-    <property name="value">2</property>
-    <property name="step_increment">1</property>
-    <property name="page_increment">1</property>
-  </object>
-  <object class="GtkListStore" id="ListStoreResolution">
-    <columns>
-      <!-- column-name Resolution -->
-      <column type="gchararray"/>
-    </columns>
-    <data>
-      <row>
-        <col id="0">320x240</col>
-      </row>
-      <row>
-        <col id="0">640x480</col>
-      </row>
-      <row>
-        <col id="0">720x480</col>
-      </row>
-      <row>
-        <col id="0">1280x720</col>
-      </row>
-      <row>
-        <col id="0">1920x1024</col>
-      </row>
-    </data>
-  </object>
   <object class="GtkBox" id="MainBox_CON">
     <property name="visible">True</property>
     <property name="can_focus">False</property>
@@ -157,12 +127,15 @@
       <object class="GtkGrid" id="Grid_Control">
         <property name="can_focus">False</property>
         <property name="margin_left">5</property>
+        <property name="hexpand">True</property>
         <child>
           <object class="GtkDrawingArea" id="DrawingArea_Cam">
             <property name="width_request">640</property>
             <property name="height_request">480</property>
             <property name="visible">True</property>
-            <property name="can_focus">True</property>
+            <property name="can_focus">False</property>
+            <property name="halign">center</property>
+            <property name="valign">center</property>
             <property name="hexpand">True</property>
             <property name="vexpand">True</property>
           </object>
@@ -235,14 +208,25 @@
                         <property name="can_focus">False</property>
                         <property name="margin_bottom">10</property>
                         <child>
-                          <object class="GtkComboBox" id="ComboBoxResolution">
+                          <object class="GtkComboBoxText" id="ComboBoxResolution">
                             <property name="width_request">125</property>
                             <property name="visible">True</property>
                             <property name="can_focus">False</property>
                             <property name="halign">start</property>
                             <property name="margin_left">10</property>
                             <property name="hexpand">True</property>
-                            <property name="model">ListStoreResolution</property>
+                            <property name="active">0</property>
+                            <items>
+                              <item translatable="yes">320x240</item>
+                              <item translatable="yes">640x480</item>
+                              <item translatable="yes">800x600</item>
+                              <item translatable="yes">1280x800</item>
+                              <item translatable="yes">1920x1080</item>
+                            </items>
+                            <signal name="changed" handler="on_ComboBoxResolution_changed" swapped="no"/>
+                            <child>
+                              <object class="GtkCellRendererText" id="Resolution"/>
+                            </child>
                           </object>
                           <packing>
                             <property name="left_attach">0</property>
@@ -1152,7 +1136,7 @@
         </child>
       </object>
       <packing>
-        <property name="expand">False</property>
+        <property name="expand">True</property>
         <property name="fill">True</property>
         <property name="position">1</property>
       </packing>
@@ -1242,6 +1226,36 @@
         <property name="position">2</property>
       </packing>
     </child>
+  </object>
+  <object class="GtkAdjustment" id="Adjustment_Resolution">
+    <property name="lower">1</property>
+    <property name="upper">3</property>
+    <property name="value">2</property>
+    <property name="step_increment">1</property>
+    <property name="page_increment">1</property>
+  </object>
+  <object class="GtkListStore" id="ListStoreResolution">
+    <columns>
+      <!-- column-name Resolution -->
+      <column type="gchararray"/>
+    </columns>
+    <data>
+      <row>
+        <col id="0">320x240</col>
+      </row>
+      <row>
+        <col id="0">640x480</col>
+      </row>
+      <row>
+        <col id="0">800x600</col>
+      </row>
+      <row>
+        <col id="0">1280x800</col>
+      </row>
+      <row>
+        <col id="0">1920x1080</col>
+      </row>
+    </data>
   </object>
   <object class="GtkBox" id="MainBox_TSRV">
     <property name="can_focus">False</property>
