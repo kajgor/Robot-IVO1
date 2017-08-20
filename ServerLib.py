@@ -1,5 +1,3 @@
-# !/usr/bin/env python
-
 import threading
 import signal
 import socket
@@ -11,12 +9,8 @@ gi.require_version('Gst', '1.0')
 gi.require_version('Gtk', '3.0')
 gi.require_version('GstVideo', '1.0')
 from gi.repository import Gst, GObject, Gtk, GstVideo
-
-# from _thread import *
 from init_variables import Encoding, LEFT, RIGHT, COMM_BITSHIFT, calc_checksum, RECMSGLEN
 
-# import atexit
-# GUI_file = "./gui_artifacts/TestServer_extended.glade"
 GUI_file = "./gui_artifacts/MainConsole_extended.glade"
 
 HOST = 'localhost'   # Symbolic name meaning all available interfaces
@@ -70,15 +64,10 @@ class ClientThread(threading.Thread):
         nodata_cnt = 0
         inc = 30; adx = 1
         while self.on_btn is True:
-            inc += adx
-            if inc > 250 or inc < 30:
-                adx = -adx
-
-            self.current = chr(60 + int(inc/10)) + chr(int(inc % 100))
-
             # Receiving from client
             try:
                 data = conn.recv(8)
+                # print("data==>", data, len(data))
             except socket.error:
                 data = None
                 print("Socket error!")
@@ -94,30 +83,35 @@ class ClientThread(threading.Thread):
                 if lastresolution != resolution:
                     if resolution == 0:
                         print("Stopping Gstreamer.")
-                        GtkTsMain.player.set_state(Gst.State.PAUSED)
+                        init_Gstreamer.player.set_state(Gst.State.PAUSED)
                     elif resolution == 1:
                         caps = Gst.Caps.from_string("video/x-raw, width=320, height=240, framerate=15/1")
-                        GtkTsMain.filter.set_property("caps", caps)
+                        init_Gstreamer.filter.set_property("caps", caps)
                     elif resolution == 2:
                         caps = Gst.Caps.from_string("video/x-raw, width=640, height=480, framerate=15/1")
-                        GtkTsMain.filter.set_property("caps", caps)
+                        init_Gstreamer.filter.set_property("caps", caps)
                     elif resolution == 3:
                         caps = Gst.Caps.from_string("video/x-raw, width=800, height=600, framerate=15/1")
-                        GtkTsMain.filter.set_property("caps", caps)
+                        init_Gstreamer.filter.set_property("caps", caps)
                     elif resolution == 4:
                         caps = Gst.Caps.from_string("video/x-raw, width=1280, height=800, framerate=15/1")
-                        GtkTsMain.filter.set_property("caps", caps)
+                        init_Gstreamer.filter.set_property("caps", caps)
                     elif resolution == 5:
                         caps = Gst.Caps.from_string("video/x-raw, width=1920, height=1080, framerate=15/1")
-                        GtkTsMain.filter.set_property("caps", caps)
+                        init_Gstreamer.filter.set_property("caps", caps)
 
                     if lastresolution == 0:
                         print("Starting Gstreamer.")
-                        GtkTsMain.player.set_state(Gst.State.PLAYING)
+                        init_Gstreamer.player.set_state(Gst.State.PLAYING)
 
                     lastresolution = resolution
 
                 nodata_cnt = 0
+                inc += adx
+                if inc > 250 or inc < 30:
+                    adx = -adx
+
+                self.current = chr(60 + int(inc / 10)) + chr(int(inc % 100))
 
                 retstr = chr(calc_checksum(data))
                 retstr += chr(self.Motor_PWR[RIGHT])
@@ -212,7 +206,7 @@ class ClientThread(threading.Thread):
             except AttributeError:
                 pass
 
-            GtkTsMain.player.set_state(Gst.State.PAUSED)
+            init_Gstreamer.player.set_state(Gst.State.PAUSED)
             ClientThread.srv = None
 
 
@@ -237,7 +231,7 @@ class ServiceExit(Exception):
     pass
 
 
-class GtkTsMain(Gtk.Window):
+class init_Gstreamer:
     Gst.init(None)
     player = Gst.Pipeline.new("player")
     Host = "localhost"
@@ -245,8 +239,38 @@ class GtkTsMain(Gtk.Window):
     filter = Gst.ElementFactory.make("capsfilter", "filter")
 
     def __init__(self):
-        super(GtkTsMain, self).__init__()
+        self.source = Gst.ElementFactory.make("videotestsrc", "video-source")
+        self.source.set_property("pattern", "smpte")
 
+        self.sink = Gst.ElementFactory.make("tcpserversink", "video-output")
+        self.sink.set_property("host", self.Host)
+        self.sink.set_property("port", self.VID_Port)
+
+        self.encoder = Gst.ElementFactory.make("gdppay", "encoder")
+
+        self.player.add(self.source, self.filter, self.encoder, self.sink)
+
+        self.source.link(self.filter)
+        self.filter.link(self.encoder)
+        self.encoder.link(self.sink)
+        self.player.set_state(Gst.State.READY)
+
+
+class GtkTsMain(Gtk.Window):
+    def __init__(self):
+        builder = self.init_GUI()
+        self.switch_ServerStart   = builder.get_object("Switch_ServerStart")
+        self.StatusBar_TestServer = builder.get_object("StatusBar_TestServer")
+        self.context_id           = self.StatusBar_TestServer.get_context_id("message")
+
+        self.show_all()
+        builder.connect_signals(self)
+        atexit.register(ClientThread().closesrv)
+
+        Gtk.main()
+
+    def init_GUI(self):
+        super(GtkTsMain, self).__init__()
         # Register the signal handlers
         signal.signal(signal.SIGTERM, ClientThread().closesrv)
         signal.signal(signal.SIGINT, ClientThread().closesrv)
@@ -264,36 +288,15 @@ class GtkTsMain(Gtk.Window):
         self.set_title("TEST SERVER")
         self.connect("destroy", self.gtk_main_quit)
         self.connect("delete-event", Gtk.main_quit)
-        self.switch_ServerStart   = builder.get_object("Switch_ServerStart")
-        self.statusbar_TestServer = builder.get_object("StatusBar_TestServer")
-        self.context_id           = self.statusbar_TestServer.get_context_id("message")
 
-        self.show_all()
-        builder.connect_signals(self)
-        atexit.register(ClientThread().closesrv)
-
-        self.source = Gst.ElementFactory.make("videotestsrc", "video-source")
-        self.source.set_property("pattern", "smpte")
-
-        self.sink = Gst.ElementFactory.make("tcpserversink", "video-output")
-        self.sink.set_property("host", self.Host)
-        self.sink.set_property("port", self.VID_Port)
-
-        self.encoder = Gst.ElementFactory.make("gdppay", "encoder")
-
-        self.player.add(self.source, self.filter, self.encoder, self.sink)
-
-        self.source.link(self.filter)
-        self.filter.link(self.encoder)
-        self.encoder.link(self.sink)
-        GtkTsMain.player.set_state(Gst.State.READY)
+        return builder
 
     def on_Switch_ServerStart_activate(self, widget, event):
         # now keep talking with the client
         ClientThread.on_btn = widget.get_active()
 
         if ClientThread.on_btn is True:  # and ClientThread.srv is None:
-            self.statusbar_TestServer.push(self.context_id, "Waiting on port " + Port_COMM.__str__())
+            self.StatusBar_TestServer.push(self.context_id, "Waiting on port " + Port_COMM.__str__())
 
             if ClientThread.srv is None:
                 Conn_thread = ThreadRestart()
@@ -303,13 +306,10 @@ class GtkTsMain(Gtk.Window):
 
             if ClientThread.on_btn is False and ClientThread.srv is not None:
                 ClientThread().closesrv()
-                self.statusbar_TestServer.push(self.context_id, "Port " + Port_COMM.__str__() + " closed.")
+                self.StatusBar_TestServer.push(self.context_id, "Port " + Port_COMM.__str__() + " closed.")
 
     def gtk_main_quit(self, dialog):
         ClientThread().closesrv()
         Gtk.main_quit()
 
 
-GtkTsMain()
-# GObject.threads_init()
-Gtk.main()

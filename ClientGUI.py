@@ -10,7 +10,7 @@ from gi.repository import GObject, Gtk, Gdk, GdkX11, GLib
 from init_variables import TIMEOUT_GUI, Paths, Debug, COMM_vars
 
 from config_rw import *
-from class_consoleIII import RacConnection, RacUio, RacDisplay, MainLoop
+from ClientLib import RacConnection, RacUio, RacDisplay, MainLoop
 
 
 # noinspection PyAttributeOutsideInit
