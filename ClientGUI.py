@@ -99,8 +99,8 @@ class MainWindow(Gtk.Window):
     def init_ui(self):
         ###### Initiate UI start ######
         self.connect("destroy", self.gtk_main_quit)
-        # self.movie_window.set_size_request(640, 480)
         self.movie_window.set_can_default(True)
+        # self.movie_window.set_size_request(640, 480)
         ####### Initiate UI end #######
 
         self.show_all()
@@ -153,7 +153,6 @@ class MainWindow(Gtk.Window):
     @staticmethod
     def on_SpinButton_Port_value_changed(widget):
         RacConnection.Port_Comm = widget.get_value_as_int()
-        # print("RacConnection.Port_Comm", RacConnection.Port_Comm)
 
     def on_CheckButton_LocalTest_toggled(self, widget):
         Rac_connection.LocalTest = widget.get_active()
@@ -188,7 +187,6 @@ class MainWindow(Gtk.Window):
 
                 Rac_connection.update_server_list(self.combobox_host, self.spinbutton_port.get_value())
                 if self.checkbutton_cam.get_active() is True:
-                    # time.sleep(1)
                     retmsg = Rac_connection.connect_camstream(True)
                     if retmsg is True:
                         retmsg = "VIDEO CONNECTION ESTABILISHED: OK"

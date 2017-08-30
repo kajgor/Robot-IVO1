@@ -1,11 +1,9 @@
-#!/usr/bin/env python
-# -*- coding: CP1252 -*-
-
 import datetime
 import socket
 import cairo
 import math
 import time
+import re
 
 import gi
 gi.require_version('Gst', '1.0')
@@ -27,7 +25,7 @@ class MainLoop:
 
     def on_timer(self):
         if COMM_vars.connected:
-            self.counter += .03
+            self.counter += .05
 
         if COMM_vars.comm_link_idle > COMM_IDLE:
             self.GUI.spinner_connection.stop()
@@ -93,7 +91,6 @@ class MainLoop:
 # noinspection PyPep8Naming
 class RacConnection:
     Gdk.threads_init()
-    # print("checksum", calc_checksum("ABCD174")
     srv = None
     LocalTest = False
     Host = None
@@ -113,7 +110,11 @@ class RacConnection:
             print("GL elements not available.")
             exit()
         else:
-            self.player.add(self.source, decoder, vconvert, self.sink)
+            self.player.add(self.source)
+            self.player.add(decoder)
+            self.player.add(vconvert)
+            self.player.add(self.sink)
+
             self.source.link(decoder)
             decoder.link(vconvert)
             vconvert.link(self.sink)
@@ -128,7 +129,7 @@ class RacConnection:
         # Gstreamer setup end
 
         start_new_thread(self.connection_thread, (self.Host, self.Port_Comm))
-        time.sleep(1)
+        time.sleep(1.5)
 
         return COMM_vars.connected
 
@@ -182,6 +183,8 @@ class RacConnection:
         if Debug > 2: print("Connecting...")
         RacConnection.srv = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         server_address = (Host, Port_Comm)
+        IP_addr = socket.gethostbyname(Host)
+        print(server_address, "[", IP_addr, "]")
         try:
             self.srv.connect(server_address)
             COMM_vars.connected = True
@@ -198,6 +201,13 @@ class RacConnection:
 
         if COMM_vars.connected is True:
             time.sleep(1.48)
+            # Send initial string for Gstreamer
+            ipint_list = map(int, re.findall('\d+', IP_addr))
+            initstr = "IP"
+            for ipint in ipint_list:
+                initstr += chr(ipint + COMM_BITSHIFT)
+            print(">>>>> initstr:", initstr)
+            self.transmit_message(initstr)
 
         rac__uio = RacUio()
         while COMM_vars.connected is True:
@@ -226,14 +236,16 @@ class RacConnection:
             else:
                 COMM_vars.ConnErr = 0
 
+            time.sleep(COMM_vars.RESP_DELAY)
             resp = self.receive_message()
             if resp is not None:
-                if Debug > 1: print("CheckSum Sent/Received:", checksum, ord(resp[0]))
                 if checksum == ord(resp[0]):
                     RacConnection().decode_transmission(resp)
                     COMM_vars.Motor_ACK = COMM_vars.Motor_Power
+                if Debug > 1:
+                    print("CheckSum Sent/Received:", checksum, ord(resp[0]))
         else:
-            self.transmit_message(HALT_0)
+            self.transmit_message("HALTHALT")
             COMM_vars.connected = False
 
     ###############################################################################
@@ -242,6 +254,7 @@ class RacConnection:
 
     def connect_camstream(self, connect):
         if connect is True:
+            time.sleep(0.1)
             retmsg = self.player.set_state(Gst.State.PLAYING)
         else:
             retmsg = self.player.set_state(Gst.State.NULL)
@@ -264,8 +277,8 @@ class RacConnection:
         return retmsg, success
 
     def transmit_message(self, out_str):
-        sendstr = chr(COMM_BITSHIFT - 1).encode(Encoding) + out_str + chr(10).encode(Encoding)
-        if Debug > 2:
+        sendstr = str(chr(COMM_BITSHIFT - 1) + out_str + chr(10)).encode(Encoding)
+        if Debug > 1:
             print("CLISENT[len]: " + len(sendstr).__str__())
 
         if self.srv is None:
@@ -293,7 +306,8 @@ class RacConnection:
         except OSError:
             return None
 
-        if Debug > 2: print("CLIRCVD[len]: " + len(data).__str__())
+        if Debug > 2:
+            print("CLIRCVD[len]: " + len(data).__str__())
 
         try:
             data_end = data[14]
@@ -323,7 +337,7 @@ class RacConnection:
             except:
                 Port = Port
 
-            print("Selected: Port=%s, Host=%s" % (int(Port), Host))
+            # print("Selected: Port=%s, Host=%s" % (int(Port), Host))
         else:
             entry = combobox_host.get_child()
             combobox_host.prepend(port.__str__(), entry.get_text())
@@ -405,11 +419,11 @@ class RacConnection:
         if Debug == 2:
             print("requestMsg", requestMsg)
 
-        return requestMsg.encode(Encoding)
+        return requestMsg
 
 
 class RacDisplay:
-    background_control = cairo.ImageSurface.create_from_png("images/HUD_small.png")
+    background_control = cairo.ImageSurface.create_from_png(Paths.background_file)
 
     def draw_arrow(self, message):
         message.set_source_surface(self.background_control, 15, 0)
@@ -476,55 +490,18 @@ class RacDisplay:
 
 class RacUio:
     def on_key_press(self, event):
-        RacUio().keybuffer_set(event, True)
+        keybuffer_set(event, True)
         return True
 
     def on_key_release(self, event):
-        key_name = RacUio().keybuffer_set(event, False)
-        return key_name
-
-    def keybuffer_set(self, event, value):
-        key_name = Gdk.keyval_name(event.keyval)
-        # print("key", key_name, value)
-        if key_name == "Left" or key_name.replace("A", "a", 1) == "a":
-            KEY_control.Left = value
-
-        elif key_name == "Right" or key_name.replace("D", "d", 1) == "d":
-            KEY_control.Right = value
-
-        elif key_name == "Up" or key_name.replace("W", "w", 1) == "w":
-            KEY_control.Up = value
-
-        elif key_name == "Down" or key_name.replace("S", "s", 1) == "s":
-            KEY_control.Down = value
-
-        elif key_name == "space":
-            COMM_vars.speed = 0
-            COMM_vars.direction = 0
-            KEY_control.Space = value
-
-        if event.state is True and Gdk.KEY_Shift_L is not KEY_control.Shift:
-            KEY_control.Shift = Gdk.KEY_Shift_L
-            print("SHIIIIIIIIIIIIIIIFT!!!")
-
+        key_name = keybuffer_set(event, False)
         return key_name
 
     def on_mouse_press(self, widget, mouse_event):
-        self.mousebuffer_set(mouse_event, True)
+        mousebuffer_set(mouse_event, True)
 
     def on_mouse_release(self, widget, mouse_event):
-        self.mousebuffer_set(mouse_event, False)
-
-    def mousebuffer_set(self, mouse_event, value):
-        if mouse_event.button == Gdk.BUTTON_PRIMARY:
-            KEY_control.MouseBtn[LEFT] = value
-            if value is True:
-                KEY_control.MouseXY = [int(mouse_event.x) / 2,
-                                       int(mouse_event.y) / 2]
-
-        if mouse_event.button == Gdk.BUTTON_SECONDARY:
-            KEY_control.MouseBtn[RIGHT] = value
-            KEY_control.MouseXY = [0, 0]
+        mousebuffer_set(mouse_event, False)
 
     def on_motion_notify(self, widget, mouse_event):
         mouseX = int(mouse_event.x) / 2
@@ -581,14 +558,14 @@ class RacUio:
 
     @staticmethod
     def mouseInput():
-        if COMM_vars.CamPos[X_AXIS] > MOUSEX_MAX:
-            COMM_vars.CamPos[X_AXIS] = MOUSEX_MAX
-        if COMM_vars.CamPos[X_AXIS] < MOUSEX_MIN:
-            COMM_vars.CamPos[X_AXIS] = MOUSEX_MIN
-        if COMM_vars.CamPos[Y_AXIS] > MOUSEY_MAX:
-            COMM_vars.CamPos[Y_AXIS] = MOUSEY_MAX
-        if COMM_vars.CamPos[Y_AXIS] < MOUSEY_MIN:
-            COMM_vars.CamPos[Y_AXIS] = MOUSEY_MIN
+        if COMM_vars.CamPos[X_AXIS] > MOUSE_MAX[X_AXIS]:
+            COMM_vars.CamPos[X_AXIS] = MOUSE_MAX[X_AXIS]
+        if COMM_vars.CamPos[X_AXIS] < MOUSE_MIN[X_AXIS]:
+            COMM_vars.CamPos[X_AXIS] = MOUSE_MIN[X_AXIS]
+        if COMM_vars.CamPos[Y_AXIS] > MOUSE_MAX[Y_AXIS]:
+            COMM_vars.CamPos[Y_AXIS] = MOUSE_MAX[Y_AXIS]
+        if COMM_vars.CamPos[Y_AXIS] < MOUSE_MIN[Y_AXIS]:
+            COMM_vars.CamPos[Y_AXIS] = MOUSE_MIN[Y_AXIS]
 
         return COMM_vars.CamPos
 
@@ -601,3 +578,44 @@ class RacUio:
             if Debug > 1: print("\nCommand terminated with error: " + str(retcode))
         # raw_input("Press enter")
         return retcode
+
+
+def keybuffer_set(event, value):
+    key_name = Gdk.keyval_name(event.keyval)
+    # print("key", key_name, value)
+    if key_name == "Left" or key_name.replace("A", "a", 1) == "a":
+        KEY_control.Left = value
+
+    elif key_name == "Right" or key_name.replace("D", "d", 1) == "d":
+        KEY_control.Right = value
+
+    elif key_name == "Up" or key_name.replace("W", "w", 1) == "w":
+        KEY_control.Up = value
+
+    elif key_name == "Down" or key_name.replace("S", "s", 1) == "s":
+        KEY_control.Down = value
+
+    elif key_name == "space":
+        COMM_vars.speed = 0
+        COMM_vars.direction = 0
+        KEY_control.Space = value
+
+    if event.state is True and Gdk.KEY_Shift_L is not KEY_control.Shift:
+        KEY_control.Shift = Gdk.KEY_Shift_L
+        print("SHIIIIIIIIIIIIIIIFT!!!")
+
+    return key_name
+
+
+def mousebuffer_set(mouse_event, value):
+    if mouse_event.button == Gdk.BUTTON_PRIMARY:
+        KEY_control.MouseBtn[LEFT] = value
+        if value is True:
+            KEY_control.MouseXY = [int(mouse_event.x) / 2,
+                                   int(mouse_event.y) / 2]
+
+    if mouse_event.button == Gdk.BUTTON_SECONDARY:
+        KEY_control.MouseBtn[RIGHT] = value
+        KEY_control.MouseXY = [0, 0]
+
+

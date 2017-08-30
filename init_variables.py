@@ -1,11 +1,9 @@
-TIMEOUT_GUI = 30
+TIMEOUT_GUI = 50
 COMM_IDLE   = 10
 position = (242, 135)
 MAX_SPEED = 50
-MOUSEX_MIN = 40
-MOUSEX_MAX = 150
-MOUSEY_MIN = 45
-MOUSEY_MAX = 100
+MOUSE_MIN = [40, 45]
+MOUSE_MAX = [150, 100]
 BLACK = (0, 0, 0)
 WHITE = (255, 255, 255)
 CYAN = (0, 255, 255)
@@ -21,14 +19,15 @@ DDBLUE = (0, 0, 30)
 ######################
 COMM_BITSHIFT = 30
 RECMSGLEN = 15
-HALT_0 = chr(COMM_BITSHIFT + 51) + chr(COMM_BITSHIFT + 51) + chr(COMM_BITSHIFT) + chr(COMM_BITSHIFT)
-HALT_1 = chr(COMM_BITSHIFT + 51) + chr(COMM_BITSHIFT + 51) + chr(100) + chr(45)
+# HALT_0 = chr(COMM_BITSHIFT + 51) + chr(COMM_BITSHIFT + 51) + chr(COMM_BITSHIFT) + chr(COMM_BITSHIFT)
+# HALT_1 = chr(COMM_BITSHIFT + 51) + chr(COMM_BITSHIFT + 51) + chr(100) + chr(45)
 RIGHT = 0
 LEFT = 1
 ######################
 X_AXIS = 0
 Y_AXIS = 1
 Debug = 1
+# Encoding = 'cp037'
 Encoding = 'latin_1'
 
 class arrow(object):
@@ -74,12 +73,7 @@ class COMM_vars:
     Voltage     = 0
     CoreTemp    = 0
     DistanceS1  = 100
-
-
-class Paths:
-    Gstreamer_Path = '/usr/bin/'
-    GUI_file = "./gui_artifacts/MainConsole_extendedIII.glade"
-    cfg_file = "./racII.cfg"
+    RESP_DELAY = 0.025
 
 CommunicationFFb = False
 if CommunicationFFb is True:
@@ -87,7 +81,18 @@ if CommunicationFFb is True:
 else:
     ACCELERATION = 1
 
+import os
+import sys
 import binascii
+
+
+class Paths:
+    pathname = os.path.dirname(sys.argv[0])
+    GUI_file = pathname + "/gui_artifacts/MainConsole_extendedIII.glade"
+    cfg_file = pathname + "/racII.cfg"
+    background_file = pathname + "/images/HUD_small.png"
+
+
 def calc_checksum(string):
     """
     Calculates checksum for sending commands to the server.

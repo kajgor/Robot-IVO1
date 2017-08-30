@@ -1,12 +1,12 @@
-# !/usr/bin/env python
+#!/usr/bin/env python3.5
+# -*- coding: CP1252 -*-
+from ServerLib import ThreadRestart, ClientThread, init_Gstreamer
 
-import ServerLib
+init_Gstreamer()
 
-ServerLib.init_Gstreamer()
-
-ServerLib.ClientThread.on_btn = True
-if ServerLib.ClientThread.srv is None:
-    Conn_thread = ServerLib.ThreadRestart()
+ClientThread.on_btn = True
+if ClientThread.srv is None:
+    Conn_thread = ThreadRestart()
     Conn_thread.start()
 
 exit(0)

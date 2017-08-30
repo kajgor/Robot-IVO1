@@ -1,8 +1,8 @@
-# !/usr/bin/env python
+#!/usr/bin/env python3.5
+# -*- coding: CP1252 -*-
+from ServerLib import *
 
-import ServerLib
-
-ServerLib.init_Gstreamer()
-ServerLib.GtkTsMain()
+init_Gstreamer()
+GtkTsMain()
 
 exit(0)
