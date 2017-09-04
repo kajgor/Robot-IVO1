@@ -73,7 +73,8 @@ class COMM_vars:
     Voltage     = 0
     CoreTemp    = 0
     DistanceS1  = 100
-    RESP_DELAY = 0.025
+    RESP_DELAY  = 0.025
+    RetryCnt    = 15
 
 CommunicationFFb = False
 if CommunicationFFb is True:

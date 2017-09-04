@@ -12,9 +12,10 @@ from gi.repository import Gst, GObject, Gtk, GstVideo
 from init_variables import Encoding, LEFT, RIGHT, COMM_BITSHIFT, calc_checksum, RECMSGLEN, Paths
 
 HOST = ''   # Symbolic name meaning all available interfaces
-Port_COMM = 4500
+Port_COMM = 4550
 Debug = 0
-
+Test_Mode = False
+Retry_Cnt = 15
 
 class ClientThread(threading.Thread):
     srv = None
@@ -32,6 +33,11 @@ class ClientThread(threading.Thread):
         # self.shutdown_flag = threading.Event()
 
         # ... Other thread setup code here ...
+        if Test_Mode is True:
+            self.VideoCodec = "video/x-raw"
+        else:
+            self.VideoCodec = "video/x-h264"
+
 
     def run(self):
         print('Thread #%s started' % self.ident)
@@ -40,6 +46,7 @@ class ClientThread(threading.Thread):
         print("Opening socket[+]")
         self.srv.listen(5)
         print('Socket now listening on', HOST, "[", Port_COMM, "]")
+        print("Video Codec is", self.VideoCodec)
 
         conn = addr = None
         try:
@@ -79,7 +86,7 @@ class ClientThread(threading.Thread):
 
             if len(data) < 8:
                 nodata_cnt += 1
-                if nodata_cnt >= 15:
+                if nodata_cnt > Retry_Cnt:
                     print("NO DATA - closing connection")
                     break
             else:
@@ -96,20 +103,20 @@ class ClientThread(threading.Thread):
                         print("Stopping Gstreamer.")
                         init_Gstreamer.player.set_state(Gst.State.PAUSED)
                     elif resolution == 1:
-                        caps = Gst.Caps.from_string("video/x-raw, width=320, height=240, framerate=15/1")
-                        init_Gstreamer.filter.set_property("caps", caps)
+                        caps = Gst.Caps.from_string(self.VideoCodec + ", width=320, height=240, framerate=15/1")
+                        init_Gstreamer.capsfilter.set_property("caps", caps)
                     elif resolution == 2:
-                        caps = Gst.Caps.from_string("video/x-raw, width=640, height=480, framerate=15/1")
-                        init_Gstreamer.filter.set_property("caps", caps)
+                        caps = Gst.Caps.from_string(self.VideoCodec + ", width=640, height=480, framerate=15/1")
+                        init_Gstreamer.capsfilter.set_property("caps", caps)
                     elif resolution == 3:
-                        caps = Gst.Caps.from_string("video/x-raw, width=800, height=600, framerate=15/1")
-                        init_Gstreamer.filter.set_property("caps", caps)
+                        caps = Gst.Caps.from_string(self.VideoCodec + ", width=800, height=600, framerate=15/1")
+                        init_Gstreamer.capsfilter.set_property("caps", caps)
                     elif resolution == 4:
-                        caps = Gst.Caps.from_string("video/x-raw, width=1280, height=800, framerate=15/1")
-                        init_Gstreamer.filter.set_property("caps", caps)
+                        caps = Gst.Caps.from_string(self.VideoCodec + ", width=1280, height=800, framerate=15/1")
+                        init_Gstreamer.capsfilter.set_property("caps", caps)
                     elif resolution == 5:
-                        caps = Gst.Caps.from_string("video/x-raw, width=1920, height=1080, framerate=15/1")
-                        init_Gstreamer.filter.set_property("caps", caps)
+                        caps = Gst.Caps.from_string(self.VideoCodec + ", width=1920, height=1080, framerate=15/1")
+                        init_Gstreamer.capsfilter.set_property("caps", caps)
 
                     if lastresolution == 0:
                         print("Starting Gstreamer.")
@@ -259,29 +266,63 @@ class ServiceExit(Exception):
 class init_Gstreamer:
     Gst.init(None)
     player = Gst.Pipeline.new("player")
-    sink = Gst.ElementFactory.make("tcpserversink", "video-output")
-    filter = Gst.ElementFactory.make("capsfilter", "filter")
-    VID_Port = Port_COMM + 1
+    capsfilter = Gst.ElementFactory.make("capsfilter", "capsfilter")
+    source = None
 
     def __init__(self):
-        self.source = Gst.ElementFactory.make("videotestsrc", "video-source")
-        self.source.set_property("pattern", "smpte")
-
+        self.encoder = Gst.ElementFactory.make("gdppay", "encoder")
+        self.sink = Gst.ElementFactory.make("tcpserversink", "video-output")
+        self.sink.set_property("port", Port_COMM + 1)
         if HOST:
             self.sink.set_property("host", HOST)
         else:
             self.sink.set_property("host", "0.0.0.0")
-        self.sink.set_property("port", self.VID_Port)
 
-        self.encoder = Gst.ElementFactory.make("gdppay", "encoder")
+        if Test_Mode is True:
+            self.gst_init_test()
+        else:
+            self.gst_init_cam()
+
+    def gst_init_test(self):
+        self.source = Gst.ElementFactory.make("videotestsrc", "video-source")
+        self.source.set_property("pattern", "smpte")
 
         self.player.add(self.source)
-        self.player.add(self.filter)
+        self.player.add(self.capsfilter)
         self.player.add(self.encoder)
         self.player.add(self.sink)
 
-        self.source.link(self.filter)
-        self.filter.link(self.encoder)
+        self.source.link(self.capsfilter)
+        self.capsfilter.link(self.encoder)
+        self.encoder.link(self.sink)
+        self.player.set_state(Gst.State.READY)
+
+    def gst_init_cam(self):
+        ####################################################################
+        ### Build video pipelineas following:
+        ###   Source[cam] > Caps > Parser > Codec_Opt > Encoder > Sink[tcp]
+        self.source = Gst.ElementFactory.make("v4l2src", "video-source")
+        # capsfilter (already defined)
+        parser = Gst.ElementFactory.make("h264parse", "parser")
+        rtimer = Gst.ElementFactory.make("rtph264pay", "rtimer")
+        # encoder (already defined)
+        # sink (already defined)
+        ####################################################################
+
+        rtimer.set_property("config_interval", 1)
+        rtimer.set_property("pt", 96)
+
+        self.player.add(self.source)
+        self.player.add(self.capsfilter)
+        self.player.add(parser)
+        self.player.add(rtimer)
+        self.player.add(self.encoder)
+        self.player.add(self.sink)
+
+        self.source.link(self.capsfilter)
+        self.capsfilter.link(parser)
+        parser.link(rtimer)
+        rtimer.link(self.encoder)
         self.encoder.link(self.sink)
         self.player.set_state(Gst.State.READY)
 
@@ -341,5 +382,4 @@ class GtkTsMain(Gtk.Window):
         ProgramExit()
 #        ClientThread().closesrv()
         Gtk.main_quit()
-
 
