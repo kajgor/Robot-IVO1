@@ -19,8 +19,14 @@ DDBLUE = (0, 0, 30)
 ######################
 COMM_BITSHIFT = 30
 RECMSGLEN = 15
-# HALT_0 = chr(COMM_BITSHIFT + 51) + chr(COMM_BITSHIFT + 51) + chr(COMM_BITSHIFT) + chr(COMM_BITSHIFT)
-# HALT_1 = chr(COMM_BITSHIFT + 51) + chr(COMM_BITSHIFT + 51) + chr(100) + chr(45)
+
+capsstr = [None, None, None, None, None, None]
+capsstr[1] = ", width=320, height=240, framerate=15/1"
+capsstr[2] = ", width=640, height=480, framerate=15/1"
+capsstr[3] = ", width=800, height=600, framerate=25/1"
+capsstr[4] = ", width=1280, height=800, framerate=25/1"
+capsstr[5] = ", width=1920, height=1080, framerate=25/1"
+
 RIGHT = 0
 LEFT = 1
 ######################
@@ -29,6 +35,8 @@ Y_AXIS = 1
 Debug = 1
 # Encoding = 'cp037'
 Encoding = 'latin_1'
+VideoCodec = ["video/x-h264", "video/x-raw"]
+
 
 class arrow(object):
     points = (
@@ -58,7 +66,6 @@ class COMM_vars:
     speed       = 0
     direction   = 0
     resolution  = 1
-    camera      = True
     light       = False
     mic         = True
     display     = False
@@ -75,6 +82,9 @@ class COMM_vars:
     DistanceS1  = 100
     RESP_DELAY  = 0.025
     RetryCnt    = 15
+    streaming_mode = 0
+    # resolution_last = resolution
+    # camera      = True
 
 CommunicationFFb = False
 if CommunicationFFb is True:

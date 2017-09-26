@@ -4,7 +4,7 @@ import gi
 gi.require_version('Gst', '1.0')
 gi.require_version('Gtk', '3.0')
 gi.require_version('GstVideo', '1.0')
-from gi.repository import GObject, Gtk, Gdk, GdkX11, GLib
+from gi.repository import Gtk, Gdk, GdkX11, GLib
 
 # from importlib import reload
 from init_variables import TIMEOUT_GUI, Paths, Debug, COMM_vars
@@ -26,6 +26,8 @@ class MainWindow(Gtk.Window):
         self.context_id             = self.statusbar.get_context_id("message")
         self.context_id1            = self.statusbar1.get_context_id("message")
         self.context_id2            = self.statusbar2.get_context_id("message")
+        self.camera_on = True
+        self.resolution = 1
 
         Rac_connection.load_HostList(self.combobox_host, self.Host)
 
@@ -35,7 +37,7 @@ class MainWindow(Gtk.Window):
         self.init_ui()
 
         self.CAMXPROP = self.movie_window.get_property('window')
-        print("self.CAMXPROP", self.CAMXPROP)
+        # print("self.CAMXPROP", self.CAMXPROP)
         # Connect signals
         builder.connect_signals(self)
 # ToDo
@@ -46,11 +48,17 @@ class MainWindow(Gtk.Window):
             print("Objects:")
             print(builder.get_objects().__str__())
 
-        bus = Rac_connection.player.get_bus()
+        bus = RacConnection.player[False].get_bus()
         bus.add_signal_watch()
         bus.enable_sync_message_emission()
         bus.connect("message", self.on_cam_message)
         bus.connect("sync-message::element", self.on_cam_sync_message)
+
+        bus_test = RacConnection.player[True].get_bus()
+        bus_test.add_signal_watch()
+        bus_test.enable_sync_message_emission()
+        bus_test.connect("message", self.on_cam_message)
+        bus_test.connect("sync-message::element", self.on_cam_sync_message)
 
     @property
     def init_vars(self):
@@ -113,9 +121,9 @@ class MainWindow(Gtk.Window):
     def connect_gui_handlers(self):
         self.on_key_press_handler = self.connect("key-press-event", RacUio.on_key_press)
         self.on_key_release_handler = self.connect("key-release-event", RacUio.on_key_release)
-        self.on_mouse_press_handler = self.connect("button-press-event", Rac_Uio.on_mouse_press)
-        self.on_mouse_release_handler = self.connect("button-release-event", Rac_Uio.on_mouse_release)
-        self.on_motion_notify_handler = self.connect("motion-notify-event", Rac_Uio.on_motion_notify)
+        self.on_mouse_press_handler = self.connect("button-press-event", RacUio.on_mouse_press)
+        self.on_mouse_release_handler = self.connect("button-release-event", RacUio.on_mouse_release)
+        self.on_motion_notify_handler = self.connect("motion-notify-event", RacUio.on_motion_notify)
 
     def disconnect_gui(self):
         if self.on_key_press_handler is not None:
@@ -127,9 +135,9 @@ class MainWindow(Gtk.Window):
 
         self.button_connect.set_active(False)
         self.checkbutton_localtest.set_sensitive(True)
-        if Rac_connection.LocalTest is False:
-            self.combobox_host.set_sensitive(True)
-            self.spinbutton_port.set_sensitive(True)
+        # if Rac_connection.Test_Mode is False:
+        self.combobox_host.set_sensitive(True)
+        self.spinbutton_port.set_sensitive(True)
 
     @staticmethod
     def on_DrawingArea_Control_draw(bus, message):
@@ -155,18 +163,18 @@ class MainWindow(Gtk.Window):
         RacConnection.Port_Comm = widget.get_value_as_int()
 
     def on_CheckButton_LocalTest_toggled(self, widget):
-        Rac_connection.LocalTest = widget.get_active()
-        if Rac_connection.LocalTest is True:
-            Rac_connection.Last_Active = self.combobox_host.get_active()
-            self.combobox_host.set_sensitive(False)
-            self.spinbutton_port.set_sensitive(False)
-            self.combobox_host.prepend(self.TEST_Port.__str__(), self.TEST_Host)
-            self.combobox_host.set_active(0)
-        else:
-            self.combobox_host.remove(0)
-            self.combobox_host.set_sensitive(True)
-            self.spinbutton_port.set_sensitive(True)
-            self.combobox_host.set_active(Rac_connection.Last_Active)
+        RacConnection.Test_Mode = widget.get_active()
+        # if Rac_connection.Test_Mode is True:
+        #     Rac_connection.Last_Active = self.combobox_host.get_active()
+        #     self.combobox_host.set_sensitive(False)
+        #     self.spinbutton_port.set_sensitive(False)
+        #     self.combobox_host.prepend(self.TEST_Port.__str__(), self.TEST_Host)
+        #     self.combobox_host.set_active(0)
+        # else:
+        #     self.combobox_host.remove(0)
+        #     self.combobox_host.set_sensitive(True)
+        #     self.spinbutton_port.set_sensitive(True)
+        #     self.combobox_host.set_active(Rac_connection.Last_Active)
 
     def on_ToggleButton_Connect_toggled(self, widget):
         self.on_key_press_handler = None
@@ -181,20 +189,20 @@ class MainWindow(Gtk.Window):
 
             if success is True:
                 self.connect_gui_handlers()
-                retmsg = "Server connected! " + Rac_connection.srv.getsockname().__str__()
+                retmsg = "Server connected! " + RacConnection.srv.getsockname().__str__()
                 if Debug > 2:
                     print(retmsg)
 
-                Rac_connection.update_server_list(self.combobox_host, self.spinbutton_port.get_value())
-                if self.checkbutton_cam.get_active() is True:
-                    retmsg = Rac_connection.connect_camstream(True)
-                    if retmsg is True:
-                        retmsg = "VIDEO CONNECTION ESTABILISHED: OK"
-                    else:
-                        retmsg = "VIDEO CONNECTION ERROR: Unable to set the pipeline to the playing state."
+                RacConnection.update_server_list(self.combobox_host, self.spinbutton_port.get_value())
+                # if self.checkbutton_cam.get_active() is True:
+                #     retmsg = RacConnection.connect_camstream(True)
+                #     if retmsg is True:
+                #         retmsg = "VIDEO CONNECTION ESTABILISHED: OK"
+                #     else:
+                #         retmsg = "VIDEO CONNECTION ERROR: Unable to set the pipeline to the playing state."
 
             else:
-                retmsg = "Connection Error [" + (Rac_connection.Host, Rac_connection.Port_Comm).__str__() + "]"
+                retmsg = "Connection Error [" + (RacConnection.Host, RacConnection.Port_Comm).__str__() + "]"
                 if Debug > 0: print(retmsg)
                 self.disconnect_gui()
 
@@ -206,36 +214,39 @@ class MainWindow(Gtk.Window):
             self.disconnect_gui()
 
     def on_CheckButton_Cam_toggled(self, widget):
-        COMM_vars.camera = widget.get_active()
-        if COMM_vars.camera is True:
-            retmsg = Rac_connection.connect_camstream(True)
-            if retmsg is True:
-                retmsg = "VIDEO CONNECTION ESTABILISHED: OK"
-            else:
-                retmsg = "VIDEO CONNECTION ERROR: Unable to set the pipeline to the playing state."
-        else:
-            retmsg = Rac_connection.connect_camstream(False)
-            if retmsg is True:
-                retmsg = "VIDEO DISCONNECTED: OK"
-            else:
-                retmsg = "VIDEO NOT CONNECTED!"
+        self.camera_on = widget.get_active()
+        # if COMM_vars.camera is True:
+        #     retmsg = Rac_connection.connect_camstream(True)
+        #     if retmsg is True:
+        #         retmsg = "VIDEO CONNECTION ESTABILISHED: OK"
+        #     else:
+        #         retmsg = "VIDEO CONNECTION ERROR: Unable to set the pipeline to the playing state."
+        # else:
+        #     retmsg = Rac_connection.connect_camstream(False)
+        #     if retmsg is True:
+        #         retmsg = "VIDEO DISCONNECTED: OK"
+        #     else:
+        #         retmsg = "VIDEO NOT CONNECTED!"
+        COMM_vars.resolution = self.resolution * self.camera_on
+        retmsg = "Camera:" + self.camera_on.__str__()
 
         self.statusbar.push(self.context_id, retmsg)
 
     def on_ComboBoxResolution_changed(self, widget):
-        COMM_vars.resolution = widget.get_active() + 1
+        self.resolution = widget.get_active() + 1
 
-        if COMM_vars.resolution == 1:
+        if self.resolution == 1:
             self.movie_window.set_size_request(640, 480)
-        if COMM_vars.resolution == 2:
+        if self.resolution == 2:
             self.movie_window.set_size_request(640, 480)
-        if COMM_vars.resolution == 3:
+        if self.resolution == 3:
             self.movie_window.set_size_request(800, 600)
-        if COMM_vars.resolution == 4:
+        if self.resolution == 4:
             self.movie_window.set_size_request(1280, 800)
-        if COMM_vars.resolution == 5:
+        if self.resolution == 5:
             self.movie_window.set_size_request(1280, 800)
 
+        COMM_vars.resolution = self.resolution * self.camera_on
 
     def on_CheckButton_Speakers_toggled(self, widget):
         COMM_vars.speakers = widget.get_active()
@@ -279,5 +290,4 @@ def main():
 if __name__ == "__main__":
     Rac_connection = RacConnection()
     Rac_Display = RacDisplay()
-    Rac_Uio = RacUio()
     main()
