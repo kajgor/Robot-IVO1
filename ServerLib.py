@@ -10,10 +10,11 @@ import re
 gi.require_version('Gst', '1.0')
 gi.require_version('Gtk', '3.0')
 gi.require_version('GstVideo', '1.0')
-from gi.repository import Gst, Gtk, GstVideo
+from gi.repository import Gst, Gtk, GstVideo, Gdk
 from init_variables import Encoding, LEFT, RIGHT, COMM_BITSHIFT, RECMSGLEN,\
     calc_checksum, Paths, VideoCodec, capsstr, COMM_vars
 
+VERSION = "B3.0"
 HOST = ''   # Symbolic name meaning all available interfaces
 Port_COMM = 4550
 Port_CAM0 = Port_COMM + 1
@@ -25,53 +26,52 @@ Retry_Cnt = 15
 
 Gst.init(None)
 
+
 class ClientThread(threading.Thread):
     srv = None
-    # on_btn = False
 
-    def __init__(self):
+    def __init__(self, GUI):
         threading.Thread.__init__(self)
 
         # The shutdown_flag is a threading.Event object that
         # indicates whether the thread should be terminated.
         self.shutdown_flag = threading.Event()
 
-        # self.Stream_Thread = StreamThread()
-        self.Motor_PWR = [60, 50]
-        self.Motor_RPM = [80, 80]
+        self.GUI = GUI
 
     def run(self):
-        print('Client Thread #%s started' % self.ident)
+        self.GUI.printc('Client Thread #%s started' % self.ident)
 
         while not self.shutdown_flag.is_set():
-            self.create_socket()
-            print("Opening socket[+]")
+            while self.create_socket() is False:
+                time.sleep(1)
+
             self.srv.listen(5)
-            print('Socket now listening on', HOST, "[", Port_COMM, "]")
+            self.GUI.printc('Socket now listening on ' + HOST + "[" + Port_COMM.__str__() + "]")
 
             conn = addr = None
             try:
                 conn, addr = self.srv.accept()
             except OSError:
-                print("User break")
+                self.GUI.printc("User break")
 
             if conn is None:
-                print("No connection interrupted.")
+                self.GUI.printc("No connection interrupted.")
             else:
-                print('Connected with ' + addr[0] + ':' + str(addr[1]))
+                self.GUI.printc('Connected with ' + addr[0] + ':' + str(addr[1]))
                 # Sending message to connected client
                 conn.send('AWAITING__COMM\n'.encode(Encoding))  # send only takes string
                 data = self.get_bytes_from_client(conn, 9)
                 if len(data) == 9:
-                    print("Message Validation", end='... ')
+                    self.GUI.printc("Message Validation... ")
                     if data[1:3].decode(Encoding) == "IP":
                         TestMode = bool(data[3] - COMM_BITSHIFT)
                         ConnIP  = (data[4] - COMM_BITSHIFT).__str__() + "."
                         ConnIP += (data[5] - COMM_BITSHIFT).__str__() + "."
                         ConnIP += (data[6] - COMM_BITSHIFT).__str__() + "."
                         ConnIP += (data[7] - COMM_BITSHIFT).__str__()
-                        print("IP detected:", ConnIP)
-                        print("Video Codec is", VideoCodec[TestMode])
+                        self.GUI.printc("IP detected: " + ConnIP)
+                        self.GUI.printc("Video Codec is " + VideoCodec[TestMode])
 
                         conn = self.connection_loop(conn, TestMode)
 
@@ -80,20 +80,20 @@ class ClientThread(threading.Thread):
                             conn.close()
                             self.closesrv()
 
-                            print("Connection with %s closed." % str(addr))
+                            self.GUI.printc("Connection with %s closed." % str(addr))
                     else:
-                        print("Invalid message detected! Breaking connection.")
+                        self.GUI.printc("Invalid message detected! Breaking connection.")
                 else:
-                    print("Incomplete message received! Breaking connection.")
+                    self.GUI.printc("Incomplete message received! Breaking connection.")
 
         # ... Clean shutdown code here ...
-        print('Client Thread #%s stopped' % self.ident)
+        self.GUI.printc('Client Thread #%s stopped' % self.ident)
 
     def connection_loop(self, conn, TestMode):
         noData_cnt = 0
         COMM_vars.streaming_mode = 0
         # init_Gstreamer = InitGstreamer()
-        self.Stream_Thread = StreamThread(TestMode)
+        self.Stream_Thread = StreamThread(self.GUI, TestMode)
         self.Stream_Thread.start()
         # now keep talking with the client
         while not self.shutdown_flag.is_set():
@@ -107,16 +107,16 @@ class ClientThread(threading.Thread):
             if data_len < 8:
                 noData_cnt += 1
                 if noData_cnt > Retry_Cnt:
-                    print("NO DATA - closing connection")
+                    self.GUI.printc("NO DATA - closing connection")
                     break
             else:
                 noData_cnt = 0
-                # print("streaming_mode", streaming_mode)
+                # self.GUI.printc("streaming_mode", streaming_mode)
                 retstr = chr(calc_checksum(data))
-                retstr += chr(self.Motor_PWR[RIGHT])
-                retstr += chr(self.Motor_PWR[LEFT])
-                retstr += chr(self.Motor_RPM[RIGHT])
-                retstr += chr(self.Motor_RPM[LEFT])
+                retstr += chr(COMM_vars.Motor_PWR[RIGHT])
+                retstr += chr(COMM_vars.Motor_PWR[LEFT])
+                retstr += chr(COMM_vars.Motor_RPM[RIGHT])
+                retstr += chr(COMM_vars.Motor_RPM[LEFT])
                 retstr += chr(data[5])  # CntrlMask1
                 retstr += chr(COMM_vars.streaming_mode + COMM_BITSHIFT)  # CntrlMask2
                 retstr += chr(10) + chr(10)
@@ -127,29 +127,29 @@ class ClientThread(threading.Thread):
                 reply = retstr.ljust(RECMSGLEN, chr(10))
 
                 if Debug > 0:
-                    print("chksum", retstr[0])
+                    self.GUI.printc("chksum" + retstr[0].__str__())
 
                 if Debug > 2:
-                    print("DATA_IN>> " + data.__str__())
-                    print("DATA_OUT>> " + reply.__str__())
+                    self.GUI.printc("DATA_IN>> " + data.__str__())
+                    self.GUI.printc("DATA_OUT>> " + reply.__str__())
 
                 if self.Stream_Thread.res_queue.empty():
                     self.Stream_Thread.resolution = data[6] - COMM_BITSHIFT
-                    # print(">>>self.Stream_Thread.resolution", self.Stream_Thread.resolution)
+                    # self.GUI.printc(">>>self.Stream_Thread.resolution", self.Stream_Thread.resolution)
                 # else:
-                    # print("queue not empty")
+                    # self.GUI.printc("queue not empty")
                 try:
                     conn.sendall(reply.encode(Encoding))
                 except BrokenPipeError:
-                    print("transmit_message: BrokenPipeError")
+                    self.GUI.printc("transmit_message: BrokenPipeError")
                     break
                     # return None
                 except AttributeError:
-                    print("transmit_message: AttributeError")
+                    self.GUI.printc("transmit_message: AttributeError")
                     break
                     # return None
                 except OSError:
-                    print("transmit_message: OSError (client lost)")
+                    self.GUI.printc("transmit_message: OSError (client lost)")
                     break
                     # return None
 
@@ -160,10 +160,10 @@ class ClientThread(threading.Thread):
     def get_bytes_from_client(self, conn, count):
         try:
             data = conn.recv(count)
-            # print("data==>", data, len(data))
+            # self.GUI.printc("data==>", data, len(data))
         except socket.error:
             data = None
-            print("Socket error!")
+            self.GUI.printc("Socket error!")
 
         return data
 
@@ -173,37 +173,38 @@ class ClientThread(threading.Thread):
         Motor_PWR[RIGHT] = data[0] - COMM_BITSHIFT + data[1] - COMM_BITSHIFT
         Motor_PWR[LEFT] = (10 * (data[0] - COMM_BITSHIFT) % 10) + (data[2] - COMM_BITSHIFT)
 
-        # print("Motor_PWR", Motor_PWR)
+        # self.GUI.printc("Motor_PWR", Motor_PWR)
         return Motor_PWR
 
-    @staticmethod
-    def create_socket():
+    def create_socket(self):
         # Create Socket
         ClientThread.srv = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         # ClientThread.srv.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        print('Socket created')
+        self.GUI.printc('Socket created')
         srv_address = (HOST, Port_COMM)
 
         try:
             ClientThread.srv.bind(srv_address)
 
         except socket.error as msg:
-            print('Bind failed. Error Code : ' + msg.__str__())
-            # print('Bind failed. Error Code : ' + str(msg[0]) + ' Message ' + msg[1])
-            sys.exit()
+            self.GUI.printc('Bind failed. Error Code : ' + msg.__str__())
+            # self.GUI.printc('Bind failed. Error Code : ' + str(msg[0]) + ' Message ' + msg[1])
+            return False
 
         except OSError as msg:
-            print('Bind failed. Error Code : ' + str(msg[0]) + ' Message ' + msg[1])
-            print('Advice: check for python process to kill it!')
-            sys.exit()
+            self.GUI.printc('Bind failed. Error Code : ' + str(msg[0]) + ' Message ' + msg[1])
+            self.GUI.printc('Advice: check for python process to kill it!')
+            return False
 
-        print('Socket bind complete')
+        self.GUI.printc('Socket bind complete')
         # Start listening on socket
         return True
 
     def closesrv(self):
-        print("Closing socket[-]")
-        if self.srv is not None:
+        if self.srv is None:
+            self.GUI.printc("Socket is closed!")
+        else:
+            self.GUI.printc("Closing socket...")
             try:
                 self.srv.shutdown(socket.SHUT_RDWR)
             except OSError:
@@ -215,16 +216,19 @@ class ClientThread(threading.Thread):
                 pass
 
             ClientThread.srv = None
+            time.sleep(.5)
 
 
 class StreamThread(threading.Thread):
     resolution = 1
 
-    def __init__(self, TestMode):
+    def __init__(self, GUI, TestMode):
         threading.Thread.__init__(self)
         self.shutdown_flag = threading.Event()
 
+        self.GUI = GUI
         self.TestMode = TestMode
+
         self.player = [Gst.Pipeline.new("player"),
                   Gst.Pipeline.new("player_test")]
         self.capsfilter = [Gst.ElementFactory.make("capsfilter", "capsfilter"),
@@ -240,7 +244,7 @@ class StreamThread(threading.Thread):
         self.res_queue = queue.Queue()
 
     def run(self):
-        print('Streamer Thread #%s started' % self.ident)
+        self.GUI.printc('Streamer Thread #%s started' % self.ident)
 
         req_mode = Gst.State.READY
         self.res_queue.put(req_mode)
@@ -256,11 +260,11 @@ class StreamThread(threading.Thread):
                 if self.resolution > 0:
                     self.res_queue.put(Gst.State.PAUSED)
                     if self.TestMode is False:
-                        print("Resetting Gstreamer for resolution change")
+                        self.GUI.printc("Resetting Gstreamer for resolution change")
                         self.res_queue.put(Gst.State.READY)
                         self.res_queue.put(Gst.State.PAUSED)
                     else:
-                        print("Changing Gstreamer resolution")
+                        self.GUI.printc("Changing Gstreamer resolution")
                     self.res_queue.put(Gst.State.PLAYING)
                     self.res_queue.put(Gst.State.PLAYING)
                 else:
@@ -272,11 +276,11 @@ class StreamThread(threading.Thread):
                 curr_state = self.player[self.TestMode].get_state(1)[1]
                 if curr_state == req_mode:
                     if curr_state == Gst.State.PAUSED:
-                        print("Paused.")
+                        self.GUI.printc("Paused.")
                     elif curr_state == Gst.State.READY:
-                        print("Ready.")
+                        self.GUI.printc("Ready.")
                     elif curr_state == Gst.State.PLAYING:
-                        print("Streaming!")
+                        self.GUI.printc("Streaming!")
                         COMM_vars.streaming_mode = self.resolution
 
                     req_mode = self.res_queue.get()
@@ -291,13 +295,13 @@ class StreamThread(threading.Thread):
                     if self.resolution > 0:
                         caps = Gst.Caps.from_string(VideoCodec[self.TestMode] + capsstr[self.resolution])
                         self.capsfilter[self.TestMode].set_property("caps", caps)
-                    print("Pausing Gstreamer", end='... ')
+                    self.GUI.printc("Pausing Gstreamer...")
                 elif req_mode == Gst.State.READY:
-                    print("Preparing Gstreamer", end='... ')
+                    self.GUI.printc("Preparing Gstreamer...")
                 elif req_mode == Gst.State.PLAYING and self.resolution > 0:
-                    print("Requesting streaming in mode", self.resolution, end='... ')
+                    self.GUI.printc("Requesting streaming in mode " + self.resolution.__str__() + '... ')
                 else:
-                    print('ERROR: resolution', self.resolution, ", mode", req_mode)
+                    self.GUI.printc('ERROR: resolution' + self.resolution.__str__() + ", mode " + req_mode)
                     res_switch = 10
 
                 if res_switch == 0:
@@ -313,8 +317,7 @@ class StreamThread(threading.Thread):
         # self.init_Gstreamer.player[True].set_state(Gst.State.READY)
         # self.init_Gstreamer.player[False].set_state(Gst.State.NULL)
         # self.init_Gstreamer.player[True].set_state(Gst.State.NULL)
-        print('Streamer Thread #%s stopped' % self.ident)
-
+        self.GUI.printc('Streamer Thread #%s stopped' % self.ident)
 
     def init_Gstreamer(self):
         if HOST:
@@ -377,15 +380,17 @@ class StreamThread(threading.Thread):
 
 
 class DriverThread(threading.Thread):
-    def __init__(self):
+    def __init__(self, GUI):
         threading.Thread.__init__(self)
 
         # The shutdown_flag is a threading.Event object that
         # indicates whether the thread should be terminated.
         self.shutdown_flag = threading.Event()
 
+        self.GUI = GUI
+
     def run(self):
-        print('Driver Thread #%s started' % self.ident)
+        self.GUI.printc('Driver Thread #%s started' % self.ident)
         inc = 30 ; adx = 1
         idx = 30
         while not self.shutdown_flag.is_set():
@@ -402,6 +407,12 @@ class DriverThread(threading.Thread):
             # DistanceS1
             COMM_vars.DistanceS1 = chr(COMM_BITSHIFT + 100)
 
+            # Motor Power
+            COMM_vars.Motor_PWR = [60, 50]
+
+            # Mmotor RPM
+            COMM_vars.Motor_RPM = [80, 80]
+
             # TEMP - report every 3sec
             if idx == 30:
                 Tempstr = execute_cmd("LD_LIBRARY_PATH=/opt/vc/lib && /opt/vc/bin/vcgencmd measure_temp")
@@ -413,45 +424,48 @@ class DriverThread(threading.Thread):
             time.sleep(.1)
             idx += 1
 
-        print('Driver Thread #%s stopped' % self.ident)
+        self.GUI.printc('Driver Thread #%s stopped' % self.ident)
 
 
 # Function for handling connections. This will be used to create threads
-class ThreadRestart(threading.Thread):
-
-    def __init__(self):
+class ThreadManager(threading.Thread):
+    def __init__(self, GUI):
         threading.Thread.__init__(self)
         # # The shutdown_flag is a threading.Event object that
         # # indicates whether the thread should be terminated.
         self.shutdown_flag = threading.Event()
 
-        self.Driver_Thread = DriverThread()
-        self.Client_Thread = ClientThread()
-        # self.Stream_Thread = StreamThread(self.init_Gstreamer)
-        #
-        # try:
-        #     self.init_Gstreamer.player[False].get_state(1)[1]
-        # except:
-        #     print("init_Gstreamer()")
-            # self.init_Gstreamer()
+        self._GUI = GUI
+        self.GUI = Console(self._GUI)
+        self.Driver_Thread = DriverThread(self.GUI)
+        self.Client_Thread = ClientThread(self.GUI)
+
+        self.GUI.printc("Console " + VERSION + " initialized\n")
 
     def run(self):
-        print("services starting up...")
-        print('Thread manager #%s started' % self.ident)
-        self.Driver_Thread.start()
-        self.Client_Thread.start()
+        self.GUI.printc("services starting up...")
+        self.GUI.printc('Thread manager #%s started' % self.ident)
 
         while not self.shutdown_flag.is_set():
-            time.sleep(1)
+            if not self.Driver_Thread.is_alive():
+                self.Driver_Thread.start()
+            if not self.Client_Thread.is_alive():
+                self.Client_Thread.start()
+
+            self.GUI.display_message()
+
+            time.sleep(.25)
 
         # EXIT thread
         self.stop_()
 
     def stop_(self):
-        print("shutting down services...")
+        self.GUI.printc("shutting down services...")
+        self.GUI.display_message()
         self.Client_Thread.shutdown_flag.set()
         if self.Client_Thread.srv is not None:
             self.Client_Thread.closesrv()
+
         self.Driver_Thread.shutdown_flag.set()
 
         if self.Client_Thread.is_alive():
@@ -462,17 +476,47 @@ class ThreadRestart(threading.Thread):
         # except RuntimeError:
         #     pass
 
-        print('Thread manager #%s stopped' % self.ident)
-        self.__init__()
+        self.GUI.printc('Thread manager #%s stopped' % self.ident)
+        self.GUI.display_message()
+        self.__init__(self._GUI)
 
     def ProgramExit(self):
-        print("Exit requested!")
+        self.GUI.printc("Exit requested!")
 
         while self.is_alive():
             self.shutdown_flag.set()
             # print("Finishing threads...")
             time.sleep(.2)
 
+
+class Console:
+    def __init__(self, GUI):
+        self.GUI = GUI
+        if self.GUI:
+            self.TextBuffer = self.GUI.get_buffer()
+            self.TextQueue  = queue.Queue()
+
+        self.stdout = None
+
+    def printc(self, in_string):
+        if self.GUI:
+            self.TextQueue.put(in_string)
+        else:
+            print(in_string)
+
+    def display_message(self):
+        while not self.TextQueue.empty():
+        #     return True
+        # else:
+            Text = self.TextQueue.get()
+            if Text:
+                end_iter = self.TextBuffer.get_end_iter()
+                self.TextBuffer.insert(end_iter, Text + "\n")
+                # self.TextBuffer.insert_at_cursor(self.stdout)
+
+                mark = self.TextBuffer.get_insert()
+                self.GUI.scroll_to_mark(mark, 0.0, True, 0.5, 0.5)
+                time.sleep(.1)
 
 def execute_cmd(cmd_string):
     #  system("clear")
@@ -496,24 +540,33 @@ class ServiceExit(Exception):
 
 class GtkTsMain(Gtk.Window):
 
-    Thread_Restart = ThreadRestart()
-
     def __init__(self):
         builder = self.init_GUI()
         self.switch_ServerStart   = builder.get_object("Switch_ServerStart")
         self.StatusBar_TestServer = builder.get_object("StatusBar_TestServer")
+        self.TextView_Console     = builder.get_object("TextView_Console")
         self.context_id           = self.StatusBar_TestServer.get_context_id("message")
+
+        self.TextView_Console.override_color(Gtk.StateType.NORMAL, Gdk.RGBA(1, .75, 0, 1))
+        self.TextView_Console.override_background_color(Gtk.StateType.NORMAL, Gdk.RGBA(.15, 0.15, 0.15, 1))
+
+        self.Thread_Restart = None
+        self.init_Thread()
 
         self.show_all()
         builder.connect_signals(self)
 
         Gtk.main()
 
-    def init_GUI(self):
-        super(GtkTsMain, self).__init__()
+    def init_Thread(self):
+        self.Thread_Restart = ThreadManager(self.TextView_Console)
+
         # Register the signal handlers
         signal.signal(signal.SIGTERM, self.Thread_Restart.ProgramExit)
         signal.signal(signal.SIGINT, self.Thread_Restart.ProgramExit)
+
+    def init_GUI(self):
+        super(GtkTsMain, self).__init__()
 
         builder = Gtk.Builder()
         # builder.add_from_file(GUI_file)
@@ -525,16 +578,15 @@ class GtkTsMain(Gtk.Window):
         # self.set_deletable(False)
         self.set_destroy_with_parent(True)
 
-        self.set_title("TEST SERVER")
+        self.set_title("ROBOT SERVER")
         self.connect("destroy", self.gtk_main_quit)
         self.connect("delete-event", Gtk.main_quit)
 
         return builder
 
     def on_Switch_ServerStart_activate(self, widget, event):
-        on_btn = widget.get_active()
         # now keep talking with the client
-        if on_btn is True:  # and ClientThread.srv is None:
+        if widget.get_active() is True:  # and ClientThread.srv is None:
             # if ClientThread.srv is None:
             self.Thread_Restart.start()
             # self.set_deletable(False)
@@ -544,9 +596,9 @@ class GtkTsMain(Gtk.Window):
             while self.Thread_Restart.is_alive():
                 time.sleep(0.25)
 
+            self.init_Thread()
             # self.set_deletable(True)
             self.StatusBar_TestServer.push(self.context_id, "Port " + Port_COMM.__str__() + " closed.")
-            # self.Thread_Restart = ThreadRestart()
 
         self.show_all()
 

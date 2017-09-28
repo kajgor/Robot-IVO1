@@ -439,8 +439,6 @@ class RacConnection:
         # checksum  - transmission checksum
         # Motor_PWR - power delivered to motors
         # Motor_RPM - Motor rotations
-
-        # checksum
         # CheckSum = ord(resp[0])
 
         COMM_vars.Motor_PWR[RIGHT] = (ord(resp[1]) - COMM_BITSHIFT) + (ord(resp[2]) - COMM_BITSHIFT)
@@ -449,10 +447,10 @@ class RacConnection:
         COMM_vars.Motor_RPM[RIGHT] = (ord(resp[4]) - COMM_BITSHIFT) + (ord(resp[5]) - COMM_BITSHIFT)
         COMM_vars.Motor_RPM[LEFT] = (10 * ((ord(resp[4]) - COMM_BITSHIFT) % 10)) + (ord(resp[6]) - COMM_BITSHIFT)
 
-        CntrlMask1 = ord(resp[7])
-        CntrlMask2 = ord(resp[6])
-        if CntrlMask2 >= COMM_BITSHIFT:
-            COMM_vars.streaming_mode = CntrlMask2 - COMM_BITSHIFT
+        CntrlMask1 = ord(resp[6])
+        CntrlMask2 = ord(resp[7])
+        if CntrlMask1 >= COMM_BITSHIFT:
+            COMM_vars.streaming_mode = CntrlMask1 - COMM_BITSHIFT
 
         COMM_vars.CoreTemp = float(ord(resp[9]) - COMM_BITSHIFT) * 0.5
         COMM_vars.Current  = float((ord(resp[10]) - COMM_BITSHIFT) * 10 + (ord(resp[11]) - COMM_BITSHIFT)) * 0.01

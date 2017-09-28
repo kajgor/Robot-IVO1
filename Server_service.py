@@ -1,13 +1,12 @@
 #!/usr/bin/env python3.5
 # -*- coding: CP1252 -*-
 import atexit
-from ServerLib import ThreadRestart, ClientThread
+from ServerLib import ThreadManager
 
-Thread_Restart = ThreadRestart()
-atexit.register(Thread_Restart.ProgramExit)
+Thread_Manager = ThreadManager(None)
+atexit.register(Thread_Manager.ProgramExit)
 
-ClientThread.on_btn = True
-if ClientThread.srv is None:
-    Thread_Restart.start()
+if not Thread_Manager.is_alive():
+    Thread_Manager.start()
 
 exit(0)
