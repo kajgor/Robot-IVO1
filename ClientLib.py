@@ -45,7 +45,7 @@ class MainLoop:
         self.UpdateControlData()
         self.UpdateMonitorData()
 
-        self.GUI.statusbar2.push(self.GUI.context_id2, datetime.timedelta(seconds=int(self.counter)).__str__())
+        self.GUI.statusbar2.push(self.GUI.context_id2, str(datetime.timedelta(seconds=int(self.counter))))
         self.GUI.drawingarea_control.queue_draw()
 
         if COMM_vars.connected is True:

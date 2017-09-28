@@ -244,7 +244,7 @@ class MainWindow(Gtk.Window):
         if self.resolution == 4:
             self.movie_window.set_size_request(1280, 800)
         if self.resolution == 5:
-            self.movie_window.set_size_request(1280, 800)
+            self.movie_window.set_size_request(1920, 1080)
 
         COMM_vars.resolution = self.resolution * self.camera_on
 

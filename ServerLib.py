@@ -4,7 +4,7 @@ import signal
 import socket
 import queue
 import time
-import sys
+# import sys
 import gi
 import re
 gi.require_version('Gst', '1.0')
@@ -457,9 +457,9 @@ class ThreadManager(threading.Thread):
             time.sleep(.25)
 
         # EXIT thread
-        self.stop_()
+        self._stop()
 
-    def stop_(self):
+    def _stop(self):
         self.GUI.printc("shutting down services...")
         self.GUI.display_message()
         self.Client_Thread.shutdown_flag.set()
@@ -496,8 +496,6 @@ class Console:
             self.TextBuffer = self.GUI.get_buffer()
             self.TextQueue  = queue.Queue()
 
-        self.stdout = None
-
     def printc(self, in_string):
         if self.GUI:
             self.TextQueue.put(in_string)
@@ -505,14 +503,15 @@ class Console:
             print(in_string)
 
     def display_message(self):
+        if not self.GUI:
+            return
+
         while not self.TextQueue.empty():
-        #     return True
-        # else:
             Text = self.TextQueue.get()
             if Text:
                 end_iter = self.TextBuffer.get_end_iter()
                 self.TextBuffer.insert(end_iter, Text + "\n")
-                # self.TextBuffer.insert_at_cursor(self.stdout)
+                # self.TextBuffer.insert_at_cursor(Text.__str__() + "\n")
 
                 mark = self.TextBuffer.get_insert()
                 self.GUI.scroll_to_mark(mark, 0.0, True, 0.5, 0.5)
@@ -540,17 +539,24 @@ class ServiceExit(Exception):
 
 class GtkTsMain(Gtk.Window):
 
-    def __init__(self):
-        builder = self.init_GUI()
-        self.switch_ServerStart   = builder.get_object("Switch_ServerStart")
-        self.StatusBar_TestServer = builder.get_object("StatusBar_TestServer")
-        self.TextView_Console     = builder.get_object("TextView_Console")
-        self.context_id           = self.StatusBar_TestServer.get_context_id("message")
+    Main_Box   = ["MainBox_TSRV", "MainBox_TSRH"]
+    Sw_Start   = ["Switch_ServerStartV", "Switch_ServerStartH"]
+    SB_Server  = ["StatusBar_TestServerV", "StatusBar_TestServerH"]
+    TV_Console = ["TextView_ConsoleV", "TextView_ConsoleH"]
 
+    def __init__(self, POSITION):
+        self.Thread_Manager = None
+
+        builder = self.init_GUI(POSITION)
+
+        self.switch_ServerStart   = builder.get_object(self.Sw_Start[POSITION])
+        self.StatusBar_Server     = builder.get_object(self.SB_Server[POSITION])
+        self.TextView_Console     = builder.get_object(self.TV_Console[POSITION])
+
+        self.context_id           = self.StatusBar_Server.get_context_id("message")
         self.TextView_Console.override_color(Gtk.StateType.NORMAL, Gdk.RGBA(1, .75, 0, 1))
         self.TextView_Console.override_background_color(Gtk.StateType.NORMAL, Gdk.RGBA(.15, 0.15, 0.15, 1))
 
-        self.Thread_Restart = None
         self.init_Thread()
 
         self.show_all()
@@ -559,26 +565,27 @@ class GtkTsMain(Gtk.Window):
         Gtk.main()
 
     def init_Thread(self):
-        self.Thread_Restart = ThreadManager(self.TextView_Console)
+        self.Thread_Manager = ThreadManager(self.TextView_Console)
 
         # Register the signal handlers
-        signal.signal(signal.SIGTERM, self.Thread_Restart.ProgramExit)
-        signal.signal(signal.SIGINT, self.Thread_Restart.ProgramExit)
+        signal.signal(signal.SIGTERM, self.Thread_Manager.ProgramExit)
+        signal.signal(signal.SIGINT, self.Thread_Manager.ProgramExit)
 
-    def init_GUI(self):
+    def init_GUI(self, POSITION):
         super(GtkTsMain, self).__init__()
-
         builder = Gtk.Builder()
         # builder.add_from_file(GUI_file)
-        builder.add_objects_from_file(Paths.GUI_file, ("MainBox_TSRV", "StatusBar_TestServer"))
-        print("GUI file added: ", Paths.GUI_file)
+        builder.add_objects_from_file(Paths.GUI_file, (self.Main_Box[POSITION], self.SB_Server[POSITION],
+                                      self.TV_Console[POSITION], self.Sw_Start[POSITION]))
+        print("GUI file %s loaded. " % Paths.GUI_file)
 
-        self.add(builder.get_object("MainBox_TSRV"))
+        self.add(builder.get_object(self.Main_Box[POSITION]))
         self.set_resizable(False)
-        # self.set_deletable(False)
         self.set_destroy_with_parent(True)
+        # self.set_deletable(False)
 
         self.set_title("ROBOT SERVER")
+        # self.set_title(self.Main_Box[POSITION])
         self.connect("destroy", self.gtk_main_quit)
         self.connect("delete-event", Gtk.main_quit)
 
@@ -587,22 +594,21 @@ class GtkTsMain(Gtk.Window):
     def on_Switch_ServerStart_activate(self, widget, event):
         # now keep talking with the client
         if widget.get_active() is True:  # and ClientThread.srv is None:
-            # if ClientThread.srv is None:
-            self.Thread_Restart.start()
+            # if self.Thread_Manager is None:
+            self.Thread_Manager.start()
+            self.StatusBar_Server.push(self.context_id, "Port " + Port_COMM.__str__() + " open!")
             # self.set_deletable(False)
-            self.StatusBar_TestServer.push(self.context_id, "Waiting on port " + Port_COMM.__str__())
         else:
-            self.Thread_Restart.shutdown_flag.set()
-            while self.Thread_Restart.is_alive():
+            self.Thread_Manager.shutdown_flag.set()
+            while self.Thread_Manager.is_alive():
                 time.sleep(0.25)
 
             self.init_Thread()
             # self.set_deletable(True)
-            self.StatusBar_TestServer.push(self.context_id, "Port " + Port_COMM.__str__() + " closed.")
+            self.StatusBar_Server.push(self.context_id, "Port " + Port_COMM.__str__() + " closed.")
 
         self.show_all()
 
     def gtk_main_quit(self, dialog):
-        self.Thread_Restart.ProgramExit()
+        self.Thread_Manager.ProgramExit()
         Gtk.main_quit()
-
