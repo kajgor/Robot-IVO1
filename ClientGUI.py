@@ -6,11 +6,11 @@ gi.require_version('Gtk', '3.0')
 gi.require_version('GstVideo', '1.0')
 from gi.repository import Gtk, Gdk, GdkX11, GLib
 
-# from importlib import reload
-from init_variables import TIMEOUT_GUI, Paths, Debug, COMM_vars
+from Common_vars import TIMEOUT_GUI
+from Client_vars import Paths, Debug
 
 from config_rw import *
-from ClientLib import RacConnection, RacUio, RacDisplay, MainLoop
+from ClientLib import RacConnection, RacUio, RacDisplay, MainLoop, Console
 
 
 # noinspection PyAttributeOutsideInit
@@ -18,18 +18,44 @@ class MainWindow(Gtk.Window):
     def __init__(self):
         super(MainWindow, self).__init__()
 
-        # Read configuration
-        reset_save(Paths.cfg_file)
-        config_read(self, Paths.cfg_file)
-
         builder = self.init_vars
+
         self.context_id             = self.statusbar.get_context_id("message")
         self.context_id1            = self.statusbar1.get_context_id("message")
         self.context_id2            = self.statusbar2.get_context_id("message")
         self.camera_on = True
         self.resolution = 1
 
-        Rac_connection.load_HostList(self.combobox_host, self.Host)
+        self.Host, self.Port = None, None
+        # reset_save(Paths.cfg_file)
+
+        HostList, \
+        Mask1, \
+        RSA_Key, \
+        Key_Pass, \
+        Ssh_User, \
+        Remote_Host, \
+        Compression, \
+        Reserved_6, \
+        Reserved_7, \
+        Local_Test = config_read(Paths.cfg_file)
+
+        self.checkbutton_cam.set_active(bool(COMM_vars.resolution))
+        self.ComboBoxResolution.set_active(int(COMM_vars.resolution) - bool(COMM_vars.resolution))
+        self.CheckButton_Lights.set_active(COMM_vars.light)
+        self.CheckButton_Speakers.set_active(COMM_vars.speakers)
+        self.CheckButton_Display.set_active(COMM_vars.display)
+        self.CheckButton_Mic.set_active(COMM_vars.mic)
+        self.CheckButton_Laser.set_active(COMM_vars.laser)
+        self.CheckButton_Auto.set_active(COMM_vars.AutoMode)
+        self.Entry_RsaKey.set_text(RSA_Key)
+        self.Entry_KeyPass.set_text(Key_Pass)
+        self.Entry_User.set_text(Ssh_User)
+        self.Entry_RemoteHost.set_text(Remote_Host)
+        self.Switch_Compression.set_active(Compression)
+        self.checkbutton_localtest.set_active(Local_Test)
+
+        Rac_connection.load_HostList(self.combobox_host, HostList)
 
         ####### Main loop definition ###############
         GLib.timeout_add(TIMEOUT_GUI, MainLoop(self).on_timer)
@@ -40,9 +66,6 @@ class MainWindow(Gtk.Window):
         # print("self.CAMXPROP", self.CAMXPROP)
         # Connect signals
         builder.connect_signals(self)
-# ToDo
-        self.TEST_Host = "127.0.0.1"
-        self.TEST_Port = 12344
 
         if Debug > 2:
             print("Objects:")
@@ -63,8 +86,10 @@ class MainWindow(Gtk.Window):
     @property
     def init_vars(self):
         builder = Gtk.Builder()
-        builder.add_objects_from_file(Paths.GUI_file, ("MainBox_CON", "Adjustement_Port", "Action_StartTestServer"))
+        builder.add_objects_from_file(Paths.GUI_file, ("MainBox_CON", "Adjustement_Port", "Action_StartTestServer",
+                                                       "Window_Log", "Window_Advanced"))
         print("GUI file added: ", Paths.GUI_file)
+
         self.add(builder.get_object("MainBox_CON"))
         self.button_connect         = builder.get_object("ToggleButton_Connect")
         self.movie_window           = builder.get_object("DrawingArea_Cam")
@@ -72,12 +97,34 @@ class MainWindow(Gtk.Window):
         self.checkbutton_cam        = builder.get_object("CheckButton_Cam")
         self.combobox_host          = builder.get_object("ComboBox_Host")
         self.comboboxtext_host      = builder.get_object("ComboBoxTextEntry_Host")
+        self.CheckButton_Lights     = builder.get_object("CheckButton_Lights")
+        self.CheckButton_Speakers   = builder.get_object("CheckButton_Speakers")
+        self.CheckButton_Display    = builder.get_object("CheckButton_Display")
+        self.CheckButton_Mic        = builder.get_object("CheckButton_Mic")
+        self.CheckButton_Laser      = builder.get_object("CheckButton_Laser")
+        self.CheckButton_Auto       = builder.get_object("CheckButton_Auto")
+
         self.spinbutton_port        = builder.get_object("SpinButton_Port")
         self.drawingarea_control    = builder.get_object("DrawingArea_Control")
         self.statusbar              = builder.get_object("StatusBar")
-        self.statusbar1             = builder.get_object("StatusBar")
+        self.statusbar1             = builder.get_object("StatusBar1")
         self.statusbar2             = builder.get_object("StatusBar2")
         self.spinner_connection     = builder.get_object("spinner1")
+        self.togglebutton_log       = builder.get_object("ToggleButton_Log")
+        self.CheckButton_SshTunnel  = builder.get_object("CheckButton_SshTunnel")
+
+        self.LogWindow              = builder.get_object("Window_Log")
+        self.TextView_Log           = builder.get_object("TextView_Log")
+        self.TextView_Log.override_color(Gtk.StateType.NORMAL, Gdk.RGBA(1, .75, 0, 1))
+        self.TextView_Log.override_background_color(Gtk.StateType.NORMAL, Gdk.RGBA(.15, 0.15, 0.15, 1))
+
+        self.AdvancedWindow         = builder.get_object("Window_Advanced")
+        self.Entry_RsaKey           = builder.get_object("Entry_RsaKey")
+        self.Entry_KeyPass          = builder.get_object("Entry_KeyPass")
+        self.Entry_User             = builder.get_object("Entry_User")
+        self.Entry_RemoteHost       = builder.get_object("Entry_RemoteHost")
+        self.Switch_Compression     = builder.get_object("Switch_Compression")
+        self.on_Button_Adv          = builder.get_object("on_Button_Adv")
 
         self.LabelRpmL              = builder.get_object("LabelRpmL")
         self.LabelRpmR              = builder.get_object("LabelRpmR")
@@ -117,6 +164,7 @@ class MainWindow(Gtk.Window):
         self.combobox_host.set_sensitive(False)
         self.spinbutton_port.set_sensitive(False)
         self.checkbutton_localtest.set_sensitive(False)
+        self.CheckButton_SshTunnel.set_sensitive(False)
 
     def connect_gui_handlers(self):
         self.on_key_press_handler = self.connect("key-press-event", RacUio.on_key_press)
@@ -138,6 +186,7 @@ class MainWindow(Gtk.Window):
         # if Rac_connection.Test_Mode is False:
         self.combobox_host.set_sensitive(True)
         self.spinbutton_port.set_sensitive(True)
+        self.CheckButton_SshTunnel.set_sensitive(True)
 
     @staticmethod
     def on_DrawingArea_Control_draw(bus, message):
@@ -153,28 +202,17 @@ class MainWindow(Gtk.Window):
         Rac_Display.on_sync_message(message, self.CAMXPROP)
 
     def on_ComboBox_Host_changed(self, widget):
-        print("widget", widget.get_model()[widget.get_active()][1])
-        RacConnection.Host = widget.get_active_text()
-        RacConnection.Port_Comm = int(float(widget.get_model()[widget.get_active()][1]))
-        self.spinbutton_port.set_value(RacConnection.Port_Comm)
+        # print("widget", widget.get_model()[widget.get_active()][1])
+        self.Host = widget.get_active_text()
+        self.Port = int(float(widget.get_model()[widget.get_active()][1]))
+        self.spinbutton_port.set_value(self.Port)
 
-    @staticmethod
-    def on_SpinButton_Port_value_changed(widget):
-        RacConnection.Port_Comm = widget.get_value_as_int()
+    # @staticmethod
+    def on_SpinButton_Port_value_changed(self, widget):
+        self.Port = widget.get_value_as_int()
 
     def on_CheckButton_LocalTest_toggled(self, widget):
         RacConnection.Test_Mode = widget.get_active()
-        # if Rac_connection.Test_Mode is True:
-        #     Rac_connection.Last_Active = self.combobox_host.get_active()
-        #     self.combobox_host.set_sensitive(False)
-        #     self.spinbutton_port.set_sensitive(False)
-        #     self.combobox_host.prepend(self.TEST_Port.__str__(), self.TEST_Host)
-        #     self.combobox_host.set_active(0)
-        # else:
-        #     self.combobox_host.remove(0)
-        #     self.combobox_host.set_sensitive(True)
-        #     self.spinbutton_port.set_sensitive(True)
-        #     self.combobox_host.set_active(Rac_connection.Last_Active)
 
     def on_ToggleButton_Connect_toggled(self, widget):
         self.on_key_press_handler = None
@@ -182,51 +220,37 @@ class MainWindow(Gtk.Window):
             widget.set_label(Gtk.STOCK_DISCONNECT)
             self.connect_gui()
 
-            success = Rac_connection.establish_connection()
-
-            if Debug > 0:
-                print("success:", success)
-
-            if success is True:
-                self.connect_gui_handlers()
-                retmsg = "Server connected! " + RacConnection.srv.getsockname().__str__()
-                if Debug > 2:
-                    print(retmsg)
-
-                RacConnection.update_server_list(self.combobox_host, self.spinbutton_port.get_value())
-                # if self.checkbutton_cam.get_active() is True:
-                #     retmsg = RacConnection.connect_camstream(True)
-                #     if retmsg is True:
-                #         retmsg = "VIDEO CONNECTION ESTABILISHED: OK"
-                #     else:
-                #         retmsg = "VIDEO CONNECTION ERROR: Unable to set the pipeline to the playing state."
-
+            if self.CheckButton_SshTunnel.get_active() is True:
+                # print(self.Host, self.Port)
+                Host, Port = Rac_connection.open_ssh_tunnel(self.Host, self.Port,
+                                                            self.Entry_RsaKey.get_text(),
+                                                            self.Entry_KeyPass.get_text(),
+                                                            self.Entry_User.get_text(),
+                                                            self.Entry_RemoteHost.get_text(),
+                                                            self.Switch_Compression.get_active())
             else:
-                retmsg = "Connection Error [" + (RacConnection.Host, RacConnection.Port_Comm).__str__() + "]"
-                if Debug > 0: print(retmsg)
-                self.disconnect_gui()
+                Host, Port = self.Host, self.Port
 
+            success = bool(Host)
+            retmsg = "SSH Connection Error!"
+            if success is True:
+                success, retmsg = Rac_connection.establish_connection(Host, Port)
+
+                if success is True:
+                    self.connect_gui_handlers()
+                    RacConnection.update_server_list(self.combobox_host, self.spinbutton_port.get_value())
+
+            if success is not True:
+                self.disconnect_gui()
             self.statusbar.push(self.context_id, retmsg)
         else:
+            COMM_vars.connected = False
             widget.set_label(Gtk.STOCK_CONNECT)
-            Rac_connection.close_connection()
             self.statusbar.push(self.context_id, "Disconnected.")
             self.disconnect_gui()
 
     def on_CheckButton_Cam_toggled(self, widget):
         self.camera_on = widget.get_active()
-        # if COMM_vars.camera is True:
-        #     retmsg = Rac_connection.connect_camstream(True)
-        #     if retmsg is True:
-        #         retmsg = "VIDEO CONNECTION ESTABILISHED: OK"
-        #     else:
-        #         retmsg = "VIDEO CONNECTION ERROR: Unable to set the pipeline to the playing state."
-        # else:
-        #     retmsg = Rac_connection.connect_camstream(False)
-        #     if retmsg is True:
-        #         retmsg = "VIDEO DISCONNECTED: OK"
-        #     else:
-        #         retmsg = "VIDEO NOT CONNECTED!"
         COMM_vars.resolution = self.resolution * self.camera_on
         retmsg = "Camera:" + self.camera_on.__str__()
 
@@ -234,7 +258,7 @@ class MainWindow(Gtk.Window):
 
     def on_ComboBoxResolution_changed(self, widget):
         self.resolution = widget.get_active() + 1
-
+        # Console.print("Change mode to", self.resolution)
         if self.resolution == 1:
             self.movie_window.set_size_request(640, 480)
         if self.resolution == 2:
@@ -250,34 +274,71 @@ class MainWindow(Gtk.Window):
 
     def on_CheckButton_Speakers_toggled(self, widget):
         COMM_vars.speakers = widget.get_active()
+        Console.print("Speakers:", COMM_vars.speakers)
 
     def on_CheckButton_Display_toggled(self, widget):
         COMM_vars.display = widget.get_active()
+        Console.print("Display:", COMM_vars.display)
 
     def on_CheckButton_Lights_toggled(self, widget):
         COMM_vars.light = widget.get_active()
+        Console.print("Light:", COMM_vars.light)
 
     def on_CheckButton_Mic_toggled(self, widget):
         COMM_vars.mic = widget.get_active()
+        Console.print("Mic:", COMM_vars.mic)
 
     def on_CheckButton_Laser_toggled(self, widget):
         COMM_vars.laser = widget.get_active()
+        Console.print("Laser:", COMM_vars.laser)
+
+    def on_ToggleButton_Log_toggled(self, widget):
+        if widget.get_active() is True:
+            self.LogWindow.show()
+        else:
+            self.LogWindow.hide()
 
     def on_MainWindow_notify(self, bus, message):
+        print("***")
         return
 
+    def on_Button_AdvOk_activate(self, widget):
+        self.AdvancedWindow.hide()
+
     def on_Button_Preferences_clicked(self, widget):
-        print("TEXT IN COMBOBOX: ", self.combobox_host.get_active_text())
-        print("NO OF ITEMS:", self.combobox_host.get_model().iter_n_children())
-        Host_list = Rac_connection.HostList_get(self.combobox_host.get_model(), None)
-        Rac_connection.config_snapshot(Host_list)
+        self.AdvancedWindow.show()
+        # print("TEXT IN COMBOBOX: ", self.combobox_host.get_active_text())
+        # print("NO OF ITEMS:", self.combobox_host.get_model().iter_n_children())
+        # Host_list = Rac_connection.HostList_get(self.combobox_host.get_model(), None)
+        # Rac_connection.config_snapshot(Host_list)
+        # reset_save(Paths.cfg_file)
+
+    def on_Window_Advanced_delete_event(self, bus, message):
+        self.AdvancedWindow.hide()
+        return True
+
+    def save_config(self):
+        HostList = []
+        HostListRaw = self.combobox_host.get_model()
+        for iter_x in range(0, HostListRaw.iter_n_children()):
+            HostList.append(HostListRaw[iter_x][0] + ":" + HostListRaw[iter_x][1])
+
+        config_save(Paths.cfg_file, tuple(HostList),
+                    self.Entry_RsaKey.get_text(),
+                    self.Entry_KeyPass.get_text(),
+                    self.Entry_User.get_text(),
+                    self.Entry_RemoteHost.get_text(),
+                    self.Switch_Compression.get_active(),
+                    False,
+                    False,
+                    self.checkbutton_localtest.get_active())
 
     def gtk_main_quit(self, dialog):
         Rac_connection.close_connection()
-        Host_list = Rac_connection.HostList_get(self.combobox_host.get_model(), None)
-        Rac_connection.config_snapshot(Host_list)
+        # Host_list = Rac_connection.HostList_get(self.combobox_host.get_model(), None)
+        # Rac_connection.config_snapshot(Host_list)
+        self.save_config()
 
-        # config_save(self, cfg_file)
         Gtk.main_quit ()
 
 ###############################################################################
@@ -290,4 +351,5 @@ def main():
 if __name__ == "__main__":
     Rac_connection = RacConnection()
     Rac_Display = RacDisplay()
+    # Rac_Console = Console(True)
     main()

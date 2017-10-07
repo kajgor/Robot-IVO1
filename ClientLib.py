@@ -1,23 +1,26 @@
+import subprocess
 import datetime
 import socket
-import cairo
-import math
+import queue
 import time
-import re
-
 import gi
+
+
 gi.require_version('Gst', '1.0')
 gi.require_version('Gdk', '3.0')
 gi.require_version('GstVideo', '1.0')
-from gi.repository import Gst, GstVideo, Gdk
-# from os import system
-import subprocess
-# from subprocess import call
+from gi.repository import Gst, GstVideo, Gdk, GdkPixbuf
+
+from sshtunnel import SSHTunnelForwarder
+from paramiko import RSAKey
+from cairo import ImageSurface
+from math import pi
+from re import findall
 from _thread import *
-from init_variables import *
+from Common_vars import *
+from Client_vars import *
 
 Gst.init(None)
-# Gdk.threads_init()
 
 
 class MainLoop:
@@ -25,8 +28,12 @@ class MainLoop:
     ################   MAIN LOOP START   ##########################################
     ###############################################################################
     def __init__(self, GUI):
-        self.GUI = GUI
         self.counter = 0
+        self.GUI = GUI
+        # self.Console = Console()
+        self.Console = Console()
+        self.TextView_Log = self.GUI.TextView_Log
+        Console.print("Console 3.0 initialized.\n")
 
     def on_timer(self):
         if COMM_vars.connected:
@@ -44,6 +51,7 @@ class MainLoop:
         # Any update tasks would go here (moving sprites, advancing animation frames etc.)
         self.UpdateControlData()
         self.UpdateMonitorData()
+        self.Console.display_message(self.TextView_Log)
 
         self.GUI.statusbar2.push(self.GUI.context_id2, str(datetime.timedelta(seconds=int(self.counter))))
         self.GUI.drawingarea_control.queue_draw()
@@ -53,35 +61,35 @@ class MainLoop:
                 RacUio.get_speed_and_direction()  # Keyboard input
                 RacUio.calculate_MotorPower()
                 RacUio.mouseInput()               # Mouse input
-
         else:
-            self.GUI.button_connect.set_active(False)
-            self.GUI.on_ToggleButton_Connect_toggled(self.GUI.button_connect)
+            if self.GUI.button_connect.get_active() is True:
+                self.GUI.button_connect.set_active(False)
+                self.GUI.on_ToggleButton_Connect_toggled(self.GUI.button_connect)
 
         return True
 
     def UpdateMonitorData(self):
-        self.GUI.LabelRpmL.set_text(COMM_vars.Motor_RPM[LEFT].__str__())
-        self.GUI.LabelRpmR.set_text(COMM_vars.Motor_RPM[RIGHT].__str__())
-        self.GUI.LabelPowerL.set_text(COMM_vars.Motor_PWR[LEFT].__str__())
-        self.GUI.LabelPowerR.set_text(COMM_vars.Motor_PWR[RIGHT].__str__())
-        self.GUI.LabelRpmReqL.set_text(COMM_vars.Motor_Power[LEFT].__str__())
-        self.GUI.LabelRpmReqR.set_text(COMM_vars.Motor_Power[RIGHT].__str__())
-        self.GUI.LabelRpmAckL.set_text(COMM_vars.Motor_ACK[LEFT].__str__())
-        self.GUI.LabelRpmAckR.set_text(COMM_vars.Motor_ACK[RIGHT].__str__())
-        self.GUI.LabelCamPosH.set_text(COMM_vars.CamPos[X_AXIS].__str__())
-        self.GUI.LabelCamPosV.set_text(COMM_vars.CamPos[Y_AXIS].__str__())
+        self.GUI.LabelRpmL.set_text(COMM_vars.motor_RPM[LEFT].__str__())
+        self.GUI.LabelRpmR.set_text(COMM_vars.motor_RPM[RIGHT].__str__())
+        self.GUI.LabelPowerL.set_text(COMM_vars.motor_PWR[LEFT].__str__())
+        self.GUI.LabelPowerR.set_text(COMM_vars.motor_PWR[RIGHT].__str__())
+        self.GUI.LabelRpmReqL.set_text(COMM_vars.motor_Power[LEFT].__str__())
+        self.GUI.LabelRpmReqR.set_text(COMM_vars.motor_Power[RIGHT].__str__())
+        self.GUI.LabelRpmAckL.set_text(COMM_vars.motor_ACK[LEFT].__str__())
+        self.GUI.LabelRpmAckR.set_text(COMM_vars.motor_ACK[RIGHT].__str__())
+        self.GUI.LabelCamPosH.set_text(COMM_vars.camPosition[X_AXIS].__str__())
+        self.GUI.LabelCamPosV.set_text(COMM_vars.camPosition[Y_AXIS].__str__())
 
-        self.GUI.LabelCoreTemp.set_text("{:.2f}".format(COMM_vars.CoreTemp).__str__())
-        self.GUI.LabelBattV.set_text("{:.2f}".format(COMM_vars.Voltage).__str__())
-        self.GUI.LabelPowerA.set_text("{:.2f}".format(COMM_vars.Current).__str__())
-        self.GUI.LabelS1Dist.set_text(COMM_vars.DistanceS1.__str__())
+        self.GUI.LabelCoreTemp.set_text("{:.2f}".format(COMM_vars.coreTemp).__str__())
+        self.GUI.LabelBattV.set_text("{:.2f}".format(COMM_vars.voltage).__str__())
+        self.GUI.LabelPowerA.set_text("{:.2f}".format(COMM_vars.current).__str__())
+        self.GUI.LabelS1Dist.set_text(COMM_vars.distanceS1.__str__())
 
         return
 
     def UpdateControlData(self):
-        self.GUI.LevelBar_Voltage.set_value(int(COMM_vars.Voltage * 10))
-        self.GUI.LevelBar_Current.set_value(int(COMM_vars.Current * 10))
+        self.GUI.LevelBar_Voltage.set_value(int(COMM_vars.voltage * 10))
+        self.GUI.LevelBar_Current.set_value(int(COMM_vars.current * 10))
         self.GUI.LeverBar_PowerL.set_value(65)
         self.GUI.LeverBar_PowerR.set_value(65)
         # print("int(COMM_vars.Current * 10) - 70", int(COMM_vars.Current * 10))
@@ -95,12 +103,16 @@ class MainLoop:
 # noinspection PyPep8Naming
 class RacConnection:
     srv = None
+    tunnel = None
     Test_Mode = False
     Host = None
     Port_Comm = None
     Last_Active = 0
     player = [Gst.Pipeline.new("player"),
               Gst.Pipeline.new("player_test")]
+
+    SourceA = False
+    SourceB = True
 
     def __init__(self):
         self.source = [Gst.ElementFactory.make("tcpclientsrc", "source"),
@@ -111,30 +123,28 @@ class RacConnection:
                          Gst.ElementFactory.make("videoconvert")]
         self.sink = [Gst.ElementFactory.make("ximagesink", "sink"), # glimagesink(default)/gtksink/cacasink/autovideosink
                      Gst.ElementFactory.make("ximagesink", "sink_test")]
-        self.sink[False].set_property("sync", False)
-        self.sink[True].set_property("sync", False)
+        self.sink[self.SourceA].set_property("sync", False)
+        self.sink[self.SourceB].set_property("sync", False)
         self.Cam_idle = 0
 
         if not self.sink or not self.source:
-            print("GL elements not available.")
+            print("ERROR! GL elements not available.")
             exit()
 
-        # if self.Test_Mode is True:
         self.gst_init_test()
-        # else:
         self.gst_init_cam()
 
     def gst_init_test(self):
         # receive raw test image generated by gstreamer server
         # --- Gstreamer setup begin ---
-        self.player[True].add(self.source[True])
-        self.player[True].add(self.decoder[True])
-        self.player[True].add(self.vconvert[True])
-        self.player[True].add(self.sink[True])
+        self.player[self.SourceB].add(self.source[self.SourceB])
+        self.player[self.SourceB].add(self.decoder[self.SourceB])
+        self.player[self.SourceB].add(self.vconvert[self.SourceB])
+        self.player[self.SourceB].add(self.sink[self.SourceB])
 
-        self.source[True].link(self.decoder[True])
-        self.decoder[True].link(self.vconvert[True])
-        self.vconvert[True].link(self.sink[True])
+        self.source[self.SourceB].link(self.decoder[self.SourceB])
+        self.decoder[self.SourceB].link(self.vconvert[self.SourceB])
+        self.vconvert[self.SourceB].link(self.sink[self.SourceB])
         # --- Gstreamer setup end ---
 
     def gst_init_cam(self):
@@ -145,48 +155,92 @@ class RacConnection:
         video_flip = Gst.ElementFactory.make("videoflip", "flip")
         video_flip.set_property("method", "rotate-180")
 
-        self.player[False].add(self.source[False])
-        self.player[False].add(self.decoder[False])
-        self.player[False].add(rtimer)
-        self.player[False].add(avdec)
-        self.player[False].add(self.vconvert[False])
-        self.player[False].add(video_flip)
-        self.player[False].add(self.sink[False])
+        self.player[self.SourceA].add(self.source[self.SourceA])
+        self.player[self.SourceA].add(self.decoder[self.SourceA])
+        self.player[self.SourceA].add(rtimer)
+        self.player[self.SourceA].add(avdec)
+        self.player[self.SourceA].add(self.vconvert[self.SourceA])
+        self.player[self.SourceA].add(video_flip)
+        self.player[self.SourceA].add(self.sink[self.SourceA])
 
-        self.source[False].link(self.decoder[False])
-        self.decoder[False].link(rtimer)
+        self.source[self.SourceA].link(self.decoder[self.SourceA])
+        self.decoder[self.SourceA].link(rtimer)
         rtimer.link(avdec)
-        avdec.link(self.vconvert[False])
-        self.vconvert[False].link(video_flip)
-        video_flip.link(self.sink[False])
+        avdec.link(self.vconvert[self.SourceA])
+        self.vconvert[self.SourceA].link(video_flip)
+        video_flip.link(self.sink[self.SourceA])
         # --- Gstreamer setup end ---
 
-    def establish_connection(self):
-        if Debug > 2: print("Estabilishing Connection:", self.Host, self.Port_Comm)
+    def open_ssh_tunnel(self, Host, Port, rsa_file, rsa_password, username, remote_host, compression):
+        Console.print("Tunneling mode started")
+        self.tunnel = SSHTunnelForwarder(
+            (Host, Port),  # jump server address
+            ssh_username=username,
+            ssh_pkey=RSAKey.from_private_key_file(rsa_file, password=rsa_password),
+            remote_bind_addresses=[(remote_host, Port_COMM), (remote_host, Port_CAM0)],  # storage box ip address
+            local_bind_addresses=[('localhost', Port_COMM), ('127.0.0.1', Port_CAM0)],
+            compression=compression)
+
+        try:
+            self.tunnel.start()
+            Console.print("SSH tunnels opened on ports:\n   ", self.tunnel.local_bind_ports)
+            # self.tunnel.check_tunnels()
+        except:
+            Console.print("SSH Connection Error!!!")
+            return None, None
+
+        return "localhost", Port_COMM
+
+    def establish_connection(self, Host, Port):
+        # if Debug > 2:
+        Console.print("Estabilishing connection with \n %s on port"  % Host, Port)
 
         # Gstreamer setup start
-        self.source[self.Test_Mode].set_property("host", self.Host)
-        self.source[self.Test_Mode].set_property("port", self.Port_Comm.__int__() + 1)
+        self.source[self.Test_Mode].set_property("host", Host)
+        self.source[self.Test_Mode].set_property("port", Port.__int__() + 1)
         # Gstreamer setup end
 
-        start_new_thread(self.connection_thread, (self.Host, self.Port_Comm))
-        time.sleep(1.5)
+        start_new_thread(self.connection_thread, (Host, Port))
+        time.sleep(0.25)
 
-        return COMM_vars.connected
+        l_iter = 0
+        while COMM_vars.connected is False and l_iter < 10:
+            l_iter += 1
+            Console.print("Retry:", l_iter)
+            time.sleep(0.25)
+
+        if COMM_vars.connected is True:
+            retmsg = "Server connected! " + self.srv.getsockname().__str__()
+            # if Debug > 2:
+            Console.print(retmsg)
+        else:
+            retmsg = "Connection Error [" + (Host, Port).__str__() + "]"
+            # if Debug > 0:
+            Console.print(retmsg)
+
+        return COMM_vars.connected, retmsg
 
     def close_connection(self):
-        if Debug > 1:
-            print("Closing connection...")
+        # if Debug > 1:
+        Console.print("Closing connection...")
+        # print("Closing connection...")
         self.player[self.Test_Mode].set_state(Gst.State.NULL)
+
+        try:
+            self.tunnel.close()
+        except:
+            Console.print("tunnel not open")
 
         try:
             self.srv.shutdown(socket.SHUT_RDWR)
         except OSError:
-            if Debug > 1:
-                print("...not connected!")
+            # if Debug > 1:
+            Console.print("...not connected!")
+            # print("...not connected!")
         except AttributeError:
-            if Debug > 1:
-                print("...not connected!")
+            # if Debug > 1:
+            Console.print("...not connected!")
+            # print("...not connected!")
 
         try:
             RacConnection.srv.close()
@@ -194,14 +248,15 @@ class RacConnection:
             RacConnection.srv = None
 
         COMM_vars.connected = False
-        if Debug > 1: print("Connection closed.")
+        # if Debug > 1:
+        Console.print("Connection closed.")
+        # print("Connection closed.")
 
     @staticmethod
     def check_connection(HostIp):
         try:
             # status = self.srv.getsockname()
             status = RacConnection.srv.getpeername()
-            # print("Status", status)
         except OSError:
             status = (False, False)
 
@@ -210,10 +265,10 @@ class RacConnection:
                 HostIp = status[0]
 
         if status[0] == HostIp:
-            if Debug > 2: print("Connection status: " + status.__str__())
+            if Debug > 2: Console.print("Connection status: " + status.__str__())
             return True
         else:
-            if Debug > 1: print("Not connected.")
+            if Debug > 1: Console.print("Not connected.")
             return False
 
     ###############################################################################
@@ -221,62 +276,68 @@ class RacConnection:
     ###############################################################################
 
     def connection_thread(self, Host, Port_Comm):
-        if Debug > 2: print("Connecting...")
+        if Debug > 2:
+            Console.print("Connecting...")
         RacConnection.srv = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         server_address = (Host, Port_Comm)
         IP_addr = socket.gethostbyname(Host)
-        print(server_address, "[", IP_addr, "]")
+        # Console.print(server_address, "[", IP_addr, "]")
+        Console.print("RacCONN:", end="")
+
         try:
             self.srv.connect(server_address)
             COMM_vars.connected = True
-            if Debug > 2: print("Connected! self.srv.getpeername()", self.srv.getpeername())
         except ConnectionResetError:
             COMM_vars.connected = False
-            if Debug > 0: print("Server not responding <", COMM_vars.connected, ">")
+            Console.print("server not responding.")
         except ConnectionRefusedError:
             COMM_vars.connected = False
-            if Debug > 0: print("Server refused connection <", COMM_vars.connected, ">")
+            Console.print("Server refused connection.")
         except socket.gaierror:
             COMM_vars.connected = False
-            if Debug > 0: print("Invalid protocol <", COMM_vars.connected, ">")
+            Console.print("Invalid protocol.")
 
         if COMM_vars.connected is True:
-            time.sleep(1.48)
+            Console.print("link with", self.srv.getpeername(), "estabilished.")
+            time.sleep(1)
+            # time.sleep(1.48)
             # Send initial string for Gstreamer
-            ipint_list = map(int, re.findall('\d+', IP_addr))
-            initstr = "IP" + chr(self.Test_Mode + COMM_BITSHIFT)
+            ipint_list = map(int, findall('\d+', IP_addr))
+            initstr = "IP" + chr(self.Test_Mode)
             for ipint in ipint_list:
-                initstr += chr(ipint + COMM_BITSHIFT)
-            print(">>>>> initstr:", initstr)
+                initstr += chr(ipint)
+
+            if Debug > 0:
+                Console.print(">>> init message sent:", initstr)
+
             self.transmit_message(initstr)
 
-        # rac__uio = RacUio()
         restart = bool(COMM_vars.resolution)
-        resolution_last = COMM_vars.resolution
+        resolution_last = 0
         while COMM_vars.connected is True:
             if CommunicationFFb is True:
                 RacUio.get_speed_and_direction()  # Keyboard input
                 RacUio.calculate_MotorPower()     # Set control variables
                 RacUio.mouseInput()               # Set mouse Variables
-# ToDo: resolution_last to be local
+
             if COMM_vars.resolution != resolution_last:
                 restart = bool(COMM_vars.resolution)
-                print("COMM_vars.camera", restart)
                 resolution_last = COMM_vars.resolution
-                print("stopping cam video!")
+                if COMM_vars.resolution > 0:
+                    Console.print("Requesting mode", COMM_vars.resolution, end='...')
+                else:
+                    Console.print("Pausing Video Stream")
                 self.connect_camstream(False)
 
-            # print("res_changed", res_changed)
             if COMM_vars.resolution == COMM_vars.streaming_mode and restart is True:
-                restart = False
-                print("starting cam video!")
+                Console.print("OK!")
                 restart = self.connect_camstream(True)
 
             if self.check_connection(None) is True:
                 self.send_and_receive()
 
         self.close_connection()
-        print("Closing Thread: COMM_vars.connected is", COMM_vars.connected)
+        Console.print("Closing Thread.")
         exit_thread()
 
     def send_and_receive(self):
@@ -284,22 +345,22 @@ class RacConnection:
             request  = self.encode_message()
             checksum = self.transmit_message(request)
             if checksum is None:
-                COMM_vars.ConnErr += 1
-                if COMM_vars.ConnErr > COMM_vars.RetryCnt:
-                    COMM_vars.ConnErr = 0
+                COMM_vars.connErr += 1
+                if COMM_vars.connErr > RETRY_LIMIT:
+                    COMM_vars.connErr = 0
                     COMM_vars.connected = False
                 return
             else:
-                COMM_vars.ConnErr = 0
+                COMM_vars.connErr = 0
 
-            time.sleep(COMM_vars.RESP_DELAY)
+            time.sleep(RESP_DELAY)
             resp = self.receive_message()
             if resp is not None:
                 if checksum == ord(resp[0]):
                     RacConnection.decode_transmission(resp)
-                    COMM_vars.Motor_ACK = COMM_vars.Motor_Power
+                    COMM_vars.motor_ACK = COMM_vars.motor_Power
                 if Debug > 1:
-                    print("CheckSum Sent/Received:", checksum, ord(resp[0]))
+                    Console.print("CheckSum Sent/Received:", checksum, ord(resp[0]))
         else:
             self.transmit_message("HALTHALT")
             COMM_vars.connected = False
@@ -329,27 +390,27 @@ class RacConnection:
             retmsg = "VIDEO CONNECTION ESTABILISHED: OK"
             success = True
 
-        if Debug > 1: print(retmsg)
+        if Debug > 1: Console.print(retmsg)
         return retmsg, success
 
     def transmit_message(self, out_str):
-        sendstr = str(chr(COMM_BITSHIFT - 1) + out_str + chr(10)).encode(Encoding)
+        sendstr = str(chr(0) + out_str + chr(10)).encode(Encoding)
         if Debug > 1:
-            print("CLISENT[len]: " + len(sendstr).__str__())
+            Console.print("CLISENT[len]: " + len(sendstr).__str__())
 
         if self.srv is None:
-            print("self.srv is NONE!")
+            Console.print("self.srv is NONE!")
             return None
         try:
             self.srv.sendall(sendstr)
         except BrokenPipeError:
-            print("transmit_message: BrokenPipeError")
+            Console.print("transmit_message: BrokenPipeError")
             return None
         except AttributeError:
-            print("transmit_message: AttributeError")
+            Console.print("transmit_message: AttributeError")
             return None
         except OSError:
-            print("transmit_message: OSError (server lost)")
+            Console.print("transmit_message: OSError (server lost)")
             return None
 
         return calc_checksum(sendstr)
@@ -363,7 +424,7 @@ class RacConnection:
             return None
 
         if Debug > 2:
-            print("CLIRCVD[len]: " + len(data).__str__())
+            Console.print("CLIRCVD[len]: " + len(data).__str__())
 
         try:
             data_end = data[14]
@@ -377,10 +438,10 @@ class RacConnection:
             try:
                 self.srv.recv(1024)  # flush buffer
             except OSError:
-                print("transmit_message [flush]: OSError (server lost)")
+                Console.print("transmit_message [flush]: OSError (server lost)")
                 return None
 
-            if Debug > 1: print(">>>FlushBuffer>>>")
+            if Debug > 1: Console.print(">>>FlushBuffer>>>")
             return None
 
     @staticmethod
@@ -394,14 +455,14 @@ class RacConnection:
             except:
                 Port = Port
 
-            # print("Selected: Port=%s, Host=%s" % (int(Port), Host))
+            # Console.print("Selected: Port=%s, Host=%s" % (int(Port), Host))
         else:
             entry = combobox_host.get_child()
             combobox_host.prepend(port.__str__(), entry.get_text())
             combobox_host.set_active(0)
 
-            print("New entry: %s" % entry.get_text())
-            print("New port: %s" % port.__str__())
+            Console.print("New entry: %s" % entry.get_text())
+            Console.print("New port: %s" % port.__str__())
 
     def HostList_get(self, model, HostToFind):
         HostList = []
@@ -413,24 +474,19 @@ class RacConnection:
                     return iter_x
 
         if HostToFind is None:
-            print("HostList_str: [%d]" % model.iter_n_children(), HostList)
+            Console.print("HostList_str: [%d]" % model.iter_n_children(), HostList)
             return HostList
         else:
             return False
 
-    def config_snapshot(self, Host):
-        self.Host = Host
-        # ToDo:
-        self.Port_Comm = "5000"
-        self.Port_Video = "5001"
-        self.Port_Audio = "5002"
-        self.Gstreamer_Path = "/usr/bin"
-
-    def load_HostList(self, combobox_host, HostList_str):
+    @staticmethod
+    def load_HostList(combobox_host, HostList_str):
         x = 0
         for HostName in HostList_str:
+            # print("HostName", HostName)
             Host = HostName.split(":")[0]
             Port = HostName.split(":")[1]
+            # Ssh  = HostName.split(":")[2]
             combobox_host.insert(x, Port, Host)
             x += 1
 
@@ -441,46 +497,43 @@ class RacConnection:
         # Motor_RPM - Motor rotations
         # CheckSum = ord(resp[0])
 
-        COMM_vars.Motor_PWR[RIGHT] = (ord(resp[1]) - COMM_BITSHIFT) + (ord(resp[2]) - COMM_BITSHIFT)
-        COMM_vars.Motor_PWR[LEFT] = (10 * ((ord(resp[1]) - COMM_BITSHIFT) % 10)) + (ord(resp[3]) - COMM_BITSHIFT)
+        COMM_vars.motor_PWR[RIGHT] = ord(resp[1])
+        COMM_vars.motor_PWR[LEFT]  = ord(resp[2])
 
-        COMM_vars.Motor_RPM[RIGHT] = (ord(resp[4]) - COMM_BITSHIFT) + (ord(resp[5]) - COMM_BITSHIFT)
-        COMM_vars.Motor_RPM[LEFT] = (10 * ((ord(resp[4]) - COMM_BITSHIFT) % 10)) + (ord(resp[6]) - COMM_BITSHIFT)
+        COMM_vars.motor_RPM[RIGHT] = ord(resp[3])
+        COMM_vars.motor_RPM[LEFT]  = ord(resp[4])
 
         CntrlMask1 = ord(resp[6])
         CntrlMask2 = ord(resp[7])
-        if CntrlMask1 >= COMM_BITSHIFT:
-            COMM_vars.streaming_mode = CntrlMask1 - COMM_BITSHIFT
+        if CntrlMask1 >= 0:
+            COMM_vars.streaming_mode = CntrlMask1
 
-        COMM_vars.CoreTemp = float(ord(resp[9]) - COMM_BITSHIFT) * 0.5
-        COMM_vars.Current  = float((ord(resp[10]) - COMM_BITSHIFT) * 10 + (ord(resp[11]) - COMM_BITSHIFT)) * 0.01
-        COMM_vars.Voltage  = float((ord(resp[12]) - COMM_BITSHIFT) * 10 + (ord(resp[13]) - COMM_BITSHIFT)) * 0.01
-        # print("Motor_ACK/PWR/RPM", COMM_vars.CheckSum, COMM_vars.Motor_PWR, COMM_vars.Motor_RPM)
+        COMM_vars.coreTemp = float(ord(resp[9])) * 0.5
+        COMM_vars.current  = float((ord(resp[10])) * 10 + (ord(resp[11]))) * 0.01
+        COMM_vars.voltage  = float((ord(resp[12])) * 10 + (ord(resp[13]))) * 0.01
+        # Console.print("Motor_ACK/PWR/RPM", COMM_vars.CheckSum, COMM_vars.Motor_PWR, COMM_vars.Motor_RPM)
 
     @staticmethod
     def encode_message():
-        # print("MP l/r:", Motor_Power[RIGHT], Motor_Power[LEFT])
-        # print("COMM_vars.Motor_Power", COMM_vars.Motor_Power)
         CntrlMask1 = 0
-        for idx, x in enumerate([COMM_vars.light, COMM_vars.speakers, COMM_vars.mic,
-                                 COMM_vars.display, COMM_vars.laser, 0, 0, 0]):
+        for idx, x in enumerate([COMM_vars.AutoMode, COMM_vars.light, COMM_vars.speakers, COMM_vars.mic,
+                                 COMM_vars.display, COMM_vars.laser, 0, 0]):
             CntrlMask1 |= (x << idx)
 
-        requestMsg = chr(COMM_vars.Motor_Power[RIGHT] + 51 + COMM_BITSHIFT)
-        requestMsg += chr(COMM_vars.Motor_Power[LEFT] + 51 + COMM_BITSHIFT)
-        requestMsg += chr(COMM_vars.CamPos[X_AXIS])
-        requestMsg += chr(COMM_vars.CamPos[Y_AXIS])
+        requestMsg = chr(COMM_vars.motor_Power[RIGHT] + 51)
+        requestMsg += chr(COMM_vars.motor_Power[LEFT] + 51)
+        requestMsg += chr(COMM_vars.camPosition[X_AXIS])
+        requestMsg += chr(COMM_vars.camPosition[Y_AXIS])
         requestMsg += chr(CntrlMask1)
-        CntrlMask2 = COMM_vars.resolution
-        requestMsg += chr(CntrlMask2 + COMM_BITSHIFT)
+        requestMsg += chr(100 * RIGHT + 10 * LEFT + COMM_vars.resolution)
         if Debug == 2:
-            print("requestMsg", requestMsg)
+            Console.print("requestMsg", requestMsg)
 
         return requestMsg
 
 
 class RacDisplay:
-    background_control = cairo.ImageSurface.create_from_png(Paths.background_file)
+    background_control = ImageSurface.create_from_png(Paths.background_file)
 
     def draw_arrow(self, message):
         message.set_source_surface(self.background_control, 15, 0)
@@ -490,9 +543,9 @@ class RacDisplay:
         message.translate(105, 81)
 
         if COMM_vars.speed >= 0:
-            message.rotate(COMM_vars.direction / (math.pi * 5))
+            message.rotate(COMM_vars.direction / (pi * 5))
         else:
-            message.rotate((COMM_vars.direction + MAX_SPEED) / (math.pi * 5))
+            message.rotate((COMM_vars.direction + MAX_SPEED) / (pi * 5))
 
         # Direction arrow
         message.set_source_rgb(0.25, 0.25, 0.25)
@@ -513,7 +566,7 @@ class RacDisplay:
 
         # Speed arrow (ACK)
         message.set_source_rgb(0, 0.75, 0.75)
-        speed_ACK = abs(COMM_vars.Motor_ACK[0] + COMM_vars.Motor_ACK[1]) * 0.5
+        speed_ACK = abs(COMM_vars.motor_ACK[0] + COMM_vars.motor_ACK[1]) * 0.5
         message.line_to(arrow.points[1][0], arrow.points[1][1])
         message.line_to(arrow.points[0][0], arrow.points[0][1] + 60 - speed_ACK)
         message.line_to(arrow.points[3][0], arrow.points[3][1])
@@ -525,7 +578,7 @@ class RacDisplay:
             RacConnection.player[RacConnection.Test_Mode].set_state(Gst.State.NULL)
             if Debug > 1:
                 # self.statusbar.push(self.context_id, "VIDEO CONNECTION EOS: SIGNAL LOST")
-                print ("EOS: SIGNAL LOST")
+                Console.print ("EOS: SIGNAL LOST")
             return "VIDEO CONNECTION EOS: SIGNAL LOST"
         elif msgtype == Gst.MessageType.ERROR:
             RacConnection.player[RacConnection.Test_Mode].set_state(Gst.State.NULL)
@@ -533,7 +586,7 @@ class RacDisplay:
             debug_s = debug.split("\n")
             if Debug > 0:
                 # self.statusbar.push(self.context_id, debug_s[debug_s.__len__() - 1])
-                print ("ERROR:", debug_s)
+                Console.print ("ERROR:", debug_s)
             return debug_s[debug_s.__len__() - 1]
         else:
             return None
@@ -566,20 +619,20 @@ class RacUio:
         if KEY_control.MouseBtn[LEFT] is True:
             tmp = mouseX - KEY_control.MouseXY[X_AXIS]
             if abs(tmp) >= 1:
-                COMM_vars.CamPos[X_AXIS] += int(tmp)
+                COMM_vars.camPosition[X_AXIS] += int(tmp)
 
             tmp = mouseY - KEY_control.MouseXY[Y_AXIS]
             if abs(tmp) >= 1:
-                COMM_vars.CamPos[Y_AXIS] += int(tmp)
+                COMM_vars.camPosition[Y_AXIS] += int(tmp)
 
             KEY_control.MouseXY = [mouseX, mouseY]
 
         if KEY_control.MouseBtn[RIGHT] is True:
-            print("KEY_control.MouseXY[right]", KEY_control.MouseXY)
+            Console.print("KEY_control.MouseXY[right]", KEY_control.MouseXY)
 
     @staticmethod
     def get_speed_and_direction():
-        # print("COMM_vars:", KEY_control.Down, KEY_control.Up, KEY_control.Left, KEY_control.Right, COMM_vars.speed, COMM_vars.direction)
+        # Console.print("COMM_vars:", KEY_control.Down, KEY_control.Up, KEY_control.Left, KEY_control.Right, COMM_vars.speed, COMM_vars.direction)
         if KEY_control.Down is True:
             if COMM_vars.speed > -MAX_SPEED:
                 COMM_vars.speed -= ACCELERATION
@@ -610,21 +663,60 @@ class RacUio:
             offset = MAX_SPEED * (COMM_vars.direction / abs(COMM_vars.direction))
             direction = (-COMM_vars.direction + offset)
 
-        COMM_vars.Motor_Power = [int(COMM_vars.speed - direction), int(COMM_vars.speed + direction)]
-        return COMM_vars.Motor_Power
+        COMM_vars.motor_Power = [int(COMM_vars.speed - direction), int(COMM_vars.speed + direction)]
+        return COMM_vars.motor_Power
 
     @staticmethod
     def mouseInput():
-        if COMM_vars.CamPos[X_AXIS] > MOUSE_MAX[X_AXIS]:
-            COMM_vars.CamPos[X_AXIS] = MOUSE_MAX[X_AXIS]
-        if COMM_vars.CamPos[X_AXIS] < MOUSE_MIN[X_AXIS]:
-            COMM_vars.CamPos[X_AXIS] = MOUSE_MIN[X_AXIS]
-        if COMM_vars.CamPos[Y_AXIS] > MOUSE_MAX[Y_AXIS]:
-            COMM_vars.CamPos[Y_AXIS] = MOUSE_MAX[Y_AXIS]
-        if COMM_vars.CamPos[Y_AXIS] < MOUSE_MIN[Y_AXIS]:
-            COMM_vars.CamPos[Y_AXIS] = MOUSE_MIN[Y_AXIS]
+        if COMM_vars.camPosition[X_AXIS] > MOUSE_MAX[X_AXIS]:
+            COMM_vars.camPosition[X_AXIS] = MOUSE_MAX[X_AXIS]
+        if COMM_vars.camPosition[X_AXIS] < MOUSE_MIN[X_AXIS]:
+            COMM_vars.camPosition[X_AXIS] = MOUSE_MIN[X_AXIS]
+        if COMM_vars.camPosition[Y_AXIS] > MOUSE_MAX[Y_AXIS]:
+            COMM_vars.camPosition[Y_AXIS] = MOUSE_MAX[Y_AXIS]
+        if COMM_vars.camPosition[Y_AXIS] < MOUSE_MIN[Y_AXIS]:
+            COMM_vars.camPosition[Y_AXIS] = MOUSE_MIN[Y_AXIS]
 
-        return COMM_vars.CamPos
+        return COMM_vars.camPosition
+
+
+class Console:
+    if CONSOLE_GUI is True:
+        TextQueue = queue.Queue()
+
+    def __init__(self):
+        pass
+        # self.GUI = GUI
+        # if self.GUI:
+        #     print("++++GUI!!!!!!")
+        #     self.TextQueue  = queue.Queue()
+        # else:
+        #     print("---NoGUI!!!!!")
+
+    @staticmethod
+    def print(*args, **kwargs):
+        if CONSOLE_GUI is True:
+            l_args = list(args)
+            if 'end' in kwargs:
+                l_args.append(str(kwargs['end']))
+            else:
+                l_args.append("\n")
+
+            Console.TextQueue.put(tuple(l_args))
+        else:
+            print(args, kwargs)
+
+    def display_message(self, Console):
+        if not CONSOLE_GUI:
+            return
+
+        TextBuffer = Console.get_buffer()
+        if not self.TextQueue.empty():
+            Text = self.TextQueue.get()
+            for cText in Text:
+                TextBuffer.insert_at_cursor(str(cText) + " ")
+
+                Console.scroll_mark_onscreen(TextBuffer.get_insert())
 
 
 def execute_cmd(cmd_string):
@@ -632,16 +724,16 @@ def execute_cmd(cmd_string):
     # retcode = system(cmd_string)
     stdout = subprocess.check_output(cmd_string, shell=True)
     # if retcode == 0:
-    #     if Debug > 1: print("\nCommand executed successfully")
+    #     if Debug > 1: Console.print("\nCommand executed successfully")
     # else:
-    #     if Debug > 1: print("\nCommand terminated with error: " + str(retcode))
+    #     if Debug > 1: Console.print("\nCommand terminated with error: " + str(retcode))
     # # raw_input("Press enter")
     return stdout
 
 
 def keybuffer_set(event, value):
     key_name = Gdk.keyval_name(event.keyval)
-    # print("key", key_name, value)
+    # Console.print("key", key_name, value)
     if key_name == "Left" or key_name.replace("A", "a", 1) == "a":
         KEY_control.Left = value
 
@@ -661,7 +753,7 @@ def keybuffer_set(event, value):
 
     if event.state is True and Gdk.KEY_Shift_L is not KEY_control.Shift:
         KEY_control.Shift = Gdk.KEY_Shift_L
-        print("SHIIIIIIIIIIIIIIIFT!!!")
+        Console.print("SHIIIIIIIIIIIIIIIFT!!!")
 
     return key_name
 
