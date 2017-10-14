@@ -31,12 +31,12 @@ class MainWindow(Gtk.Window):
 
         HostList, \
         Mask1, \
-        RSA_Key, \
-        Key_Pass, \
-        Ssh_User, \
-        Remote_Host, \
+        Reserved_1, \
+        Reserved_2, \
+        Reserved_3, \
+        Network, \
         Compression, \
-        Reserved_6, \
+        Ssh, \
         Reserved_7, \
         Local_Test = config_read(Paths.cfg_file)
 
@@ -48,12 +48,20 @@ class MainWindow(Gtk.Window):
         self.CheckButton_Mic.set_active(COMM_vars.mic)
         self.CheckButton_Laser.set_active(COMM_vars.laser)
         self.CheckButton_Auto.set_active(COMM_vars.AutoMode)
-        self.Entry_RsaKey.set_text(RSA_Key)
-        self.Entry_KeyPass.set_text(Key_Pass)
-        self.Entry_User.set_text(Ssh_User)
-        self.Entry_RemoteHost.set_text(Remote_Host)
-        self.Switch_Compression.set_active(Compression)
+        self.Entry_RsaKey.set_text(Ssh[0])
+        self.Entry_KeyPass.set_text(Ssh[1])
+        self.Entry_User.set_text(Ssh[2])
+        self.Entry_RemoteHost.set_text(Ssh[3])
+        self.Switch_Compression.set_active(Compression[0])
+        self.ComboBoxText_Vcodec.set_active(Compression[1])
+        self.ComboBoxText_Acodec.set_active(Compression[2])
         self.checkbutton_localtest.set_active(Local_Test)
+        self.ComboBoxText_Proto.set_active(Network)
+
+        self.on_CheckButton_LocalTest_toggled(self.checkbutton_localtest)
+        self.on_ComboBoxText_Proto_changed(self.ComboBoxText_Proto)
+        self.on_ComboBoxResolution_changed(self.ComboBoxResolution)
+        self.on_ComboBoxText_Proto_changed(self.ComboBoxText_Proto)
 
         Rac_connection.load_HostList(self.combobox_host, HostList)
 
@@ -71,13 +79,25 @@ class MainWindow(Gtk.Window):
             print("Objects:")
             print(builder.get_objects().__str__())
 
-        bus = RacConnection.player[False].get_bus()
+        bus = RacConnection.player[0][False].get_bus()
         bus.add_signal_watch()
         bus.enable_sync_message_emission()
         bus.connect("message", self.on_cam_message)
         bus.connect("sync-message::element", self.on_cam_sync_message)
 
-        bus_test = RacConnection.player[True].get_bus()
+        bus_test = RacConnection.player[0][True].get_bus()
+        bus_test.add_signal_watch()
+        bus_test.enable_sync_message_emission()
+        bus_test.connect("message", self.on_cam_message)
+        bus_test.connect("sync-message::element", self.on_cam_sync_message)
+
+        bus = RacConnection.player[1][False].get_bus()
+        bus.add_signal_watch()
+        bus.enable_sync_message_emission()
+        bus.connect("message", self.on_cam_message)
+        bus.connect("sync-message::element", self.on_cam_sync_message)
+
+        bus_test = RacConnection.player[1][True].get_bus()
         bus_test.add_signal_watch()
         bus_test.enable_sync_message_emission()
         bus_test.connect("message", self.on_cam_message)
@@ -123,8 +143,11 @@ class MainWindow(Gtk.Window):
         self.Entry_KeyPass          = builder.get_object("Entry_KeyPass")
         self.Entry_User             = builder.get_object("Entry_User")
         self.Entry_RemoteHost       = builder.get_object("Entry_RemoteHost")
-        self.Switch_Compression     = builder.get_object("Switch_Compression")
-        self.on_Button_Adv          = builder.get_object("on_Button_Adv")
+        self.Switch_Compression     = builder.get_object("ComboBoxText_Ssh_Compression")
+        self.ComboBoxText_Vcodec    = builder.get_object("ComboBoxText_Vcodec")
+        self.ComboBoxText_Acodec    = builder.get_object("ComboBoxText_Acodec")
+        self.ComboBoxText_Proto     = builder.get_object("ComboBoxText_Proto")
+        # self.on_Button_Adv          = builder.get_object("on_Button_Adv")
 
         self.LabelRpmL              = builder.get_object("LabelRpmL")
         self.LabelRpmR              = builder.get_object("LabelRpmR")
@@ -207,12 +230,14 @@ class MainWindow(Gtk.Window):
         self.Port = int(float(widget.get_model()[widget.get_active()][1]))
         self.spinbutton_port.set_value(self.Port)
 
-    # @staticmethod
     def on_SpinButton_Port_value_changed(self, widget):
         self.Port = widget.get_value_as_int()
 
     def on_CheckButton_LocalTest_toggled(self, widget):
-        RacConnection.Test_Mode = widget.get_active()
+        RacConnection.Video_Mode = not(widget.get_active())
+
+    def on_ComboBoxText_Proto_changed(self, widget):
+        RacConnection.Protocol = widget.get_active()
 
     def on_ToggleButton_Connect_toggled(self, widget):
         self.on_key_press_handler = None
@@ -221,7 +246,6 @@ class MainWindow(Gtk.Window):
             self.connect_gui()
 
             if self.CheckButton_SshTunnel.get_active() is True:
-                # print(self.Host, self.Port)
                 Host, Port = Rac_connection.open_ssh_tunnel(self.Host, self.Port,
                                                             self.Entry_RsaKey.get_text(),
                                                             self.Entry_KeyPass.get_text(),
@@ -305,6 +329,9 @@ class MainWindow(Gtk.Window):
     def on_Button_AdvOk_activate(self, widget):
         self.AdvancedWindow.hide()
 
+    def on_Button_AdvOk_clicked(self, widget):
+        self.AdvancedWindow.hide()
+
     def on_Button_Preferences_clicked(self, widget):
         self.AdvancedWindow.show()
         # print("TEXT IN COMBOBOX: ", self.combobox_host.get_active_text())
@@ -323,13 +350,24 @@ class MainWindow(Gtk.Window):
         for iter_x in range(0, HostListRaw.iter_n_children()):
             HostList.append(HostListRaw[iter_x][0] + ":" + HostListRaw[iter_x][1])
 
-        config_save(Paths.cfg_file, tuple(HostList),
-                    self.Entry_RsaKey.get_text(),
+        Compression_Mask = (self.Switch_Compression.get_active(),
+                            self.ComboBoxText_Vcodec.get_active(),
+                            self.ComboBoxText_Acodec.get_active())
+
+        Ssh_Mask = (self.Entry_RsaKey.get_text(),
                     self.Entry_KeyPass.get_text(),
                     self.Entry_User.get_text(),
-                    self.Entry_RemoteHost.get_text(),
-                    self.Switch_Compression.get_active(),
+                    self.Entry_RemoteHost.get_text())
+
+        Network_Mask = self.ComboBoxText_Proto.get_active()
+
+        config_save(Paths.cfg_file, tuple(HostList),
                     False,
+                    False,
+                    False,
+                    Network_Mask,
+                    Compression_Mask,
+                    Ssh_Mask,
                     False,
                     self.checkbutton_localtest.get_active())
 

@@ -6,17 +6,16 @@ RETRY_LIMIT = 15
 MAX_SPEED = 50
 MOUSE_MIN = [40, 45]
 MOUSE_MAX = [150, 100]
-# position = (242, 135)
 ######################
 X_AXIS = 0
 Y_AXIS = 1
-
 RIGHT = 0
 LEFT = 1
 ######################
 # Encoding = 'cp037'
 Encoding = 'latin_1'
-VideoCodec = ["video/x-h264", "video/x-raw"]
+VideoCodec = ("video/x-raw", "video/x-h264", "video/x-mjpeg", "video/x-VP8")
+AudioCodec = ("ogg", "mp3", "aac")
 
 ###### COLOURS #######
 BLACK = (0, 0, 0)
@@ -32,6 +31,9 @@ BLUE = (0, 0, 255)
 DBLUE = (0, 0, 128)
 DDBLUE = (0, 0, 30)
 
+TCP = 0
+UDP = 1
+PROTO_NAME = ["tcp", "udp"]
 
 class COMM_vars:
     connected   = False

@@ -1,7 +1,7 @@
 capsstr = [None, None, None, None, None, None]
-capsstr[1] = ", width=320, height=240, framerate=15/1"
-capsstr[2] = ", width=640, height=480, framerate=15/1"
-capsstr[3] = ", width=800, height=600, framerate=25/1"
+capsstr[1] = ", width=320, height=240, framerate=25/1"
+capsstr[2] = ", width=640, height=480, framerate=30/1"
+capsstr[3] = ", width=800, height=600, framerate=30/1"
 capsstr[4] = ", width=1280, height=800, framerate=25/1"
 capsstr[5] = ", width=1920, height=1080, framerate=25/1"
 
