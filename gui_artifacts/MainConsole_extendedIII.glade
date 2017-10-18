@@ -1380,6 +1380,8 @@
                       <object class="GtkComboBoxText" id="ComboBoxText_Vcodec">
                         <property name="visible">True</property>
                         <property name="can_focus">False</property>
+                        <property name="active">0</property>
+                        <property name="button_sensitivity">off</property>
                         <items>
                           <item translatable="yes">h264</item>
                           <item translatable="yes">mjpeg</item>
@@ -1393,7 +1395,36 @@
                       </packing>
                     </child>
                     <child>
-                      <placeholder/>
+                      <object class="GtkLabel" id="label19">
+                        <property name="visible">True</property>
+                        <property name="can_focus">False</property>
+                        <property name="label" translatable="yes">     Bitrate:</property>
+                      </object>
+                      <packing>
+                        <property name="expand">False</property>
+                        <property name="fill">True</property>
+                        <property name="position">2</property>
+                      </packing>
+                    </child>
+                    <child>
+                      <object class="GtkComboBoxText" id="ComboBoxText_Vbitrate">
+                        <property name="visible">True</property>
+                        <property name="can_focus">False</property>
+                        <property name="active">0</property>
+                        <property name="button_sensitivity">off</property>
+                        <items>
+                          <item translatable="yes">Auto</item>
+                          <item translatable="yes">2048</item>
+                          <item translatable="yes">1024</item>
+                          <item translatable="yes">512</item>
+                        </items>
+                        <signal name="changed" handler="on_ComboBoxText_Vbitrate_changed" swapped="no"/>
+                      </object>
+                      <packing>
+                        <property name="expand">False</property>
+                        <property name="fill">True</property>
+                        <property name="position">3</property>
+                      </packing>
                     </child>
                   </object>
                   <packing>
@@ -1452,8 +1483,10 @@
                       <object class="GtkComboBoxText" id="ComboBoxText_Acodec">
                         <property name="visible">True</property>
                         <property name="can_focus">False</property>
+                        <property name="active">0</property>
+                        <property name="button_sensitivity">off</property>
                         <items>
-                          <item translatable="yes">ogg</item>
+                          <item translatable="yes">speex</item>
                           <item translatable="yes">mp3</item>
                           <item translatable="yes">aac</item>
                         </items>
@@ -1465,7 +1498,34 @@
                       </packing>
                     </child>
                     <child>
-                      <placeholder/>
+                      <object class="GtkLabel" id="label20">
+                        <property name="visible">True</property>
+                        <property name="can_focus">False</property>
+                        <property name="label" translatable="yes">     Bitrate:</property>
+                      </object>
+                      <packing>
+                        <property name="expand">False</property>
+                        <property name="fill">True</property>
+                        <property name="position">2</property>
+                      </packing>
+                    </child>
+                    <child>
+                      <object class="GtkComboBoxText" id="ComboBoxText_Abitrate">
+                        <property name="visible">True</property>
+                        <property name="can_focus">False</property>
+                        <property name="active">0</property>
+                        <items>
+                          <item translatable="yes">32000</item>
+                          <item translatable="yes">16000</item>
+                          <item translatable="yes">8000</item>
+                        </items>
+                        <signal name="changed" handler="on_ComboBoxText_Abitrate_changed" swapped="no"/>
+                      </object>
+                      <packing>
+                        <property name="expand">False</property>
+                        <property name="fill">True</property>
+                        <property name="position">3</property>
+                      </packing>
                     </child>
                   </object>
                   <packing>
@@ -1524,6 +1584,7 @@
                       <object class="GtkComboBoxText" id="ComboBoxText_Proto">
                         <property name="visible">True</property>
                         <property name="can_focus">False</property>
+                        <property name="active">1</property>
                         <items>
                           <item translatable="yes">TCP</item>
                           <item translatable="yes">UDP</item>
@@ -1696,6 +1757,7 @@
 only for raw video sterams like test
 video signal.</property>
                         <property name="halign">start</property>
+                        <property name="active">0</property>
                         <items>
                           <item translatable="yes">Auto</item>
                           <item translatable="yes">On</item>
@@ -2030,15 +2092,6 @@ connection with
       </packing>
     </child>
   </object>
-  <object class="GtkSwitch" id="Switch_Compression">
-    <property name="visible">True</property>
-    <property name="can_focus">True</property>
-  </object>
-  <object class="GtkLabel" id="TabAdvanced">
-    <property name="visible">True</property>
-    <property name="can_focus">False</property>
-    <property name="label" translatable="yes">Advanced</property>
-  </object>
   <object class="GtkWindow" id="Window_Log">
     <property name="can_focus">False</property>
     <property name="title" translatable="yes">Log</property>
@@ -2068,104 +2121,6 @@ connection with
           </object>
         </child>
       </object>
-    </child>
-  </object>
-  <object class="GtkBox" id="box8">
-    <property name="visible">True</property>
-    <property name="can_focus">False</property>
-    <property name="halign">center</property>
-    <property name="margin_top">3</property>
-    <property name="margin_bottom">4</property>
-    <property name="spacing">5</property>
-    <child>
-      <object class="GtkCheckButton" id="checkbutton1">
-        <property name="label">gtk-execute</property>
-        <property name="visible">True</property>
-        <property name="can_focus">True</property>
-        <property name="receives_default">False</property>
-        <property name="use_stock">True</property>
-        <property name="xalign">0</property>
-        <property name="draw_indicator">True</property>
-      </object>
-      <packing>
-        <property name="expand">False</property>
-        <property name="fill">True</property>
-        <property name="position">0</property>
-      </packing>
-    </child>
-    <child>
-      <object class="GtkCheckButton" id="checkbutton2">
-        <property name="visible">True</property>
-        <property name="can_focus">True</property>
-        <property name="receives_default">False</property>
-        <property name="xalign">0</property>
-        <property name="draw_indicator">True</property>
-      </object>
-      <packing>
-        <property name="expand">False</property>
-        <property name="fill">True</property>
-        <property name="position">1</property>
-      </packing>
-    </child>
-    <child>
-      <object class="GtkCheckButton" id="checkbutton3">
-        <property name="label">gtk-no</property>
-        <property name="visible">True</property>
-        <property name="can_focus">True</property>
-        <property name="receives_default">False</property>
-        <property name="use_stock">True</property>
-        <property name="xalign">0</property>
-        <property name="draw_indicator">True</property>
-      </object>
-      <packing>
-        <property name="expand">False</property>
-        <property name="fill">True</property>
-        <property name="position">2</property>
-      </packing>
-    </child>
-  </object>
-  <object class="GtkGrid" id="grid9">
-    <property name="visible">True</property>
-    <property name="can_focus">False</property>
-    <property name="margin_top">10</property>
-    <property name="margin_bottom">10</property>
-    <property name="row_spacing">3</property>
-    <property name="column_spacing">3</property>
-    <child>
-      <object class="GtkToggleButton" id="togglebutton3">
-        <property name="label" translatable="yes">togglebutton</property>
-        <property name="visible">True</property>
-        <property name="can_focus">True</property>
-        <property name="receives_default">True</property>
-      </object>
-      <packing>
-        <property name="left_attach">0</property>
-        <property name="top_attach">2</property>
-      </packing>
-    </child>
-    <child>
-      <object class="GtkButton" id="Button_ClearHostList">
-        <property name="label" translatable="yes">Clear Host List</property>
-        <property name="visible">True</property>
-        <property name="can_focus">True</property>
-        <property name="receives_default">True</property>
-      </object>
-      <packing>
-        <property name="left_attach">0</property>
-        <property name="top_attach">0</property>
-      </packing>
-    </child>
-    <child>
-      <object class="GtkButton" id="Button_RecreateIniFile">
-        <property name="label" translatable="yes">Reset ini file</property>
-        <property name="visible">True</property>
-        <property name="can_focus">True</property>
-        <property name="receives_default">True</property>
-      </object>
-      <packing>
-        <property name="left_attach">0</property>
-        <property name="top_attach">1</property>
-      </packing>
     </child>
   </object>
 </interface>

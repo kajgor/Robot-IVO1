@@ -9,12 +9,13 @@ VERSION = "B3.0"
 HOST = ''   # Symbolic name meaning all available interfaces
 VERTICAL = 0
 HORIZONTAL = 1
-Port_COMM = 4550
-Port_CAM0 = Port_COMM + 1
-Port_MIC0 = Port_COMM + 2
-Port_DSP0 = Port_COMM + 4
-Port_SPK0 = Port_COMM + 5
+
 SO_RETRY_LIMIT = 65
+
+# Note omxh264enc element which is hardware h264 encoder.
+# Software h264 encoder is called h264enc.
+# Why I use x246 then?
+H264_ENC = "x264enc"
 
 Debug = 0
 

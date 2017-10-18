@@ -1,12 +1,6 @@
 CONSOLE_GUI = True
 RESP_DELAY = 0.025
 
-Port_COMM = 4550
-Port_CAM0 = Port_COMM + 1
-Port_MIC0 = Port_COMM + 2
-Port_DSP0 = Port_COMM + 4
-Port_SPK0 = Port_COMM + 5
-
 Debug = 1
 
 CommunicationFFb = False

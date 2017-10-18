@@ -1,3 +1,9 @@
+Port_COMM = 4550
+Port_CAM0 = Port_COMM + 1
+Port_MIC0 = Port_COMM + 2
+Port_DSP0 = Port_COMM + 4
+Port_SPK0 = Port_COMM + 5
+######################
 RECMSGLEN = 15
 TIMEOUT_GUI = 50
 COMM_IDLE   = 10
@@ -15,8 +21,9 @@ LEFT = 1
 # Encoding = 'cp037'
 Encoding = 'latin_1'
 VideoCodec = ("video/x-raw", "video/x-h264", "video/x-mjpeg", "video/x-VP8")
+VideoBitrate = ("", "2048", "1024", "512")
 AudioCodec = ("ogg", "mp3", "aac")
-
+AudioBitrate = ("32000", "16000", "8000")
 ###### COLOURS #######
 BLACK = (0, 0, 0)
 WHITE = (255, 255, 255)
@@ -58,6 +65,8 @@ class COMM_vars:
     coreTemp    = 0
     distanceS1  = 100
     streaming_mode = 0
+    Vbitrate    = 0
+    Abitrate    = 0
 
 
 import binascii

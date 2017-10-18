@@ -6,7 +6,7 @@ gi.require_version('Gtk', '3.0')
 gi.require_version('GstVideo', '1.0')
 from gi.repository import Gtk, Gdk, GdkX11, GLib
 
-from Common_vars import TIMEOUT_GUI
+from Common_vars import TIMEOUT_GUI, VideoBitrate, AudioBitrate
 from Client_vars import Paths, Debug
 
 from config_rw import *
@@ -57,11 +57,15 @@ class MainWindow(Gtk.Window):
         self.ComboBoxText_Acodec.set_active(Compression[2])
         self.checkbutton_localtest.set_active(Local_Test)
         self.ComboBoxText_Proto.set_active(Network)
+        # self.ComboBoxText_Vbitrate.set_active(Compression[3])
+        # self.ComboBoxText_Abitrate.set_active(Compression[4])
 
         self.on_CheckButton_LocalTest_toggled(self.checkbutton_localtest)
         self.on_ComboBoxText_Proto_changed(self.ComboBoxText_Proto)
         self.on_ComboBoxResolution_changed(self.ComboBoxResolution)
-        self.on_ComboBoxText_Proto_changed(self.ComboBoxText_Proto)
+        self.on_ComboBoxText_Vbitrate_changed(self.ComboBoxText_Vcodec)
+        self.on_ComboBoxText_Abitrate_changed(self.ComboBoxText_Acodec)
+        self.on_CheckButton_Mic_toggled(self.CheckButton_Mic)
 
         Rac_connection.load_HostList(self.combobox_host, HostList)
 
@@ -79,25 +83,25 @@ class MainWindow(Gtk.Window):
             print("Objects:")
             print(builder.get_objects().__str__())
 
-        bus = RacConnection.player[0][False].get_bus()
+        bus = RacConnection.player_video[0][False].get_bus()
         bus.add_signal_watch()
         bus.enable_sync_message_emission()
         bus.connect("message", self.on_cam_message)
         bus.connect("sync-message::element", self.on_cam_sync_message)
 
-        bus_test = RacConnection.player[0][True].get_bus()
+        bus_test = RacConnection.player_video[0][True].get_bus()
         bus_test.add_signal_watch()
         bus_test.enable_sync_message_emission()
         bus_test.connect("message", self.on_cam_message)
         bus_test.connect("sync-message::element", self.on_cam_sync_message)
 
-        bus = RacConnection.player[1][False].get_bus()
+        bus = RacConnection.player_video[1][False].get_bus()
         bus.add_signal_watch()
         bus.enable_sync_message_emission()
         bus.connect("message", self.on_cam_message)
         bus.connect("sync-message::element", self.on_cam_sync_message)
 
-        bus_test = RacConnection.player[1][True].get_bus()
+        bus_test = RacConnection.player_video[1][True].get_bus()
         bus_test.add_signal_watch()
         bus_test.enable_sync_message_emission()
         bus_test.connect("message", self.on_cam_message)
@@ -148,6 +152,8 @@ class MainWindow(Gtk.Window):
         self.ComboBoxText_Acodec    = builder.get_object("ComboBoxText_Acodec")
         self.ComboBoxText_Proto     = builder.get_object("ComboBoxText_Proto")
         # self.on_Button_Adv          = builder.get_object("on_Button_Adv")
+        self.ComboBoxText_Vbitrate  = builder.get_object("ComboBoxText_Vbitrate")
+        self.ComboBoxText_Abitrate  = builder.get_object("ComboBoxText_Abitrate")
 
         self.LabelRpmL              = builder.get_object("LabelRpmL")
         self.LabelRpmR              = builder.get_object("LabelRpmR")
@@ -296,6 +302,14 @@ class MainWindow(Gtk.Window):
 
         COMM_vars.resolution = self.resolution * self.camera_on
 
+    def on_ComboBoxText_Vbitrate_changed(selfs, widget):
+        COMM_vars.Vbitrate = widget.get_active()
+        Console.print("Video Bitrate:", VideoBitrate[COMM_vars.Vbitrate])
+
+    def on_ComboBoxText_Abitrate_changed(selfs, widget):
+        COMM_vars.Abitrate = widget.get_active()
+        Console.print("Audio Bitrate:", AudioBitrate[COMM_vars.Abitrate])
+
     def on_CheckButton_Speakers_toggled(self, widget):
         COMM_vars.speakers = widget.get_active()
         Console.print("Speakers:", COMM_vars.speakers)
@@ -352,7 +366,9 @@ class MainWindow(Gtk.Window):
 
         Compression_Mask = (self.Switch_Compression.get_active(),
                             self.ComboBoxText_Vcodec.get_active(),
-                            self.ComboBoxText_Acodec.get_active())
+                            self.ComboBoxText_Acodec.get_active(),
+                            self.ComboBoxText_Vbitrate.get_active(),
+                            self.ComboBoxText_Abitrate.get_active())
 
         Ssh_Mask = (self.Entry_RsaKey.get_text(),
                     self.Entry_KeyPass.get_text(),
