@@ -64,7 +64,7 @@ class ClientThread(threading.Thread):
             client_IP = addr[0]
             Console.print('Connected with ' + client_IP + ':' + str(addr[1]))
             # Sending message to connected client
-            conn.send('AWAITING__COMM\n'.encode(Encoding))  # send only takes string
+            # conn.send('AWAITING__COMM\n'.encode(Encoding))  # send only takes string
             data = self.get_bytes_from_client(conn, 9)
             if len(data) == 9:
                 Console.print("Message Validation... ")
@@ -104,13 +104,13 @@ class ClientThread(threading.Thread):
         # now keep talking with the client
         while not self.shutdown_flag.is_set():
             # Receiving from client
-            data = self.get_bytes_from_client(conn, 8)
+            data = self.get_bytes_from_client(conn, 9)
             try:
                 data_len = len(data)
             except TypeError:
                 data_len = False
 
-            if data_len < 8:
+            if data_len < 9:
                 noData_cnt += 1
                 if noData_cnt > RETRY_LIMIT:
                     Console.print("NO DATA - closing connection")
@@ -122,7 +122,7 @@ class ClientThread(threading.Thread):
                 response = self.encode_data(data)
 
                 if Debug > 0:
-                    Console.print("chksum" + response[0].__str__())
+                    Console.print("Chksum", response[0].__str__())
 
                     if Debug > 2:
                         Console.print("DATA_IN>> " + data.__str__())
@@ -321,11 +321,11 @@ class StreamThread(threading.Thread):
         self.sink_audio[self.Source_test].set_property("sync", True)
         self.sink_audio[self.Source_h264].set_property("sync", True)
         self.source_audio[self.Source_test].set_property("wave", 0)
-        self.source_audio[self.Source_h264].set_property("device", 2)
+        self.source_audio[self.Source_h264].set_property("device", MIC0_DEVICE)
 
-        caps = Gst.Caps.from_string("audio/x-raw, rate=32000")
-        self.capsfilter_audio[self.Source_h264].set_property("caps", caps)
-        self.capsfilter_audio[self.Source_test].set_property("caps", caps)
+        # caps = Gst.Caps.from_string("audio/x-raw, rate=32000")
+        # self.capsfilter_audio[self.Source_h264].set_property("caps", caps)
+        # self.capsfilter_audio[self.Source_test].set_property("caps", caps)
 
         self.gst_init_audio_udp()
 

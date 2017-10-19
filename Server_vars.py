@@ -17,6 +17,9 @@ SO_RETRY_LIMIT = 65
 # Why I use x246 then?
 H264_ENC = "x264enc"
 
+# DEVICES
+MIC0_DEVICE = "alsa_input.usb-C-Media_Electronics_Inc._USB_PnP_Sound_Device-00.analog-mono"
+
 Debug = 0
 
 class SRV_vars:

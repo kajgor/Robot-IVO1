@@ -48,7 +48,7 @@ class COMM_vars:
     connErr     = 0
     speed       = 0
     direction   = 0
-    resolution  = 1
+    resolution  = 0
     AutoMode    = False
     light       = False
     mic         = True

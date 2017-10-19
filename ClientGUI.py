@@ -24,7 +24,9 @@ class MainWindow(Gtk.Window):
         self.context_id1            = self.statusbar1.get_context_id("message")
         self.context_id2            = self.statusbar2.get_context_id("message")
         self.camera_on = True
-        self.resolution = 1
+        self.resolution = 0
+
+        Console.print("Console 3.0 initialized.\n")
 
         self.Host, self.Port = None, None
         # reset_save(Paths.cfg_file)

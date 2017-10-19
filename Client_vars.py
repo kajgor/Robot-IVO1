@@ -1,5 +1,6 @@
 CONSOLE_GUI = True
 RESP_DELAY = 0.025
+#RESP_DELAY = 0.05
 
 Debug = 1
 

@@ -33,7 +33,6 @@ class MainLoop:
         # self.Console = Console()
         self.Console = Console()
         self.TextView_Log = self.GUI.TextView_Log
-        Console.print("Console 3.0 initialized.\n")
 
     def on_timer(self):
         if COMM_vars.connected:
@@ -432,20 +431,20 @@ class RacConnection:
             # print("...not connected!")
 
         try:
-            RacConnection.srv.close()
+            self.srv.close()
         except AttributeError:
-            RacConnection.srv = None
+            self.srv = None
 
         COMM_vars.connected = False
         # if Debug > 1:
         Console.print("Connection closed.")
         # print("Connection closed.")
 
-    @staticmethod
-    def check_connection(HostIp):
+    # @staticmethod
+    def check_connection(self, HostIp):
         try:
             # status = self.srv.getsockname()
-            status = RacConnection.srv.getpeername()
+            status = self.srv.getpeername()
         except OSError:
             status = (False, False)
 
@@ -468,7 +467,7 @@ class RacConnection:
         Protocol = ["TC", "UD"]
         if Debug > 2:
             Console.print("Connecting...")
-        RacConnection.srv = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.srv = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         server_address = (Host, Port_Comm)
         IP_addr = socket.gethostbyname(Host)
         # Console.print(server_address, "[", IP_addr, "]")
@@ -503,9 +502,9 @@ class RacConnection:
 
             self.transmit_message(initstr)
 
-        restart = bool(COMM_vars.resolution)
-        resolution_last = 0
-        mic_last = not(COMM_vars.mic)
+        cam0_restart = False
+        resolution_last = None
+        mic_last = not COMM_vars.mic
 
         while COMM_vars.connected is True:
             if CommunicationFFb is True:
@@ -517,7 +516,7 @@ class RacConnection:
                 mic_last = self.conect_micstream(COMM_vars.mic)
 
             if COMM_vars.resolution != resolution_last:
-                restart = bool(COMM_vars.resolution)
+                cam0_restart = bool(COMM_vars.resolution)
                 resolution_last = COMM_vars.resolution
                 if COMM_vars.resolution > 0:
                     Console.print("Requesting mode", COMM_vars.resolution, end='...')
@@ -525,13 +524,13 @@ class RacConnection:
                     Console.print("Pausing Video Stream")
                 self.connect_camstream(False)
 
-            if restart is True:
+            if cam0_restart is True:
                 if self.Protocol == TCP:
                     if COMM_vars.resolution == COMM_vars.streaming_mode:
                         Console.print("OK!")
-                        restart = self.connect_camstream(True)
+                        cam0_restart = self.connect_camstream(True)
                 else:  # UDP connection
-                    restart = self.connect_camstream(True)
+                    cam0_restart = self.connect_camstream(True)
                     # if COMM_vars.resolution == COMM_vars.streaming_mode:
                     Console.print("OK!")
 
@@ -556,11 +555,15 @@ class RacConnection:
                 COMM_vars.connErr = 0
 
             time.sleep(RESP_DELAY)
-            resp = self.receive_message()
+            resp = self.receive_message(RECMSGLEN)
+
             if resp is not None:
                 if checksum == ord(resp[0]):
-                    RacConnection.decode_transmission(resp)
+                    # RacConnection.decode_message(resp)
+                    self.decode_message(resp)
                     COMM_vars.motor_ACK = COMM_vars.motor_Power
+                else:
+                    Console.print("Bad chksum:", checksum, ord(resp[0]))
                 if Debug > 1:
                     Console.print("CheckSum Sent/Received:", checksum, ord(resp[0]))
         else:
@@ -591,7 +594,7 @@ class RacConnection:
 
         if retmsg == Gst.StateChangeReturn.FAILURE:
             retmsg = "AUDIO CONNECTION ERROR: Unable to set the pipeline to the playing state."
-            success = not(Connect)
+            success = not Connect
         else:
             retmsg = ""
             success = Connect
@@ -622,9 +625,9 @@ class RacConnection:
 
         return calc_checksum(sendstr)
 
-    def receive_message(self):
+    def receive_message(self, msglen):
         try:
-            data = self.srv.recv(RECMSGLEN).decode(Encoding)
+            data = self.srv.recv(msglen).decode(Encoding)
         except ConnectionResetError:
             return None
         except OSError:
@@ -648,7 +651,8 @@ class RacConnection:
                 Console.print("transmit_message [flush]: OSError (server lost)")
                 return None
 
-            if Debug > 1: Console.print(">>>FlushBuffer>>>")
+            # if Debug > 1:
+            Console.print(">>>FlushBuffer>>>")
             return None
 
     @staticmethod
@@ -698,7 +702,7 @@ class RacConnection:
             x += 1
 
     @staticmethod
-    def decode_transmission(resp):
+    def decode_message(resp):
         # checksum  - transmission checksum
         # Motor_PWR - power delivered to motors
         # Motor_RPM - Motor rotations
