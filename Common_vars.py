@@ -20,9 +20,9 @@ LEFT = 1
 ######################
 # Encoding = 'cp037'
 Encoding = 'latin_1'
-VideoCodec = ("video/x-raw", "video/x-h264", "video/x-mjpeg", "video/x-VP8")
+VideoCodec = ("raw", "h264", "mjpeg", "VP8")
 VideoBitrate = ("", "2048", "1024", "512")
-AudioCodec = ("ogg", "mp3", "aac")
+AudioCodec = ("speex", "mp3", "aac")
 AudioBitrate = ("32000", "16000", "8000")
 ###### COLOURS #######
 BLACK = (0, 0, 0)
@@ -40,7 +40,7 @@ DDBLUE = (0, 0, 30)
 
 TCP = 0
 UDP = 1
-PROTO_NAME = ["tcp", "udp"]
+PROTO_NAME = ["TCP", "UDP"]
 
 class COMM_vars:
     connected   = False
@@ -65,6 +65,8 @@ class COMM_vars:
     coreTemp    = 0
     distanceS1  = 100
     streaming_mode = 0
+    Vcodec      = 0
+    Acodec      = 0
     Vbitrate    = 0
     Abitrate    = 0
 

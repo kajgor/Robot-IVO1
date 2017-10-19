@@ -14,7 +14,7 @@ SO_RETRY_LIMIT = 65
 
 # Note omxh264enc element which is hardware h264 encoder.
 # Software h264 encoder is called h264enc.
-# Why I use x246 then?
+# generic GST is x246?
 H264_ENC = "x264enc"
 
 # DEVICES

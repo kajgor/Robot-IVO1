@@ -104,7 +104,7 @@ class RacConnection:
     srv         = None
     tunnel      = None
     Video_Mode  = 0
-    Protocol    = None
+    Protocol    = 0
     Host        = None
     Port_Comm   = None
     Last_Active = 0

@@ -473,7 +473,7 @@ class StreamThread(threading.Thread):
                 if self.req_resolution > 0:
                     Console.print("Changing Gstreamer resolution")
                     ### CHANGE RESOLUTION CAPS ###
-                    caps = Gst.Caps.from_string(VideoCodec[self.Video_Mode] + capsstr[self.req_resolution])
+                    caps = Gst.Caps.from_string("video/x-" + VideoCodec[self.Video_Mode] + capsstr[self.req_resolution])
                     self.capsfilter_video[self.Video_Mode].set_property("caps", caps)
 
                     if self.Video_Mode is not False:

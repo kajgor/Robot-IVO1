@@ -6,7 +6,7 @@ gi.require_version('Gtk', '3.0')
 gi.require_version('GstVideo', '1.0')
 from gi.repository import Gtk, Gdk, GdkX11, GLib
 
-from Common_vars import TIMEOUT_GUI, VideoBitrate, AudioBitrate
+from Common_vars import TIMEOUT_GUI, VideoBitrate, AudioBitrate, AudioCodec, VideoCodec, PROTO_NAME
 from Client_vars import Paths, Debug
 
 from config_rw import *
@@ -65,6 +65,8 @@ class MainWindow(Gtk.Window):
         self.on_CheckButton_LocalTest_toggled(self.checkbutton_localtest)
         self.on_ComboBoxText_Proto_changed(self.ComboBoxText_Proto)
         self.on_ComboBoxResolution_changed(self.ComboBoxResolution)
+        self.on_ComboBoxText_Vcodec_changed(self.ComboBoxText_Vcodec)
+        self.on_ComboBoxText_Acodec_changed(self.ComboBoxText_Acodec)
         self.on_ComboBoxText_Vbitrate_changed(self.ComboBoxText_Vcodec)
         self.on_ComboBoxText_Abitrate_changed(self.ComboBoxText_Acodec)
         self.on_CheckButton_Mic_toggled(self.CheckButton_Mic)
@@ -243,9 +245,11 @@ class MainWindow(Gtk.Window):
 
     def on_CheckButton_LocalTest_toggled(self, widget):
         RacConnection.Video_Mode = not(widget.get_active())
+        self.SSBar_update()
 
     def on_ComboBoxText_Proto_changed(self, widget):
         RacConnection.Protocol = widget.get_active()
+        self.SSBar_update()
 
     def on_ToggleButton_Connect_toggled(self, widget):
         self.on_key_press_handler = None
@@ -304,13 +308,23 @@ class MainWindow(Gtk.Window):
 
         COMM_vars.resolution = self.resolution * self.camera_on
 
-    def on_ComboBoxText_Vbitrate_changed(selfs, widget):
+    def on_ComboBoxText_Vcodec_changed(self, widget):
+        COMM_vars.Vcodec = widget.get_active()
+        self.SSBar_update()
+
+    def on_ComboBoxText_Acodec_changed(self, widget):
+        COMM_vars.Acodec = widget.get_active()
+        self.SSBar_update()
+
+    def on_ComboBoxText_Vbitrate_changed(self, widget):
         COMM_vars.Vbitrate = widget.get_active()
         Console.print("Video Bitrate:", VideoBitrate[COMM_vars.Vbitrate])
+        self.SSBar_update()
 
-    def on_ComboBoxText_Abitrate_changed(selfs, widget):
+    def on_ComboBoxText_Abitrate_changed(self, widget):
         COMM_vars.Abitrate = widget.get_active()
         Console.print("Audio Bitrate:", AudioBitrate[COMM_vars.Abitrate])
+        self.SSBar_update()
 
     def on_CheckButton_Speakers_toggled(self, widget):
         COMM_vars.speakers = widget.get_active()
@@ -359,6 +373,15 @@ class MainWindow(Gtk.Window):
     def on_Window_Advanced_delete_event(self, bus, message):
         self.AdvancedWindow.hide()
         return True
+
+    def SSBar_update(self):
+        SStatBar = PROTO_NAME[Rac_connection.Protocol] + ": "
+        SStatBar += VideoCodec[RacConnection.Video_Mode] + "/"
+        SStatBar += VideoBitrate[COMM_vars.Vbitrate] + "  "
+        SStatBar += AudioCodec[COMM_vars.Acodec] + "/"
+        SStatBar += AudioBitrate[COMM_vars.Abitrate]
+
+        self.statusbar1.push(self.context_id1, SStatBar)
 
     def save_config(self):
         HostList = []
