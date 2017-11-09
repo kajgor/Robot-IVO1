@@ -65,6 +65,8 @@ class MainLoop:
                 self.GUI.button_connect.set_active(False)
                 self.GUI.on_ToggleButton_Connect_toggled(self.GUI.button_connect)
 
+        RacConnection.video_flip[RacConnection.Protocol][RacConnection.Video_Mode].set_property("method", CAM0_control.Flip)  # => "rotate-180"
+
         return True
 
     def UpdateMonitorData(self):
@@ -87,10 +89,10 @@ class MainLoop:
         return
 
     def UpdateControlData(self):
-        self.GUI.LevelBar_Voltage.set_value(int(COMM_vars.voltage * 10))
-        self.GUI.LevelBar_Current.set_value(int(COMM_vars.current * 10))
-        self.GUI.LeverBar_PowerL.set_value(65)
-        self.GUI.LeverBar_PowerR.set_value(65)
+        self.GUI.LevelBar_Voltage.set_value(int(COMM_vars.voltage))
+        self.GUI.LevelBar_Current.set_value(int(COMM_vars.current))
+        self.GUI.LeverBar_PowerL.set_value(COMM_vars.motor_PWR[LEFT])
+        self.GUI.LeverBar_PowerR.set_value(COMM_vars.motor_PWR[RIGHT])
         # print("int(COMM_vars.Current * 10) - 70", int(COMM_vars.Current * 10))
 
         return
@@ -118,6 +120,14 @@ class RacConnection:
                           Gst.Pipeline.new("player_audio")],
                          [Gst.Pipeline.new("player_audio_test_udp"),
                           Gst.Pipeline.new("player_audio_udp")])
+
+    # Flip video
+    video_flip        = ([Gst.ElementFactory.make("videoflip", "flip_test"),
+                          Gst.ElementFactory.make("videoflip", "flip")],
+                         [Gst.ElementFactory.make("videoflip", "flip_test_udp"),
+                          Gst.ElementFactory.make("videoflip", "flip_udp")])
+    # video_flip.set_property("method", "rotate-180")
+
     Source_test = 0
     Source_h264 = 1
 
@@ -249,25 +259,20 @@ class RacConnection:
 
     def gst_init_cam(self):
         # --- Gstreamer setup begin ---
-
-        # Flip video horizontally
-        video_flip = Gst.ElementFactory.make("videoflip", "flip")
-        video_flip.set_property("method", "rotate-180")
-
         self.player_video[TCP][self.Source_h264].add(self.source_video[TCP][self.Source_h264])
         self.player_video[TCP][self.Source_h264].add(self.depayloader_video[self.Source_h264])
         self.player_video[TCP][self.Source_h264].add(self.rtimer_video[TCP][self.Source_h264])
         self.player_video[TCP][self.Source_h264].add(self.decoder_video[TCP][self.Source_h264])
         self.player_video[TCP][self.Source_h264].add(self.convert_video[TCP][self.Source_h264])
-        self.player_video[TCP][self.Source_h264].add(video_flip)
+        self.player_video[TCP][self.Source_h264].add(self.video_flip[TCP][self.Source_h264])
         self.player_video[TCP][self.Source_h264].add(self.sink_video[TCP][self.Source_h264])
 
         self.source_video[TCP][self.Source_h264].link(self.depayloader_video[self.Source_h264])
         self.depayloader_video[self.Source_h264].link(self.rtimer_video[TCP][self.Source_h264])
         self.rtimer_video[TCP][self.Source_h264].link(self.decoder_video[TCP][self.Source_h264])
         self.decoder_video[TCP][self.Source_h264].link(self.convert_video[TCP][self.Source_h264])
-        self.convert_video[TCP][self.Source_h264].link(video_flip)
-        video_flip.link(self.sink_video[TCP][self.Source_h264])
+        self.convert_video[TCP][self.Source_h264].link(self.video_flip[TCP][self.Source_h264])
+        self.video_flip[TCP][self.Source_h264].link(self.sink_video[TCP][self.Source_h264])
 
         #    tcpclientsrc host=x.x.x.x port=4552 ! application/x-rtp, media=audio, clock-rate=32000, encoding-name=SPEEX, payload=96 !
         #    rtpspeexdepay ! speexdec ! pulsesink sync=false
@@ -315,24 +320,20 @@ class RacConnection:
 
     def gst_init_cam_udp(self):
         # --- Gstreamer setup begin ---
-        # Flip video horizontally
-        video_flip = Gst.ElementFactory.make("videoflip", "flip")
-        video_flip.set_property("method", "rotate-180")
-
         self.player_video[UDP][self.Source_h264].add(self.source_video[UDP][self.Source_h264])
         self.player_video[UDP][self.Source_h264].add(self.capsfilter_video[self.Source_h264])
         self.player_video[UDP][self.Source_h264].add(self.rtimer_video[UDP][self.Source_h264])
         self.player_video[UDP][self.Source_h264].add(self.decoder_video[UDP][self.Source_h264])
         self.player_video[UDP][self.Source_h264].add(self.convert_video[UDP][self.Source_h264])
-        self.player_video[UDP][self.Source_h264].add(video_flip)
+        self.player_video[UDP][self.Source_h264].add(self.video_flip[UDP][self.Source_h264])
         self.player_video[UDP][self.Source_h264].add(self.sink_video[UDP][self.Source_h264])
 
         self.source_video[UDP][self.Source_h264].link(self.capsfilter_video[self.Source_h264])
         self.capsfilter_video[self.Source_h264].link(self.rtimer_video[UDP][self.Source_h264])
         self.rtimer_video[UDP][self.Source_h264].link(self.decoder_video[UDP][self.Source_h264])
         self.decoder_video[UDP][self.Source_h264].link(self.convert_video[UDP][self.Source_h264])
-        self.convert_video[UDP][self.Source_h264].link(video_flip)
-        video_flip.link(self.sink_video[UDP][self.Source_h264])
+        self.convert_video[UDP][self.Source_h264].link(self.video_flip[UDP][self.Source_h264])
+        self.video_flip[UDP][self.Source_h264].link(self.sink_video[UDP][self.Source_h264])
 
         #    udpsrc port=3333 ! application/x-rtp, media=audio, clock-rate=32000, encoding-name=SPEEX, payload=96 !
         #    rtpspeexdepay ! speexdec ! pulsesink sync=false
@@ -637,22 +638,25 @@ class RacConnection:
             Console.print("CLIRCVD[len]: " + len(data).__str__())
 
         try:
-            data_end = data[14]
+            data_end = data[msglen - 1]
         except IndexError:
+            print("IndexError")
             data_end = False
 
-        if data_end == chr(10):
+        # print(">>>>>DATA >>>", len(data), msglen, data_end)
+
+        if data_end == chr(255):
             COMM_vars.comm_link_idle = 0
             return data
         else:
             try:
-                self.srv.recv(1024)  # flush buffer
+                self.srv.recv(64)  # flush buffer
             except OSError:
                 Console.print("transmit_message [flush]: OSError (server lost)")
                 return None
 
             # if Debug > 1:
-            Console.print(">>>FlushBuffer>>>")
+            Console.print(">>>FlushBuffer>>>", len(data), data_end)
             return None
 
     @staticmethod
@@ -707,21 +711,32 @@ class RacConnection:
         # Motor_PWR - power delivered to motors
         # Motor_RPM - Motor rotations
         # CheckSum = ord(resp[0])
+        dataint = [None,0,0,0,0,0,0,0,0,0,0]
+        # dataint = [16]
+        for xcr in range(1, 11):
+            if ord(resp[xcr]) == 252:
+                dataint[xcr] = 17
+            elif ord(resp[xcr]) == 253:
+                dataint[xcr] = 19
+            else:
+                dataint[xcr] = ord(resp[xcr])
 
-        COMM_vars.motor_PWR[RIGHT] = ord(resp[1])
-        COMM_vars.motor_PWR[LEFT]  = ord(resp[2])
+        COMM_vars.motor_PWR[RIGHT] = dataint[1]
+        COMM_vars.motor_PWR[LEFT]  = dataint[2]
+        COMM_vars.motor_RPM[RIGHT] = dataint[3]
+        COMM_vars.motor_RPM[LEFT]  = dataint[4]
+        curr_sensor = 0.0048 * (dataint[5] * 250 + dataint[6])
+        COMM_vars.current          = (2.5 - curr_sensor) * 5
+        COMM_vars.voltage          = 0.012 * (dataint[7] * 250 + dataint[8])
+        COMM_vars.distanceS1       = (dataint[9] * 250 + dataint[10]) / 58
 
-        COMM_vars.motor_RPM[RIGHT] = ord(resp[3])
-        COMM_vars.motor_RPM[LEFT]  = ord(resp[4])
-
-        CntrlMask1 = ord(resp[6])
-        CntrlMask2 = ord(resp[7])
-        if CntrlMask1 >= 0:
+        CntrlMask1 = ord(resp[11])
+        CntrlMask2 = ord(resp[12])
+        if CntrlMask2 >= 0:
             COMM_vars.streaming_mode = CntrlMask1
 
-        COMM_vars.coreTemp = float(ord(resp[9])) * 0.5
-        COMM_vars.current  = float((ord(resp[10])) * 10 + (ord(resp[11]))) * 0.01
-        COMM_vars.voltage  = float((ord(resp[12])) * 10 + (ord(resp[13]))) * 0.01
+        COMM_vars.coreTemp = ord(resp[14]) * 0.5
+
         # Console.print("Motor_ACK/PWR/RPM", COMM_vars.CheckSum, COMM_vars.Motor_PWR, COMM_vars.Motor_RPM)
 
     @staticmethod
@@ -731,10 +746,10 @@ class RacConnection:
                                  COMM_vars.display, COMM_vars.laser, 0, 0]):
             CntrlMask1 |= (x << idx)
 
-        BitrateMask = 100 + (10 * COMM_vars.Vbitrate) + COMM_vars.Abitrate
+        BitrateMask = 100 + (10 * COMM_vars.Framerate) + COMM_vars.Abitrate
 
-        requestMsg = chr(COMM_vars.motor_Power[RIGHT] + 51)
-        requestMsg += chr(COMM_vars.motor_Power[LEFT] + 51)
+        requestMsg = chr(COMM_vars.motor_Power[RIGHT] + 50)
+        requestMsg += chr(COMM_vars.motor_Power[LEFT] + 50)
         requestMsg += chr(COMM_vars.camPosition[X_AXIS])
         requestMsg += chr(COMM_vars.camPosition[Y_AXIS])
         requestMsg += chr(CntrlMask1)
@@ -831,7 +846,7 @@ class RacUio:
         mouseX = int(mouse_event.x) / 2
         mouseY = int(mouse_event.y) / 2
         if KEY_control.MouseBtn[LEFT] is True:
-            tmp = mouseX - KEY_control.MouseXY[X_AXIS]
+            tmp = KEY_control.MouseXY[X_AXIS] - mouseX
             if abs(tmp) >= 1:
                 COMM_vars.camPosition[X_AXIS] += int(tmp)
 
@@ -846,7 +861,7 @@ class RacUio:
 
     @staticmethod
     def get_speed_and_direction():
-        # Console.print("COMM_vars:", KEY_control.Down, KEY_control.Up, KEY_control.Left, KEY_control.Right, COMM_vars.speed, COMM_vars.direction)
+        # print("COMM_vars:", KEY_control.Down, KEY_control.Up, KEY_control.Left, KEY_control.Right, COMM_vars.speed, COMM_vars.direction)
         if KEY_control.Down is True:
             if COMM_vars.speed > -MAX_SPEED:
                 COMM_vars.speed -= ACCELERATION

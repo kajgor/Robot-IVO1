@@ -6,8 +6,8 @@ gi.require_version('Gtk', '3.0')
 gi.require_version('GstVideo', '1.0')
 from gi.repository import Gtk, Gdk, GdkX11, GLib
 
-from Common_vars import TIMEOUT_GUI, VideoBitrate, AudioBitrate, AudioCodec, VideoCodec, PROTO_NAME
-from Client_vars import Paths, Debug
+from Common_vars import TIMEOUT_GUI, VideoFramerate, AudioBitrate, AudioCodec, VideoCodec, PROTO_NAME
+from Client_vars import Paths, Debug, CAM0_control
 
 from config_rw import *
 from ClientLib import RacConnection, RacUio, RacDisplay, MainLoop, Console
@@ -57,19 +57,21 @@ class MainWindow(Gtk.Window):
         self.Switch_Compression.set_active(Compression[0])
         self.ComboBoxText_Vcodec.set_active(Compression[1])
         self.ComboBoxText_Acodec.set_active(Compression[2])
+        self.ComboBoxText_Framerate.set_active(Compression[3])
+        self.ComboBoxText_Abitrate.set_active(Compression[4])
+        self.ComboBoxText_Flip.set_active(Compression[5])
         self.checkbutton_localtest.set_active(Local_Test)
         self.ComboBoxText_Proto.set_active(Network)
-        # self.ComboBoxText_Vbitrate.set_active(Compression[3])
-        # self.ComboBoxText_Abitrate.set_active(Compression[4])
 
         self.on_CheckButton_LocalTest_toggled(self.checkbutton_localtest)
         self.on_ComboBoxText_Proto_changed(self.ComboBoxText_Proto)
         self.on_ComboBoxResolution_changed(self.ComboBoxResolution)
         self.on_ComboBoxText_Vcodec_changed(self.ComboBoxText_Vcodec)
         self.on_ComboBoxText_Acodec_changed(self.ComboBoxText_Acodec)
-        self.on_ComboBoxText_Vbitrate_changed(self.ComboBoxText_Vcodec)
-        self.on_ComboBoxText_Abitrate_changed(self.ComboBoxText_Acodec)
+        self.on_ComboBoxText_Framerate_changed(self.ComboBoxText_Framerate)
+        self.on_ComboBoxText_Abitrate_changed(self.ComboBoxText_Abitrate)
         self.on_CheckButton_Mic_toggled(self.CheckButton_Mic)
+        self.on_ComboBoxText_Flip_changed(self.ComboBoxText_Flip)
 
         Rac_connection.load_HostList(self.combobox_host, HostList)
 
@@ -156,8 +158,10 @@ class MainWindow(Gtk.Window):
         self.ComboBoxText_Acodec    = builder.get_object("ComboBoxText_Acodec")
         self.ComboBoxText_Proto     = builder.get_object("ComboBoxText_Proto")
         # self.on_Button_Adv          = builder.get_object("on_Button_Adv")
-        self.ComboBoxText_Vbitrate  = builder.get_object("ComboBoxText_Vbitrate")
+        self.ComboBoxText_Framerate = builder.get_object("ComboBoxText_Framerate")
         self.ComboBoxText_Abitrate  = builder.get_object("ComboBoxText_Abitrate")
+        self.ComboBoxText_Flip      = builder.get_object("ComboBoxText_Flip")
+        self.ComboBoxResolution     = builder.get_object("ComboBoxResolution")
 
         self.LabelRpmL              = builder.get_object("LabelRpmL")
         self.LabelRpmR              = builder.get_object("LabelRpmR")
@@ -169,7 +173,6 @@ class MainWindow(Gtk.Window):
         self.LabelRpmAckR           = builder.get_object("LabelRpmAckR")
         self.LabelCamPosH           = builder.get_object("LabelCamPosH")
         self.LabelCamPosV           = builder.get_object("LabelCamPosV")
-
         self.LabelCoreTemp          = builder.get_object("LabelCoreTemp")
         self.LabelBattV             = builder.get_object("LabelBattV")
         self.LabelPowerA            = builder.get_object("LabelPowerA")
@@ -179,8 +182,6 @@ class MainWindow(Gtk.Window):
         self.LevelBar_Current       = builder.get_object("LevelBar_Current")
         self.LeverBar_PowerL        = builder.get_object("LeverBar_PowerL")
         self.LeverBar_PowerR        = builder.get_object("LeverBar_PowerR")
-
-        self.ComboBoxResolution     = builder.get_object("ComboBoxResolution")
 
         return builder
 
@@ -316,10 +317,13 @@ class MainWindow(Gtk.Window):
         COMM_vars.Acodec = widget.get_active()
         self.SSBar_update()
 
-    def on_ComboBoxText_Vbitrate_changed(self, widget):
-        COMM_vars.Vbitrate = widget.get_active()
-        Console.print("Video Bitrate:", VideoBitrate[COMM_vars.Vbitrate])
+    def on_ComboBoxText_Framerate_changed(self, widget):
+        COMM_vars.Framerate = widget.get_active()
+        Console.print("Video Framerate:", VideoFramerate[COMM_vars.Framerate])
         self.SSBar_update()
+
+    def on_ComboBoxText_Flip_changed(self, widget):
+        CAM0_control.Flip = widget.get_active()
 
     def on_ComboBoxText_Abitrate_changed(self, widget):
         COMM_vars.Abitrate = widget.get_active()
@@ -377,7 +381,7 @@ class MainWindow(Gtk.Window):
     def SSBar_update(self):
         SStatBar = PROTO_NAME[Rac_connection.Protocol] + ": "
         SStatBar += VideoCodec[RacConnection.Video_Mode] + "/"
-        SStatBar += VideoBitrate[COMM_vars.Vbitrate] + "  "
+        SStatBar += VideoFramerate[COMM_vars.Framerate] + "  "
         SStatBar += AudioCodec[COMM_vars.Acodec] + "/"
         SStatBar += AudioBitrate[COMM_vars.Abitrate]
 
@@ -392,8 +396,9 @@ class MainWindow(Gtk.Window):
         Compression_Mask = (self.Switch_Compression.get_active(),
                             self.ComboBoxText_Vcodec.get_active(),
                             self.ComboBoxText_Acodec.get_active(),
-                            self.ComboBoxText_Vbitrate.get_active(),
-                            self.ComboBoxText_Abitrate.get_active())
+                            self.ComboBoxText_Framerate.get_active(),
+                            self.ComboBoxText_Abitrate.get_active(),
+                            self.ComboBoxText_Flip.get_active())
 
         Ssh_Mask = (self.Entry_RsaKey.get_text(),
                     self.Entry_KeyPass.get_text(),

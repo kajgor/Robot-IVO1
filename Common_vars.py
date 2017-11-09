@@ -4,24 +4,25 @@ Port_MIC0 = Port_COMM + 2
 Port_DSP0 = Port_COMM + 4
 Port_SPK0 = Port_COMM + 5
 ######################
-RECMSGLEN = 15
+RECMSGLEN = 16
 TIMEOUT_GUI = 50
 COMM_IDLE   = 10
 RETRY_LIMIT = 15
 ######################
 MAX_SPEED = 50
-MOUSE_MIN = [40, 45]
-MOUSE_MAX = [150, 100]
+MOUSE_MIN = [20, 10]
+MOUSE_MAX = [180, 100]
 ######################
 X_AXIS = 0
 Y_AXIS = 1
-RIGHT = 0
-LEFT = 1
+RIGHT = 1
+LEFT = 0
 ######################
 # Encoding = 'cp037'
 Encoding = 'latin_1'
+# Encoding = 'utf8'
 VideoCodec = ("raw", "h264", "mjpeg", "VP8")
-VideoBitrate = ("", "2048", "1024", "512")
+VideoFramerate = ("30", "25", "15", "5")
 AudioCodec = ("speex", "mp3", "aac")
 AudioBitrate = ("32000", "16000", "8000")
 ###### COLOURS #######
@@ -67,7 +68,7 @@ class COMM_vars:
     streaming_mode = 0
     Vcodec      = 0
     Acodec      = 0
-    Vbitrate    = 0
+    Framerate   = 0
     Abitrate    = 0
 
 

@@ -32,6 +32,10 @@ class KEY_control:
     MouseXY = [0, 0]
 
 
+class CAM0_control:
+    Flip    = 0
+
+
 from os import path
 from sys import argv
 class Paths:

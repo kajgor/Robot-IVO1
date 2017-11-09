@@ -2,6 +2,7 @@ import subprocess
 import threading
 import signal
 import socket
+import serial
 import queue
 import time
 import gi
@@ -83,7 +84,11 @@ class ClientThread(threading.Thread):
                     Console.print("Client: " + client_IP + "[" + PROTO_NAME[Protocol] + "]")
                     Console.print("Video Codec is " + VideoCodec[Video_Mode])
 
+                    SRV_vars.TestMode = not bool(Video_Mode)
+
                     conn = self.connection_loop(conn, Video_Mode, client_IP, Protocol)
+
+                    SRV_vars.DRV_A1_request = chr(50) + chr(50) + chr(0) + chr(0) + chr(0)
                 else:
                     Console.print("Invalid message detected! Breaking connection.")
 
@@ -142,6 +147,13 @@ class ClientThread(threading.Thread):
                 except OSError:
                     Console.print("transmit_message: OSError (client lost)")
                     break
+                except UnicodeEncodeError:
+                    print(response)
+                    print("temp",COMM_vars.coreTemp)
+                    print("curr",COMM_vars.current)
+                    print("volt",COMM_vars.voltage)
+
+                    break
 
         self.Stream_Thread.shutdown_flag.set()
 
@@ -158,20 +170,17 @@ class ClientThread(threading.Thread):
 
     @staticmethod
     def decode_data(data):
-        COMM_vars.motor_Power[RIGHT] = data[1]
-        COMM_vars.motor_Power[LEFT]  = data[2]
+        SRV_vars.DRV_A1_request = data[1:6].decode(Encoding)
 
-        COMM_vars.camPosition[X_AXIS] = data[3]
-        COMM_vars.camPosition[Y_AXIS] = data[4]
-
+        SRV_vars.CTRL1_Mask = data[5]
         # Force 8bit format to extract switches
-        Cntrl_Mask1 = format(data[5] + 256, 'b')
-        COMM_vars.light     = int(Cntrl_Mask1[7])
-        COMM_vars.speakers  = int(Cntrl_Mask1[6])
-        COMM_vars.mic       = bool(int(Cntrl_Mask1[5]))
-        COMM_vars.display   = int(Cntrl_Mask1[4])
-        COMM_vars.laser     = int(Cntrl_Mask1[3])
-        COMM_vars.AutoMode  = int(Cntrl_Mask1[2])
+        CTRL1_Mask = format(SRV_vars.CTRL1_Mask + 256, 'b')
+        COMM_vars.light     = int(CTRL1_Mask[7])
+        COMM_vars.speakers  = int(CTRL1_Mask[6])
+        COMM_vars.mic       = bool(int(CTRL1_Mask[5]))
+        COMM_vars.display   = int(CTRL1_Mask[4])
+        COMM_vars.laser     = int(CTRL1_Mask[3])
+        COMM_vars.AutoMode  = int(CTRL1_Mask[2])
 
         resolution = data[6] - (int(data[6] / 10) * 10)
         Bitratemask = data[7]
@@ -183,19 +192,15 @@ class ClientThread(threading.Thread):
 
     @staticmethod
     def encode_data(data):
-        retstr = chr(calc_checksum(data))
-        retstr += chr(COMM_vars.motor_PWR[RIGHT])
-        retstr += chr(COMM_vars.motor_PWR[LEFT])
-        retstr += chr(COMM_vars.motor_RPM[RIGHT])
-        retstr += chr(COMM_vars.motor_RPM[LEFT])
-        retstr += chr(data[5])  # CntrlMask1
-        retstr += chr(COMM_vars.streaming_mode)  # CntrlMask2
-        retstr += chr(10) + chr(10)
-        retstr += chr(COMM_vars.coreTemp)
-        retstr += COMM_vars.current
-        retstr += COMM_vars.voltage
+        retstr = chr(calc_checksum(data))               # 1
+        retstr += str(SRV_vars.DRV_A1_response[1:11])   # 2,3,4,5,6,7,8,9,10,11
+        retstr += chr(data[5])  # CntrlMask1            # 12
+        retstr += chr(COMM_vars.streaming_mode)         # 13
+        retstr += chr(255)                              # 14
+        retstr += chr(COMM_vars.coreTemp)               # 15
+        retstr += chr(255)                              # 16
 
-        return retstr.ljust(RECMSGLEN, chr(10))
+        return retstr  # .ljust(RECMSGLEN, chr(255))
 
     def create_socket(self):
         # Create Socket
@@ -545,9 +550,86 @@ class DriverThread(threading.Thread):
         # The shutdown_flag is a threading.Event object that
         # indicates whether the thread should be terminated.
         self.shutdown_flag = threading.Event()
+        # COMM_vars.motor_Power = [50, 50]
 
     def run(self):
         Console.print('Driver Thread #%s started' % self.ident)
+
+        if SRV_vars.TestMode is True:
+            self._testrun()
+        else:
+            self._liverun()
+
+        Console.print('Driver Thread #%s stopped' % self.ident)
+
+    def _liverun(self):
+        Console.print("Serial Port", SRV_vars.Serial_Port)
+
+        SerPort1          = serial.Serial(SRV_vars.Serial_Port)
+        SerPort1.port     = SRV_vars.Serial_Port
+        SerPort1.baudrate = SRV_vars.Port_Baudrate
+        SerPort1.bytesize = SRV_vars.Port_bytesize
+        SerPort1.parity   = SRV_vars.Port_parity
+        SerPort1.stopbits = SRV_vars.Port_stopbits
+        SerPort1.timeout  = SRV_vars.Port_Timeout
+        SerPort1.xonxoff  = SRV_vars.Port_XonXoff
+        SerPort1.dsrdtr   = SRV_vars.Port_DsrDtr
+        SerPort1.rtscts   = SRV_vars.Port_RtsCts
+
+        inStr = ""
+        while True:
+            inChar = SerPort1.read().decode(Encoding)
+            inStr += inChar
+            if inChar == chr(10):
+                Console.print(inStr)
+                break
+        idx = 75
+        while not self.shutdown_flag.is_set():
+            SerPort1.flushInput()
+            data = chr(255)                                 # 1
+            data += SRV_vars.DRV_A1_request                 # 2,3,4,5,6
+            data += chr(0)                                  # 7
+            data += chr(0)                                  # 8
+            data += chr(0)                                  # 9
+            data += chr(0)                                  # 10
+            data += chr(0)                                  # 11
+            data += chr(0)                                  # 12
+            data += chr(0)                                  # 13
+            data += chr(0)                                  # 14
+            data += chr(0)                                  # 15
+            data += chr(255)                                # 16
+
+            NoOfBytes = SerPort1.write(data.encode(Encoding))
+
+            time.sleep(0.04)
+            if NoOfBytes == DRV_A1_MSGLEN:
+                resp_data = SerPort1.read(DRV_A1_MSGLEN)  # Wait and read data
+
+                if len(resp_data) < DRV_A1_MSGLEN:
+                    Console.print(">>>DATA TIMEOUT!", len(resp_data))
+                    continue
+
+                if resp_data[0] + resp_data[DRV_A1_MSGLEN - 1] == 510:
+                    SRV_vars.DRV_A1_response = resp_data.decode(Encoding)
+                    # ticker = int.from_bytes(SRV_vars.DRV_A1_response[3].encode(Encoding), byteorder='little')
+                    # # print("TXN OK!")
+                else:
+                    Console.print(">>>BAD CHKSUM", resp_data[0], resp_data[15])
+                    print("data  out:", NoOfBytes, data)
+                    print("data back:", len(resp_data), resp_data)
+            else:
+                Console.print(">>>Flush:", NoOfBytes)
+                SerPort1.flushOutput()
+
+            # TEMP - report every 3sec
+            if idx == 75:
+                self.read_CPU_temp()
+                idx = 0
+            else:
+                idx += 1
+
+
+    def _testrun(self):
         inc = 30 ; adx = 1
         idx = 30
         while not self.shutdown_flag.is_set():
@@ -572,16 +654,18 @@ class DriverThread(threading.Thread):
 
             # TEMP - report every 3sec
             if idx == 30:
-                Tempstr = execute_cmd("LD_LIBRARY_PATH=/opt/vc/lib && /opt/vc/bin/vcgencmd measure_temp")
-                Tempstr = re.findall(r"\d+", Tempstr.decode(Encoding))
-                Temp = int(Tempstr[0]) * 10 + int(Tempstr[1])
-                COMM_vars.coreTemp = int(Temp / 5)
+                self.read_CPU_temp()
                 idx = 0
 
             time.sleep(.1)
             idx += 1
 
-        Console.print('Driver Thread #%s stopped' % self.ident)
+    def read_CPU_temp(self):
+        Tempstr = execute_cmd("LD_LIBRARY_PATH=/opt/vc/lib && /opt/vc/bin/vcgencmd measure_temp")
+        Tempstr = re.findall(r"\d+", Tempstr.decode(Encoding))
+        Temp = int(Tempstr[0]) * 10 + int(Tempstr[1])
+        if Temp <= 1275:
+            COMM_vars.coreTemp = int(Temp / 5)
 
 
 # Function for handling connections. This will be used to create threads
@@ -596,7 +680,6 @@ class ThreadManager():
         signal.signal(signal.SIGINT, self.ProgramExit)
         signal.signal(signal.SIGABRT, self.ProgramExit)
 
-
         self._GUI = GUI
         if GUI is False:
             SRV_vars.GUI_CONSOLE = False
@@ -604,25 +687,37 @@ class ThreadManager():
             SRV_vars.GUI_CONSOLE = True
 
         self.Console = Console()
-        self.Driver_Thread = DriverThread()
-        self._init_ClientThread()
-
         Console.print("Console " + VERSION + " initialized\n")
+
+        if SRV_vars.Serial_Port is None:
+            Console.print("No Serial Port found!")
+        else:
+            self._init_DriverThread()
+
+        self._init_ClientThread()
 
     def _init_ClientThread(self):
         self.Client_Thread = ClientThread()
 
+    def _init_DriverThread(self):
+        self.Driver_Thread = DriverThread()
+
     def run(self):
         if self.shutdown_flag is False:
-            if not self.Driver_Thread.is_alive():
-                self.Driver_Thread.start()
+            if SRV_vars.Serial_Port is not None:
+                if not self.Driver_Thread.is_alive():
+                    try:
+                        self.Driver_Thread.start()
+                    except RuntimeError:
+                        self._init_DriverThread()
+                        self.Driver_Thread.start()
+
             if not self.Client_Thread.is_alive():
                 try:
                     self.Client_Thread.start()
                 except RuntimeError:
                     self._init_ClientThread()
                     self.Client_Thread.start()
-                    print("hehehe")
         else:
             if not(self.Client_Thread.shutdown_flag.is_set() and self.Client_Thread.shutdown_flag.is_set()):
                 Console.print("shutting down services...")
@@ -634,15 +729,17 @@ class ThreadManager():
 
     def _stop(self):
         self.Client_Thread.shutdown_flag.set()
-        self.Driver_Thread.shutdown_flag.set()
+
         if self.Client_Thread.srv is not None:
             self.Client_Thread.closesrv()
 
         if self.Client_Thread.is_alive():
             self.Client_Thread.join()
 
-        if self.Driver_Thread.is_alive():
-            self.Driver_Thread.join()
+        if SRV_vars.Serial_Port is not None:
+            self.Driver_Thread.shutdown_flag.set()
+            if self.Driver_Thread.is_alive():
+                self.Driver_Thread.join()
 
         Console.print('Thread manager has stopped.')
         self.shutdown_flag = None
