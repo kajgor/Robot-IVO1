@@ -65,7 +65,6 @@ class ClientThread(threading.Thread):
             client_IP = addr[0]
             Console.print('Connected with ' + client_IP + ':' + str(addr[1]))
             # Sending message to connected client
-            # conn.send('AWAITING__COMM\n'.encode(Encoding))  # send only takes string
             data = self.get_bytes_from_client(conn, 9)
             if len(data) == 9:
                 Console.print("Message Validation... ")
@@ -575,6 +574,7 @@ class DriverThread(threading.Thread):
         SerPort1.xonxoff  = SRV_vars.Port_XonXoff
         SerPort1.dsrdtr   = SRV_vars.Port_DsrDtr
         SerPort1.rtscts   = SRV_vars.Port_RtsCts
+        SerPort1.flush()
 
         inStr = ""
         while True:
@@ -585,38 +585,31 @@ class DriverThread(threading.Thread):
                 break
         idx = 75
         while not self.shutdown_flag.is_set():
-            SerPort1.flushInput()
+            # SerPort1.flushInput()
             data = chr(255)                                 # 1
             data += SRV_vars.DRV_A1_request                 # 2,3,4,5,6
             data += chr(0)                                  # 7
-            data += chr(0)                                  # 8
-            data += chr(0)                                  # 9
-            data += chr(0)                                  # 10
-            data += chr(0)                                  # 11
-            data += chr(0)                                  # 12
-            data += chr(0)                                  # 13
-            data += chr(0)                                  # 14
-            data += chr(0)                                  # 15
-            data += chr(255)                                # 16
+            data += chr(255)                                # 8
 
             NoOfBytes = SerPort1.write(data.encode(Encoding))
 
             time.sleep(0.04)
-            if NoOfBytes == DRV_A1_MSGLEN:
-                resp_data = SerPort1.read(DRV_A1_MSGLEN)  # Wait and read data
+            if NoOfBytes == DRV_A1_MSGLEN_REQ:
+                resp_data = SerPort1.read(DRV_A1_MSGLEN_RES)  # Wait and read data
 
-                if len(resp_data) < DRV_A1_MSGLEN:
+                if len(resp_data) < DRV_A1_MSGLEN_RES:
                     Console.print(">>>DATA TIMEOUT!", len(resp_data))
                     continue
 
-                if resp_data[0] + resp_data[DRV_A1_MSGLEN - 1] == 510:
+                if resp_data[0] + resp_data[DRV_A1_MSGLEN_RES - 1] == 510:
                     SRV_vars.DRV_A1_response = resp_data.decode(Encoding)
                     # ticker = int.from_bytes(SRV_vars.DRV_A1_response[3].encode(Encoding), byteorder='little')
                     # # print("TXN OK!")
                 else:
                     Console.print(">>>BAD CHKSUM", resp_data[0], resp_data[15])
-                    print("data  out:", NoOfBytes, data)
-                    print("data back:", len(resp_data), resp_data)
+                    # print("data  out:", NoOfBytes, data)
+                    # print("data back:", len(resp_data), resp_data)
+                    SerPort1.flushInput()
             else:
                 Console.print(">>>Flush:", NoOfBytes)
                 SerPort1.flushOutput()

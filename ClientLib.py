@@ -712,7 +712,6 @@ class RacConnection:
         # Motor_RPM - Motor rotations
         # CheckSum = ord(resp[0])
         dataint = [None,0,0,0,0,0,0,0,0,0,0]
-        # dataint = [16]
         for xcr in range(1, 11):
             if ord(resp[xcr]) == 252:
                 dataint[xcr] = 17
@@ -728,7 +727,7 @@ class RacConnection:
         curr_sensor = 0.0048 * (dataint[5] * 250 + dataint[6])
         COMM_vars.current          = (2.5 - curr_sensor) * 5
         COMM_vars.voltage          = 0.012 * (dataint[7] * 250 + dataint[8])
-        COMM_vars.distanceS1       = (dataint[9] * 250 + dataint[10]) / 58
+        COMM_vars.distanceS1       = int((dataint[9] * 250 + dataint[10]) / 58)
 
         CntrlMask1 = ord(resp[11])
         CntrlMask2 = ord(resp[12])
@@ -748,13 +747,26 @@ class RacConnection:
 
         BitrateMask = 100 + (10 * COMM_vars.Framerate) + COMM_vars.Abitrate
 
-        requestMsg = chr(COMM_vars.motor_Power[RIGHT] + 50)
-        requestMsg += chr(COMM_vars.motor_Power[LEFT] + 50)
-        requestMsg += chr(COMM_vars.camPosition[X_AXIS])
-        requestMsg += chr(COMM_vars.camPosition[Y_AXIS])
-        requestMsg += chr(CntrlMask1)
-        requestMsg += chr(100 * RIGHT + 10 * LEFT + COMM_vars.resolution)
-        requestMsg += chr(BitrateMask)
+        reqMsgVal = []
+        reqMsgVal.append(COMM_vars.motor_Power[RIGHT] + 50)
+        reqMsgVal.append(COMM_vars.motor_Power[LEFT] + 50)
+        reqMsgVal.append(COMM_vars.camPosition[X_AXIS])
+        reqMsgVal.append(COMM_vars.camPosition[Y_AXIS])
+        reqMsgVal.append(CntrlMask1)
+        reqMsgVal.append(100 * RIGHT + 10 * LEFT + COMM_vars.resolution)
+        reqMsgVal.append(BitrateMask)
+
+        requestMsg = ""
+        # Convert chr(17) & chr(19) to chr(252) & chr(253) respectively
+        # as above characters break Arduino serial communication
+        for i in range(0, 7):
+            if reqMsgVal[i] == 17:
+                requestMsg += chr(252)
+            elif reqMsgVal[i] == 19:
+                requestMsg += chr(253)
+            else:
+                requestMsg += chr(reqMsgVal[i])
+
         if Debug == 2:
             Console.print("requestMsg", requestMsg)
 

@@ -14,7 +14,8 @@ HORIZONTAL = 1
 SO_RETRY_LIMIT = 65
 
 # Arduino driver message len (in/out)
-DRV_A1_MSGLEN = 16
+DRV_A1_MSGLEN_REQ = 8
+DRV_A1_MSGLEN_RES = 16
 
 # Note omxh264enc element which is hardware h264 encoder.
 # Software h264 encoder is called h264enc.
