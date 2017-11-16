@@ -60,18 +60,19 @@ class MainWindow(Gtk.Window):
         self.ComboBoxText_Framerate.set_active(Compression[3])
         self.ComboBoxText_Abitrate.set_active(Compression[4])
         self.ComboBoxText_Flip.set_active(Compression[5])
-        self.checkbutton_localtest.set_active(Local_Test)
         self.ComboBoxText_Proto.set_active(Network)
+        self.checkbutton_localtest.set_active(Local_Test)
 
-        self.on_CheckButton_LocalTest_toggled(self.checkbutton_localtest)
         self.on_ComboBoxText_Proto_changed(self.ComboBoxText_Proto)
         self.on_ComboBoxResolution_changed(self.ComboBoxResolution)
         self.on_ComboBoxText_Vcodec_changed(self.ComboBoxText_Vcodec)
         self.on_ComboBoxText_Acodec_changed(self.ComboBoxText_Acodec)
         self.on_ComboBoxText_Framerate_changed(self.ComboBoxText_Framerate)
         self.on_ComboBoxText_Abitrate_changed(self.ComboBoxText_Abitrate)
-        self.on_CheckButton_Mic_toggled(self.CheckButton_Mic)
         self.on_ComboBoxText_Flip_changed(self.ComboBoxText_Flip)
+        self.on_CheckButton_LocalTest_toggled(self.checkbutton_localtest)
+        self.on_CheckButton_Mic_toggled(self.CheckButton_Mic)
+        self.on_CheckButton_Speakers_toggled(self.CheckButton_Display)
 
         Rac_connection.load_HostList(self.combobox_host, HostList)
 

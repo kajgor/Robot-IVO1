@@ -10,6 +10,9 @@ if CommunicationFFb is True:
 else:
     ACCELERATION = 1
 
+# DEVICES
+# MIC0_DEVICE = "alsa_input.usb-C-Media_Electronics_Inc._USB_PnP_Sound_Device-00.analog-mono"
+MIC0_DEVICE = "alsa_input.pci-0000_00_05.0.analog-stereo"
 
 class arrow(object):
     points = (

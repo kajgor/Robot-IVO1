@@ -126,7 +126,11 @@ class RacConnection:
                           Gst.ElementFactory.make("videoflip", "flip")],
                          [Gst.ElementFactory.make("videoflip", "flip_test_udp"),
                           Gst.ElementFactory.make("videoflip", "flip_udp")])
-    # video_flip.set_property("method", "rotate-180")
+
+    sender_audio      = ([Gst.Pipeline.new("sender_audio_test"),
+                          Gst.Pipeline.new("sender_audio")],
+                         [Gst.Pipeline.new("sender_audio_test_udp"),
+                          Gst.Pipeline.new("sender_audio_udp")])
 
     Source_test = 0
     Source_h264 = 1
@@ -175,34 +179,33 @@ class RacConnection:
         self.sink_video[1][self.Source_h264].set_property("sync", False)
 
         self.Cam_idle = 0
-
-        #   SET AUDIO
+        #   SET AUDIO RECEIVER
         #    udpsrc port=3333 ! application/x-rtp, media=audio, clock-rate=32000, encoding-name=SPEEX, payload=96 !
         #    rtpspeexdepay ! speexdec ! pulsesink sync=false
-        self.source_audio = ([Gst.ElementFactory.make("tcpclientsrc", "source_audio_test"),
-                              Gst.ElementFactory.make("tcpclientsrc", "source_audio")],
-                             [Gst.ElementFactory.make("udpsrc", "source_audio_test_udp"),
-                              Gst.ElementFactory.make("udpsrc", "source_audio_udp")])
+        self.player_audio_source = ([Gst.ElementFactory.make("tcpclientsrc", "source_audio_test"),
+                                     Gst.ElementFactory.make("tcpclientsrc", "source_audio")],
+                                    [Gst.ElementFactory.make("udpsrc", "source_audio_test_udp"),
+                                     Gst.ElementFactory.make("udpsrc", "source_audio_udp")])
 
-        self.capsfilter_audio = ([Gst.ElementFactory.make("capsfilter", "capsfilter_audio_test"),
-                                  Gst.ElementFactory.make("capsfilter", "capsfilter_audio")],
-                                 [Gst.ElementFactory.make("capsfilter", "capsfilter_audio_test_udp"),
-                                  Gst.ElementFactory.make("capsfilter", "capsfilter_audio_udp")])
+        self.player_audio_capsfilter = ([Gst.ElementFactory.make("capsfilter", "capsfilter_audio_test"),
+                                         Gst.ElementFactory.make("capsfilter", "capsfilter_audio")],
+                                        [Gst.ElementFactory.make("capsfilter", "capsfilter_audio_test_udp"),
+                                         Gst.ElementFactory.make("capsfilter", "capsfilter_audio_udp")])
 
-        self.depayloader_audio = ([Gst.ElementFactory.make("rtpspeexdepay", "depayloader_audio_test"),
-                                   Gst.ElementFactory.make("rtpspeexdepay", "depayloader_audio")],
-                                  [Gst.ElementFactory.make("rtpspeexdepay", "depayloader_audio_test"),
-                                   Gst.ElementFactory.make("rtpspeexdepay", "depayloader_audio")])
+        self.player_audio_depayloader = ([Gst.ElementFactory.make("rtpspeexdepay", "depayloader_audio_test"),
+                                          Gst.ElementFactory.make("rtpspeexdepay", "depayloader_audio")],
+                                         [Gst.ElementFactory.make("rtpspeexdepay", "depayloader_audio_test"),
+                                          Gst.ElementFactory.make("rtpspeexdepay", "depayloader_audio")])
 
         # self.convert_audio = ([Gst.ElementFactory.make("audioresample"),
         #                        Gst.ElementFactory.make("audioresample")],
         #                       [Gst.ElementFactory.make("audioresample"),
         #                        Gst.ElementFactory.make("audioresample")])
         # 
-        self.decoder_audio = ([Gst.ElementFactory.make("speexdec", "decoder_audio_test"),
-                               Gst.ElementFactory.make("speexdec", "decoder_audio")],
-                              [Gst.ElementFactory.make("speexdec", "decoder_audio_test_udp"),
-                               Gst.ElementFactory.make("speexdec", "decoder_audio_udp")])
+        self.player_audio_decoder = ([Gst.ElementFactory.make("speexdec", "decoder_audio_test"),
+                                      Gst.ElementFactory.make("speexdec", "decoder_audio")],
+                                     [Gst.ElementFactory.make("speexdec", "decoder_audio_test_udp"),
+                                      Gst.ElementFactory.make("speexdec", "decoder_audio_udp")])
 
         # glimagesink(default)/gtksink/cacasink/autovideosink
         self.sink_audio = ([Gst.ElementFactory.make("pulsesink", "sink_audio_test"),
@@ -211,10 +214,10 @@ class RacConnection:
                             Gst.ElementFactory.make("pulsesink", "sink_audio_udp")])
 
         caps = Gst.Caps.from_string("application/x-rtp, media=audio, clock-rate=32000, encoding-name=SPEEX, payload=96")
-        self.capsfilter_audio[TCP][self.Source_test].set_property("caps", caps)
-        self.capsfilter_audio[TCP][self.Source_h264].set_property("caps", caps)
-        self.capsfilter_audio[UDP][self.Source_test].set_property("caps", caps)
-        self.capsfilter_audio[UDP][self.Source_h264].set_property("caps", caps)
+        self.player_audio_capsfilter[TCP][self.Source_test].set_property("caps", caps)
+        self.player_audio_capsfilter[TCP][self.Source_h264].set_property("caps", caps)
+        self.player_audio_capsfilter[UDP][self.Source_test].set_property("caps", caps)
+        self.player_audio_capsfilter[UDP][self.Source_h264].set_property("caps", caps)
 
         self.sink_audio[TCP][self.Source_test].set_property("sync", False)
         self.sink_audio[TCP][self.Source_h264].set_property("sync", False)
@@ -225,11 +228,45 @@ class RacConnection:
             print("ERROR! GL elements not available.")
             exit()
 
+        # SET AUDIO SENDER
+        self.sender_audio_source = ([Gst.ElementFactory.make("audiotestsrc", "audio-source_test"),
+                                    Gst.ElementFactory.make("pulsesrc", "audio-source")],
+                                   [Gst.ElementFactory.make("audiotestsrc", "audio-source_test_udp"),
+                                    Gst.ElementFactory.make("pulsesrc", "audio-source_udp")])
+        self.sender_audio_capsfilter = ([Gst.ElementFactory.make("capsfilter", "capsfilter_audio_test"),
+                                         Gst.ElementFactory.make("capsfilter", "capsfilter_audio")],
+                                        [Gst.ElementFactory.make("capsfilter", "capsfilter_audio_test_udp"),
+                                         Gst.ElementFactory.make("capsfilter", "capsfilter_audio_udp")])
+        self.sender_audio_sink     = ([Gst.ElementFactory.make("tcpserversink", "sink_audio_test"),
+                                       Gst.ElementFactory.make("tcpserversink", "sink_audio")],
+                                      [Gst.ElementFactory.make("udpsink", "sink_audio_test_udp"),
+                                       Gst.ElementFactory.make("udpsink", "sink_audio_udp")])
+        self.sender_audio_resample = ([Gst.ElementFactory.make("audioresample", "resample_audio_test"),
+                                       Gst.ElementFactory.make("audioresample", "resample_audio")],
+                                      [Gst.ElementFactory.make("audioresample", "resample_audio_test_udp"),
+                                       Gst.ElementFactory.make("audioresample", "resample_audio_udp")])
+        self.sender_audio_encoder  = ([Gst.ElementFactory.make("speexenc", "encoder_audio_test"),
+                                       Gst.ElementFactory.make("speexenc", "encoder_audio")],
+                                      [Gst.ElementFactory.make("speexenc", "encoder_audio_test_udp"),
+                                       Gst.ElementFactory.make("speexenc", "encoder_audio_udp")])
+        self.sender_audio_rtimer   = ([Gst.ElementFactory.make("rtpspeexpay", "rtimer_audio_test"),
+                                       Gst.ElementFactory.make("rtpspeexpay", "rtimer_audio")],
+                                      [Gst.ElementFactory.make("rtpspeexpay", "rtimer_audio_test_udp"),
+                                       Gst.ElementFactory.make("rtpspeexpay", "rtimer_audio_udp")])
+
+        self.sender_audio_sink[TCP][self.Source_test].set_property("sync", False)
+        self.sender_audio_sink[TCP][self.Source_h264].set_property("sync", False)
+        self.sender_audio_sink[UDP][self.Source_test].set_property("sync", True)
+        self.sender_audio_sink[UDP][self.Source_h264].set_property("sync", True)
+        self.sender_audio_source[TCP][self.Source_test].set_property("wave", 0)
+        self.sender_audio_source[TCP][self.Source_h264].set_property("device", MIC0_DEVICE)
+        self.sender_audio_source[UDP][self.Source_test].set_property("wave", 0)
+        self.sender_audio_source[UDP][self.Source_h264].set_property("device", MIC0_DEVICE)
+
         self.gst_init_test()
         self.gst_init_test_udp()
-        self.gst_init_cam()
-        self.gst_init_cam_udp()
-
+        self.gst_init_live()
+        self.gst_init_live_udp()
 
     def gst_init_test(self):
         # receive raw test image generated by gstreamer server
@@ -245,19 +282,33 @@ class RacConnection:
 
         #    tcpclientsrc host=x.x.x.x port=4552 ! application/x-rtp, media=audio, clock-rate=32000, encoding-name=SPEEX, payload=96 !
         #    rtpspeexdepay ! speexdec ! pulsesink sync=false
-        self.player_audio[TCP][self.Source_test].add(self.source_audio[TCP][self.Source_test])
-        self.player_audio[TCP][self.Source_test].add(self.capsfilter_audio[TCP][self.Source_test])
-        self.player_audio[TCP][self.Source_test].add(self.depayloader_audio[TCP][self.Source_test])
-        self.player_audio[TCP][self.Source_test].add(self.decoder_audio[TCP][self.Source_test])
+        self.player_audio[TCP][self.Source_test].add(self.player_audio_source[TCP][self.Source_test])
+        self.player_audio[TCP][self.Source_test].add(self.player_audio_capsfilter[TCP][self.Source_test])
+        self.player_audio[TCP][self.Source_test].add(self.player_audio_depayloader[TCP][self.Source_test])
+        self.player_audio[TCP][self.Source_test].add(self.player_audio_decoder[TCP][self.Source_test])
         self.player_audio[TCP][self.Source_test].add(self.sink_audio[TCP][self.Source_test])
 
-        self.source_audio[TCP][self.Source_test].link(self.capsfilter_audio[TCP][self.Source_test])
-        self.capsfilter_audio[TCP][self.Source_test].link(self.depayloader_audio[TCP][self.Source_test])
-        self.depayloader_audio[TCP][self.Source_test].link(self.decoder_audio[TCP][self.Source_test])
-        self.decoder_audio[TCP][self.Source_test].link(self.sink_audio[TCP][self.Source_test])
+        self.player_audio_source[TCP][self.Source_test].link(self.player_audio_capsfilter[TCP][self.Source_test])
+        self.player_audio_capsfilter[TCP][self.Source_test].link(self.player_audio_depayloader[TCP][self.Source_test])
+        self.player_audio_depayloader[TCP][self.Source_test].link(self.player_audio_decoder[TCP][self.Source_test])
+        self.player_audio_decoder[TCP][self.Source_test].link(self.sink_audio[TCP][self.Source_test])
+
+        # SENDER (TCP)
+        self.sender_audio[TCP][self.Source_test].add(self.sender_audio_source[TCP][self.Source_test])
+        self.sender_audio[TCP][self.Source_test].add(self.sender_audio_capsfilter[TCP][self.Source_test])
+        self.sender_audio[TCP][self.Source_test].add(self.sender_audio_resample[TCP][self.Source_test])
+        self.sender_audio[TCP][self.Source_test].add(self.sender_audio_encoder[TCP][self.Source_test])
+        self.sender_audio[TCP][self.Source_test].add(self.sender_audio_rtimer[TCP][self.Source_test])
+        self.sender_audio[TCP][self.Source_test].add(self.sender_audio_sink[TCP][self.Source_test])
+
+        self.sender_audio_source[TCP][self.Source_test].link(self.sender_audio_capsfilter[TCP][self.Source_test])
+        self.sender_audio_capsfilter[TCP][self.Source_test].link(self.sender_audio_resample[TCP][self.Source_test])
+        self.sender_audio_resample[TCP][self.Source_test].link(self.sender_audio_encoder[TCP][self.Source_test])
+        self.sender_audio_encoder[TCP][self.Source_test].link(self.sender_audio_rtimer[TCP][self.Source_test])
+        self.sender_audio_rtimer[TCP][self.Source_test].link(self.sender_audio_sink[TCP][self.Source_test])
         # --- Gstreamer setup end ---
 
-    def gst_init_cam(self):
+    def gst_init_live(self):
         # --- Gstreamer setup begin ---
         self.player_video[TCP][self.Source_h264].add(self.source_video[TCP][self.Source_h264])
         self.player_video[TCP][self.Source_h264].add(self.depayloader_video[self.Source_h264])
@@ -276,16 +327,30 @@ class RacConnection:
 
         #    tcpclientsrc host=x.x.x.x port=4552 ! application/x-rtp, media=audio, clock-rate=32000, encoding-name=SPEEX, payload=96 !
         #    rtpspeexdepay ! speexdec ! pulsesink sync=false
-        self.player_audio[TCP][self.Source_h264].add(self.source_audio[TCP][self.Source_h264])
-        self.player_audio[TCP][self.Source_h264].add(self.capsfilter_audio[TCP][self.Source_h264])
-        self.player_audio[TCP][self.Source_h264].add(self.depayloader_audio[TCP][self.Source_h264])
-        self.player_audio[TCP][self.Source_h264].add(self.decoder_audio[TCP][self.Source_h264])
+        self.player_audio[TCP][self.Source_h264].add(self.player_audio_source[TCP][self.Source_h264])
+        self.player_audio[TCP][self.Source_h264].add(self.player_audio_capsfilter[TCP][self.Source_h264])
+        self.player_audio[TCP][self.Source_h264].add(self.player_audio_depayloader[TCP][self.Source_h264])
+        self.player_audio[TCP][self.Source_h264].add(self.player_audio_decoder[TCP][self.Source_h264])
         self.player_audio[TCP][self.Source_h264].add(self.sink_audio[TCP][self.Source_h264])
 
-        self.source_audio[TCP][self.Source_h264].link(self.capsfilter_audio[TCP][self.Source_h264])
-        self.capsfilter_audio[TCP][self.Source_h264].link(self.depayloader_audio[TCP][self.Source_h264])
-        self.depayloader_audio[TCP][self.Source_h264].link(self.decoder_audio[TCP][self.Source_h264])
-        self.decoder_audio[TCP][self.Source_h264].link(self.sink_audio[TCP][self.Source_h264])
+        self.player_audio_source[TCP][self.Source_h264].link(self.player_audio_capsfilter[TCP][self.Source_h264])
+        self.player_audio_capsfilter[TCP][self.Source_h264].link(self.player_audio_depayloader[TCP][self.Source_h264])
+        self.player_audio_depayloader[TCP][self.Source_h264].link(self.player_audio_decoder[TCP][self.Source_h264])
+        self.player_audio_decoder[TCP][self.Source_h264].link(self.sink_audio[TCP][self.Source_h264])
+
+        # SENDER (TCP)
+        self.sender_audio[TCP][self.Source_h264].add(self.sender_audio_source[TCP][self.Source_h264])
+        self.sender_audio[TCP][self.Source_h264].add(self.sender_audio_capsfilter[TCP][self.Source_h264])
+        self.sender_audio[TCP][self.Source_h264].add(self.sender_audio_resample[TCP][self.Source_h264])
+        self.sender_audio[TCP][self.Source_h264].add(self.sender_audio_encoder[TCP][self.Source_h264])
+        self.sender_audio[TCP][self.Source_h264].add(self.sender_audio_rtimer[TCP][self.Source_h264])
+        self.sender_audio[TCP][self.Source_h264].add(self.sender_audio_sink[TCP][self.Source_h264])
+
+        self.sender_audio_source[TCP][self.Source_h264].link(self.sender_audio_capsfilter[TCP][self.Source_h264])
+        self.sender_audio_capsfilter[TCP][self.Source_h264].link(self.sender_audio_resample[TCP][self.Source_h264])
+        self.sender_audio_resample[TCP][self.Source_h264].link(self.sender_audio_encoder[TCP][self.Source_h264])
+        self.sender_audio_encoder[TCP][self.Source_h264].link(self.sender_audio_rtimer[TCP][self.Source_h264])
+        self.sender_audio_rtimer[TCP][self.Source_h264].link(self.sender_audio_sink[TCP][self.Source_h264])
         # --- Gstreamer setup end ---
 
     def gst_init_test_udp(self):
@@ -306,19 +371,33 @@ class RacConnection:
 
         #    udpsrc port=3333 ! application/x-rtp, media=audio, clock-rate=32000, encoding-name=SPEEX, payload=96 !
         #    rtpspeexdepay ! speexdec ! pulsesink sync=false
-        self.player_audio[UDP][self.Source_test].add(self.source_audio[UDP][self.Source_test])
-        self.player_audio[UDP][self.Source_test].add(self.capsfilter_audio[UDP][self.Source_test])
-        self.player_audio[UDP][self.Source_test].add(self.depayloader_audio[UDP][self.Source_test])
-        self.player_audio[UDP][self.Source_test].add(self.decoder_audio[UDP][self.Source_test])
+        self.player_audio[UDP][self.Source_test].add(self.player_audio_source[UDP][self.Source_test])
+        self.player_audio[UDP][self.Source_test].add(self.player_audio_capsfilter[UDP][self.Source_test])
+        self.player_audio[UDP][self.Source_test].add(self.player_audio_depayloader[UDP][self.Source_test])
+        self.player_audio[UDP][self.Source_test].add(self.player_audio_decoder[UDP][self.Source_test])
         self.player_audio[UDP][self.Source_test].add(self.sink_audio[UDP][self.Source_test])
 
-        self.source_audio[UDP][self.Source_test].link(self.capsfilter_audio[UDP][self.Source_test])
-        self.capsfilter_audio[UDP][self.Source_test].link(self.depayloader_audio[UDP][self.Source_test])
-        self.depayloader_audio[UDP][self.Source_test].link(self.decoder_audio[UDP][self.Source_test])
-        self.decoder_audio[UDP][self.Source_test].link(self.sink_audio[UDP][self.Source_test])
+        self.player_audio_source[UDP][self.Source_test].link(self.player_audio_capsfilter[UDP][self.Source_test])
+        self.player_audio_capsfilter[UDP][self.Source_test].link(self.player_audio_depayloader[UDP][self.Source_test])
+        self.player_audio_depayloader[UDP][self.Source_test].link(self.player_audio_decoder[UDP][self.Source_test])
+        self.player_audio_decoder[UDP][self.Source_test].link(self.sink_audio[UDP][self.Source_test])
+
+        # SENDER (UDP)
+        self.sender_audio[UDP][self.Source_test].add(self.sender_audio_source[UDP][self.Source_test])
+        self.sender_audio[UDP][self.Source_test].add(self.sender_audio_capsfilter[UDP][self.Source_test])
+        self.sender_audio[UDP][self.Source_test].add(self.sender_audio_resample[UDP][self.Source_test])
+        self.sender_audio[UDP][self.Source_test].add(self.sender_audio_encoder[UDP][self.Source_test])
+        self.sender_audio[UDP][self.Source_test].add(self.sender_audio_rtimer[UDP][self.Source_test])
+        self.sender_audio[UDP][self.Source_test].add(self.sender_audio_sink[UDP][self.Source_test])
+
+        self.sender_audio_source[UDP][self.Source_test].link(self.sender_audio_capsfilter[UDP][self.Source_test])
+        self.sender_audio_capsfilter[UDP][self.Source_test].link(self.sender_audio_resample[UDP][self.Source_test])
+        self.sender_audio_resample[UDP][self.Source_test].link(self.sender_audio_encoder[UDP][self.Source_test])
+        self.sender_audio_encoder[UDP][self.Source_test].link(self.sender_audio_rtimer[UDP][self.Source_test])
+        self.sender_audio_rtimer[UDP][self.Source_test].link(self.sender_audio_sink[UDP][self.Source_test])
         # --- Gstreamer setup end ---
 
-    def gst_init_cam_udp(self):
+    def gst_init_live_udp(self):
         # --- Gstreamer setup begin ---
         self.player_video[UDP][self.Source_h264].add(self.source_video[UDP][self.Source_h264])
         self.player_video[UDP][self.Source_h264].add(self.capsfilter_video[self.Source_h264])
@@ -337,16 +416,31 @@ class RacConnection:
 
         #    udpsrc port=3333 ! application/x-rtp, media=audio, clock-rate=32000, encoding-name=SPEEX, payload=96 !
         #    rtpspeexdepay ! speexdec ! pulsesink sync=false
-        self.player_audio[UDP][self.Source_h264].add(self.source_audio[UDP][self.Source_h264])
-        self.player_audio[UDP][self.Source_h264].add(self.capsfilter_audio[UDP][self.Source_h264])
-        self.player_audio[UDP][self.Source_h264].add(self.depayloader_audio[UDP][self.Source_h264])
-        self.player_audio[UDP][self.Source_h264].add(self.decoder_audio[UDP][self.Source_h264])
+        # PLAYER
+        self.player_audio[UDP][self.Source_h264].add(self.player_audio_source[UDP][self.Source_h264])
+        self.player_audio[UDP][self.Source_h264].add(self.player_audio_capsfilter[UDP][self.Source_h264])
+        self.player_audio[UDP][self.Source_h264].add(self.player_audio_depayloader[UDP][self.Source_h264])
+        self.player_audio[UDP][self.Source_h264].add(self.player_audio_decoder[UDP][self.Source_h264])
         self.player_audio[UDP][self.Source_h264].add(self.sink_audio[UDP][self.Source_h264])
 
-        self.source_audio[UDP][self.Source_h264].link(self.capsfilter_audio[UDP][self.Source_h264])
-        self.capsfilter_audio[UDP][self.Source_h264].link(self.depayloader_audio[UDP][self.Source_h264])
-        self.depayloader_audio[UDP][self.Source_h264].link(self.decoder_audio[UDP][self.Source_h264])
-        self.decoder_audio[UDP][self.Source_h264].link(self.sink_audio[UDP][self.Source_h264])
+        self.player_audio_source[UDP][self.Source_h264].link(self.player_audio_capsfilter[UDP][self.Source_h264])
+        self.player_audio_capsfilter[UDP][self.Source_h264].link(self.player_audio_depayloader[UDP][self.Source_h264])
+        self.player_audio_depayloader[UDP][self.Source_h264].link(self.player_audio_decoder[UDP][self.Source_h264])
+        self.player_audio_decoder[UDP][self.Source_h264].link(self.sink_audio[UDP][self.Source_h264])
+
+        # SENDER (UDP)
+        self.sender_audio[UDP][self.Source_h264].add(self.sender_audio_source[UDP][self.Source_h264])
+        self.sender_audio[UDP][self.Source_h264].add(self.sender_audio_capsfilter[UDP][self.Source_h264])
+        self.sender_audio[UDP][self.Source_h264].add(self.sender_audio_resample[UDP][self.Source_h264])
+        self.sender_audio[UDP][self.Source_h264].add(self.sender_audio_encoder[UDP][self.Source_h264])
+        self.sender_audio[UDP][self.Source_h264].add(self.sender_audio_rtimer[UDP][self.Source_h264])
+        self.sender_audio[UDP][self.Source_h264].add(self.sender_audio_sink[UDP][self.Source_h264])
+
+        self.sender_audio_source[UDP][self.Source_h264].link(self.sender_audio_capsfilter[UDP][self.Source_h264])
+        self.sender_audio_capsfilter[UDP][self.Source_h264].link(self.sender_audio_resample[UDP][self.Source_h264])
+        self.sender_audio_resample[UDP][self.Source_h264].link(self.sender_audio_encoder[UDP][self.Source_h264])
+        self.sender_audio_encoder[UDP][self.Source_h264].link(self.sender_audio_rtimer[UDP][self.Source_h264])
+        self.sender_audio_rtimer[UDP][self.Source_h264].link(self.sender_audio_sink[UDP][self.Source_h264])
         # --- Gstreamer setup end ---
 
     def open_ssh_tunnel(self, Host, Port, rsa_file, rsa_password, username, remote_host, compression):
@@ -378,15 +472,17 @@ class RacConnection:
 
     def establish_connection(self, Host, Port):
         # if Debug > 2:
-        Console.print("Estabilishing connection with \n %s on port"  % Host, Port)
+        Console.print("Establishing connection with \n %s on port"  % Host, Port)
 
         # Gstreamer setup start
         if self.Protocol == TCP:
             self.source_video[self.Protocol][self.Video_Mode].set_property("host", Host)
-            self.source_audio[self.Protocol][self.Video_Mode].set_property("host", Host)
+            self.player_audio_source[self.Protocol][self.Video_Mode].set_property("host", Host)
 
         self.source_video[self.Protocol][self.Video_Mode].set_property("port", Port_CAM0)
-        self.source_audio[self.Protocol][self.Video_Mode].set_property("port", Port_MIC0)
+        self.player_audio_source[self.Protocol][self.Video_Mode].set_property("port", Port_MIC0)
+        self.sender_audio_sink[self.Protocol][self.Video_Mode].set_property("host", Host)
+        self.sender_audio_sink[self.Protocol][self.Video_Mode].set_property("port", Port_SPK0)
         # Gstreamer setup end
 
         start_new_thread(self.connection_thread, (Host, Port))
@@ -505,7 +601,9 @@ class RacConnection:
 
         cam0_restart = False
         resolution_last = None
+        curr_AudioBitrate = None
         mic_last = not COMM_vars.mic
+        speaker_last = not COMM_vars.speakers
 
         while COMM_vars.connected is True:
             if CommunicationFFb is True:
@@ -513,8 +611,16 @@ class RacConnection:
                 RacUio.calculate_MotorPower()     # Set control variables
                 RacUio.mouseInput()               # Set mouse Variables
 
+            if AudioBitrate[COMM_vars.Abitrate] != curr_AudioBitrate:
+                curr_AudioBitrate = AudioBitrate[COMM_vars.Abitrate]
+                self.sender_audio[self.Protocol][self.Video_Mode].set_state(Gst.State.READY)
+                speaker_last = None
+
             if COMM_vars.mic is not mic_last:
                 mic_last = self.conect_micstream(COMM_vars.mic)
+
+            if COMM_vars.speakers is not speaker_last:
+                speaker_last = self.conect_speakerstream(COMM_vars.speakers)
 
             if COMM_vars.resolution != resolution_last:
                 cam0_restart = bool(COMM_vars.resolution)
@@ -592,6 +698,28 @@ class RacConnection:
             retmsg = self.player_audio[self.Protocol][self.Video_Mode].set_state(Gst.State.PLAYING)
         else:
             retmsg = self.player_audio[self.Protocol][self.Video_Mode].set_state(Gst.State.READY)
+
+        if retmsg == Gst.StateChangeReturn.FAILURE:
+            retmsg = "AUDIO CONNECTION ERROR: Unable to set the pipeline to the playing state."
+            success = not Connect
+        else:
+            retmsg = ""
+            success = Connect
+
+        if Debug > 1 and retmsg:
+            Console.print(retmsg)
+        return success
+
+    def conect_speakerstream(self, Connect):
+        if Connect is True:
+            Console.print(" Speaker requested rate:", AudioBitrate[COMM_vars.Abitrate])
+            caps = Gst.Caps.from_string("audio/x-raw, rate=" + AudioBitrate[COMM_vars.Abitrate])
+            self.sender_audio_capsfilter[self.Protocol][self.Video_Mode].set_property("caps", caps)
+
+            retmsg = self.sender_audio[self.Protocol][self.Video_Mode].set_state(Gst.State.PLAYING)
+        else:
+            retmsg = self.sender_audio[self.Protocol][self.Video_Mode].set_state(Gst.State.READY)
+            Console.print(" Speaker muted")
 
         if retmsg == Gst.StateChangeReturn.FAILURE:
             retmsg = "AUDIO CONNECTION ERROR: Unable to set the pipeline to the playing state."
