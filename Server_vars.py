@@ -48,14 +48,14 @@ class SRV_vars:
                 Serial_Port = Serial_Port[0]
                 break
 
-    Port_Baudrate = 57600
+    Port_Baudrate = 115200
     Port_bytesize = serial.EIGHTBITS
     Port_parity   = serial.PARITY_NONE
     Port_stopbits = serial.STOPBITS_ONE
     Port_Timeout  = 1
     Port_XonXoff  = serial.XOFF
     Port_DsrDtr   = serial.XOFF
-    Port_RtsCts   = serial.XOFF  # disable hardware (RTS/CTS) flow control
+    Port_RtsCts   = serial.XON  # disable/enable hardware (RTS/CTS) flow control
 
     CTRL1_Mask    = 0
 

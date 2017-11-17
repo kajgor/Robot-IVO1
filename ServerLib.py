@@ -87,6 +87,7 @@ class ClientThread(threading.Thread):
 
                     conn = self.connection_loop(conn, Video_Mode, client_IP, Protocol)
 
+                    # STOP THE ROBOT!
                     SRV_vars.DRV_A1_request = chr(50) + chr(50) + chr(0) + chr(0) + chr(0)
                 else:
                     Console.print("Invalid message detected! Breaking connection.")
@@ -574,6 +575,10 @@ class StreamThread(threading.Thread):
         self.sender_audio[self.Video_Mode].set_state(Gst.State.READY)
         self.sender_audio[self.Source_test].set_state(Gst.State.NULL)
         self.sender_audio[self.Source_h264].set_state(Gst.State.NULL)
+
+        self.player_audio[self.Video_Mode].set_state(Gst.State.READY)
+        self.player_audio[self.Source_test].set_state(Gst.State.NULL)
+        self.player_audio[self.Source_h264].set_state(Gst.State.NULL)
 
         Console.print('Streamer Thread #%s stopped' % self.ident)
 
