@@ -56,7 +56,7 @@ class COMM_vars:
     display     = False
     speakers    = False
     laser       = False
-    camPosition = [100, 45]
+    camPosition = [100, 70]
     motor_Power = [0, 0]
     motor_PWR   = [0, 0]
     motor_RPM   = [0, 0]
@@ -67,10 +67,14 @@ class COMM_vars:
     distanceS1  = 100
     streaming_mode = 0
     Vcodec      = 0
+    Vbitrate    = 0
+    Framerate   = 3
+    Fxmode      = 0
+    Exposure    = 0
+    Contrast    = 0
+    Brightness  = 0
     Acodec      = 0
-    Framerate   = 0
     Abitrate    = 0
-
 
 import binascii
 def calc_checksum(string):
@@ -79,3 +83,14 @@ def calc_checksum(string):
     """
     return binascii.crc32(string) % 256
 
+import subprocess
+def execute_cmd(cmd_string):
+    #  system("clear")
+    # retcode = system(cmd_string)
+    stdout = subprocess.check_output(cmd_string, shell=True)
+    # if retcode == 0:
+    #     if Debug > 1: Console.print("\nCommand executed successfully")
+    # else:
+    #     if Debug > 1: Console.print("\nCommand terminated with error: " + str(retcode))
+    # # raw_input("Press enter")
+    return stdout

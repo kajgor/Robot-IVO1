@@ -1,9 +1,11 @@
 capsstr = [None, None, None, None, None, None]
-capsstr[1] = ", width=320, height=240, framerate=25/1"
-capsstr[2] = ", width=640, height=480, framerate=30/1"
-capsstr[3] = ", width=800, height=600, framerate=30/1"
-capsstr[4] = ", width=1280, height=800, framerate=25/1"
-capsstr[5] = ", width=1920, height=1080, framerate=25/1"
+capsstr[1] = ", width=320, height=240, framerate="
+capsstr[2] = ", width=640, height=480, framerate="
+capsstr[3] = ", width=800, height=600, framerate="
+capsstr[4] = ", width=1024, height=768, framerate="
+capsstr[5] = ", width=1152, height=864, framerate="
+FxModes  = [0, 3, 4, 5, 13, 2, 1]
+FpsModes = [5, 15, 25, 30]
 
 VERSION = "B3.0"
 HOST = ''   # Empty name meaning all available interfaces
@@ -65,4 +67,5 @@ from sys import argv
 
 class Paths:
     pathname = path.dirname(argv[0])
-    GUI_file = pathname + "/gui_artifacts/MainConsole_extendedIII.glade"
+    GUI_file = pathname + "/gui_artifacts/Server_GUI.glade"
+    # GUI_file = pathname + "/gui_artifacts/MainConsole_extendedIII.glade"

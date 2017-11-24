@@ -33,6 +33,7 @@ class KEY_control:
     Space   = False
     MouseBtn = [False, False]
     MouseXY = [0, 0]
+    time    = 0
 
 
 class CAM0_control:
@@ -43,6 +44,7 @@ from os import path
 from sys import argv
 class Paths:
     pathname = path.dirname(argv[0])
-    GUI_file = pathname + "/gui_artifacts/MainConsole_extendedIII.glade"
+    GUI_file = pathname + "/gui_artifacts/Client_GUI.glade"
+    # GUI_file = pathname + "/gui_artifacts/MainConsole_extendedIII.glade"
     cfg_file = pathname + "/ClientGUI.cfg"
     background_file = pathname + "/gui_artifacts/images/HUD_small.png"

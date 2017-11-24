@@ -1,4 +1,3 @@
-import subprocess
 import datetime
 import socket
 import queue
@@ -30,40 +29,45 @@ class MainLoop:
     def __init__(self, GUI):
         self.counter = 0
         self.GUI = GUI
-        # self.Console = Console()
         self.Console = Console()
         self.TextView_Log = self.GUI.TextView_Log
+        self.last_MouseButtonR = False
+        self.DispAvgVal = [0, 0]
 
     def on_timer(self):
         if COMM_vars.connected:
             self.counter += .05
 
         if COMM_vars.comm_link_idle > COMM_IDLE:
-            self.GUI.spinner_connection.stop()
+            self.GUI.Spinner_connection.stop()
             COMM_vars.comm_link_idle = COMM_IDLE  # Do not need to increase counter anymore
         else:
-            self.GUI.spinner_connection.start()
+            self.GUI.Spinner_connection.start()
 
         # Idle timer for checking the link
         COMM_vars.comm_link_idle += 1
+        if KEY_control.MouseBtn[RIGHT] is not self.last_MouseButtonR:
+            self.GUI.Menu_CamOptions.popup(None, None, None, None, Gdk.BUTTON_SECONDARY, KEY_control.time)
+            self.last_MouseButtonR = KEY_control.MouseBtn[RIGHT]
 
         # Any update tasks would go here (moving sprites, advancing animation frames etc.)
         self.UpdateControlData()
         self.UpdateMonitorData()
         self.Console.display_message(self.TextView_Log)
 
-        self.GUI.statusbar2.push(self.GUI.context_id2, str(datetime.timedelta(seconds=int(self.counter))))
-        self.GUI.drawingarea_control.queue_draw()
+        self.GUI.StatusBar2.push(self.GUI.context_id2, str(datetime.timedelta(seconds=int(self.counter))))
+        self.GUI.DrawingArea_control.queue_draw()
 
         if COMM_vars.connected is True:
             if CommunicationFFb is False:
                 RacUio.get_speed_and_direction()  # Keyboard input
                 RacUio.calculate_MotorPower()
                 RacUio.mouseInput()               # Mouse input
+
         else:
-            if self.GUI.button_connect.get_active() is True:
-                self.GUI.button_connect.set_active(False)
-                self.GUI.on_ToggleButton_Connect_toggled(self.GUI.button_connect)
+            if self.GUI.ToggleButton_connect.get_active() is True:
+                self.GUI.ToggleButton_connect.set_active(False)
+                # self.GUI.on_ToggleButton_Connect_toggled(self.GUI.ToggleButton_Connect)
 
         RacConnection.video_flip[RacConnection.Protocol][RacConnection.Video_Mode].set_property("method", CAM0_control.Flip)  # => "rotate-180"
 
@@ -89,8 +93,10 @@ class MainLoop:
         return
 
     def UpdateControlData(self):
-        self.GUI.LevelBar_Voltage.set_value(int(COMM_vars.voltage))
-        self.GUI.LevelBar_Current.set_value(int(COMM_vars.current))
+        self.DispAvgVal[0] = (self.DispAvgVal[0] * 4 + COMM_vars.voltage) / 5
+        self.DispAvgVal[1] = (self.DispAvgVal[1] * 4 + COMM_vars.current) / 5
+        self.GUI.LevelBar_Voltage.set_value(self.DispAvgVal[0])
+        self.GUI.LevelBar_Current.set_value(self.DispAvgVal[1])
         self.GUI.LeverBar_PowerL.set_value(COMM_vars.motor_PWR[LEFT])
         self.GUI.LeverBar_PowerR.set_value(COMM_vars.motor_PWR[RIGHT])
         # print("int(COMM_vars.Current * 10) - 70", int(COMM_vars.Current * 10))
@@ -510,6 +516,8 @@ class RacConnection:
         Console.print("Closing connection...")
         # print("Closing connection...")
         self.player_video[self.Protocol][self.Video_Mode].set_state(Gst.State.NULL)
+        self.player_audio[self.Protocol][self.Video_Mode].set_state(Gst.State.NULL)
+        self.sender_audio[self.Protocol][self.Video_Mode].set_state(Gst.State.NULL)
 
         try:
             self.tunnel.close()
@@ -570,21 +578,24 @@ class RacConnection:
         # Console.print(server_address, "[", IP_addr, "]")
         Console.print("RacCONN:", end="")
 
+        COMM_vars.connected = True
         try:
             self.srv.connect(server_address)
-            COMM_vars.connected = True
         except ConnectionResetError:
             COMM_vars.connected = False
-            Console.print("server not responding.")
+            Console.print("Server not responding.")
         except ConnectionRefusedError:
             COMM_vars.connected = False
             Console.print("Server refused connection.")
         except socket.gaierror:
             COMM_vars.connected = False
             Console.print("Invalid protocol.")
+        except OSError:
+            COMM_vars.connected = False
+            Console.print("No route to host.")
 
         if COMM_vars.connected is True:
-            Console.print("link with", self.srv.getpeername(), "estabilished.")
+            Console.print("Link with", self.srv.getpeername(), "established.")
 
             time.sleep(1)
             # time.sleep(1.48)
@@ -768,23 +779,13 @@ class RacConnection:
         try:
             data_end = data[msglen - 1]
         except IndexError:
-            print("IndexError")
             data_end = False
-
-        # print(">>>>>DATA >>>", len(data), msglen, data_end)
+            Console.print(">>>DataIndexError>>>", len(data), data_end)
 
         if data_end == chr(255):
             COMM_vars.comm_link_idle = 0
             return data
         else:
-            try:
-                self.srv.recv(64)  # flush buffer
-            except OSError:
-                Console.print("transmit_message [flush]: OSError (server lost)")
-                return None
-
-            # if Debug > 1:
-            Console.print(">>>FlushBuffer>>>", len(data), data_end)
             return None
 
     @staticmethod
@@ -873,16 +874,18 @@ class RacConnection:
                                  COMM_vars.display, COMM_vars.laser, 0, 0]):
             CntrlMask1 |= (x << idx)
 
-        BitrateMask = 100 + (10 * COMM_vars.Framerate) + COMM_vars.Abitrate
+        COMM_vars.Framerate = 3
+        BitrateMask  = 100 * COMM_vars.Abitrate + 10 * COMM_vars.Vbitrate + COMM_vars.Framerate
+        VideoCtlMask = 100 * RIGHT + 10 * COMM_vars.Fxmode + COMM_vars.resolution
 
         reqMsgVal = []
-        reqMsgVal.append(COMM_vars.motor_Power[RIGHT] + 50)
-        reqMsgVal.append(COMM_vars.motor_Power[LEFT] + 50)
-        reqMsgVal.append(COMM_vars.camPosition[X_AXIS])
-        reqMsgVal.append(COMM_vars.camPosition[Y_AXIS])
-        reqMsgVal.append(CntrlMask1)
-        reqMsgVal.append(100 * RIGHT + 10 * LEFT + COMM_vars.resolution)
-        reqMsgVal.append(BitrateMask)
+        reqMsgVal.append(COMM_vars.motor_Power[RIGHT] + 50)     # 1
+        reqMsgVal.append(COMM_vars.motor_Power[LEFT] + 50)      # 2
+        reqMsgVal.append(COMM_vars.camPosition[X_AXIS])         # 3
+        reqMsgVal.append(COMM_vars.camPosition[Y_AXIS])         # 4
+        reqMsgVal.append(CntrlMask1)                            # 5
+        reqMsgVal.append(VideoCtlMask)                          # 6
+        reqMsgVal.append(BitrateMask)                           # 7
 
         requestMsg = ""
         # Convert chr(17) & chr(19) to chr(252) & chr(253) respectively
@@ -983,21 +986,31 @@ class RacUio:
         mousebuffer_set(mouse_event, False)
 
     def on_motion_notify(self, mouse_event):
-        mouseX = int(mouse_event.x) / 2
-        mouseY = int(mouse_event.y) / 2
+        mouseX = int(mouse_event.x)
+        mouseY = int(mouse_event.y)
         if KEY_control.MouseBtn[LEFT] is True:
-            tmp = KEY_control.MouseXY[X_AXIS] - mouseX
+            tmp = (KEY_control.MouseXY[X_AXIS] - mouseX) / 2
             if abs(tmp) >= 1:
-                COMM_vars.camPosition[X_AXIS] += int(tmp)
+                if COMM_vars.camPosition[X_AXIS] + tmp > MOUSE_MAX[X_AXIS]:
+                    COMM_vars.camPosition[X_AXIS] = MOUSE_MAX[X_AXIS]
+                elif COMM_vars.camPosition[X_AXIS] + tmp < MOUSE_MIN[X_AXIS]:
+                    COMM_vars.camPosition[X_AXIS] = MOUSE_MIN[X_AXIS]
+                else:
+                    COMM_vars.camPosition[X_AXIS] += int(tmp)
 
-            tmp = mouseY - KEY_control.MouseXY[Y_AXIS]
+            tmp = (mouseY - KEY_control.MouseXY[Y_AXIS]) / 2
             if abs(tmp) >= 1:
-                COMM_vars.camPosition[Y_AXIS] += int(tmp)
+                if COMM_vars.camPosition[Y_AXIS] + tmp > MOUSE_MAX[Y_AXIS]:
+                    COMM_vars.camPosition[Y_AXIS] = MOUSE_MAX[Y_AXIS]
+                elif COMM_vars.camPosition[Y_AXIS] + tmp < MOUSE_MIN[Y_AXIS]:
+                    COMM_vars.camPosition[Y_AXIS] = MOUSE_MIN[Y_AXIS]
+                else:
+                    COMM_vars.camPosition[Y_AXIS] += int(tmp)
 
             KEY_control.MouseXY = [mouseX, mouseY]
 
-        if KEY_control.MouseBtn[RIGHT] is True:
-            Console.print("KEY_control.MouseXY[right]", KEY_control.MouseXY)
+        # if KEY_control.MouseBtn[RIGHT] is True:
+        #     Console.print("KEY_control.MouseXY[right]", KEY_control.MouseXY)
 
     @staticmethod
     def get_speed_and_direction():
@@ -1037,14 +1050,6 @@ class RacUio:
 
     @staticmethod
     def mouseInput():
-        if COMM_vars.camPosition[X_AXIS] > MOUSE_MAX[X_AXIS]:
-            COMM_vars.camPosition[X_AXIS] = MOUSE_MAX[X_AXIS]
-        if COMM_vars.camPosition[X_AXIS] < MOUSE_MIN[X_AXIS]:
-            COMM_vars.camPosition[X_AXIS] = MOUSE_MIN[X_AXIS]
-        if COMM_vars.camPosition[Y_AXIS] > MOUSE_MAX[Y_AXIS]:
-            COMM_vars.camPosition[Y_AXIS] = MOUSE_MAX[Y_AXIS]
-        if COMM_vars.camPosition[Y_AXIS] < MOUSE_MIN[Y_AXIS]:
-            COMM_vars.camPosition[Y_AXIS] = MOUSE_MIN[Y_AXIS]
 
         return COMM_vars.camPosition
 
@@ -1088,18 +1093,6 @@ class Console:
                 Console.scroll_mark_onscreen(TextBuffer.get_insert())
 
 
-def execute_cmd(cmd_string):
-    #  system("clear")
-    # retcode = system(cmd_string)
-    stdout = subprocess.check_output(cmd_string, shell=True)
-    # if retcode == 0:
-    #     if Debug > 1: Console.print("\nCommand executed successfully")
-    # else:
-    #     if Debug > 1: Console.print("\nCommand terminated with error: " + str(retcode))
-    # # raw_input("Press enter")
-    return stdout
-
-
 def keybuffer_set(event, value):
     key_name = Gdk.keyval_name(event.keyval)
     # Console.print("key", key_name, value)
@@ -1131,11 +1124,12 @@ def mousebuffer_set(mouse_event, value):
     if mouse_event.button == Gdk.BUTTON_PRIMARY:
         KEY_control.MouseBtn[LEFT] = value
         if value is True:
-            KEY_control.MouseXY = [int(mouse_event.x) / 2,
-                                   int(mouse_event.y) / 2]
+            KEY_control.MouseXY = [int(mouse_event.x),
+                                   int(mouse_event.y)]
 
     if mouse_event.button == Gdk.BUTTON_SECONDARY:
+        KEY_control.time = mouse_event.time
         KEY_control.MouseBtn[RIGHT] = value
-        KEY_control.MouseXY = [0, 0]
-
-
+        # if value is True:
+        #     KEY_control.MouseXY = [int(mouse_event.x) / 2,
+        #                            int(mouse_event.y) / 2]

@@ -174,19 +174,24 @@ class ClientThread(threading.Thread):
 
         SRV_vars.CTRL1_Mask = data[5]
         # Force 8bit format to extract switches
-        CTRL1_Mask = format(SRV_vars.CTRL1_Mask + 256, 'b')
+        CTRL1_Mask   = format(SRV_vars.CTRL1_Mask + 256, 'b')
         COMM_vars.light     = bool(int(CTRL1_Mask[7]))
         COMM_vars.speakers  = bool(int(CTRL1_Mask[6]))
         COMM_vars.mic       = bool(int(CTRL1_Mask[5]))
         COMM_vars.display   = bool(int(CTRL1_Mask[4]))
         COMM_vars.laser     = bool(int(CTRL1_Mask[3]))
         COMM_vars.AutoMode  = bool(int(CTRL1_Mask[2]))
+        # COMM_vars.          = bool(int(CTRL1_Mask[1]))
+        # COMM_vars.          = bool(int(CTRL1_Mask[0]))
 
-        resolution = data[6] - (int(data[6] / 10) * 10)
-        Bitratemask = data[7]
-        if Bitratemask >= 100:
-            COMM_vars.Vbitrate = int(str(Bitratemask)[1])
-            COMM_vars.Abitrate = int(str(Bitratemask)[2])
+        VideoCtlMask = str(int(data[6]) + 1000)
+        COMM_vars.Fxmode    = int(VideoCtlMask[2])
+        resolution          = int(VideoCtlMask[3])
+
+        Bitratemask  = str(int(data[7]) + 1000)
+        COMM_vars.Abitrate  = int(Bitratemask[1])
+        COMM_vars.Vbitrate  = int(Bitratemask[2])
+        COMM_vars.Framerate = int(Bitratemask[3])
 
         return resolution
 
@@ -480,6 +485,8 @@ class StreamThread(threading.Thread):
         curr_mic0 = not COMM_vars.mic
         curr_speakers = not COMM_vars.speakers
         curr_AudioBitrate = None
+        curr_FxMode = None
+        curr_Framerate = None
         self.sender_audio[self.Video_Mode].set_state(req_audio_mode[curr_mic0])
         self.player_audio[self.Video_Mode].set_state(req_audio_mode[curr_speakers])
 
@@ -510,11 +517,24 @@ class StreamThread(threading.Thread):
 # ToDo:
                 self.player_audio[self.Video_Mode].set_state(req_audio_mode[COMM_vars.speakers])
 
+            if curr_FxMode != COMM_vars.Fxmode:
+                curr_FxMode = COMM_vars.Fxmode
+                Console.print(" Entering FX mode", curr_FxMode)
+                cmd = "v4l2-ctl --set-ctrl=color_effects=" + FxModes[curr_FxMode].__str__()
+                err = execute_cmd(cmd)
+                if err:
+                    Console.print(err)
+
+            if curr_Framerate != COMM_vars.Framerate:
+                curr_Framerate = COMM_vars.Framerate
+                curr_resolution = None
+
             if curr_resolution != self.req_resolution:
                 if self.req_resolution > 0:
-                    Console.print("Changing Gstreamer resolution")
+                    Console.print("Changing Gstreamer fps/resolution")
                     ### CHANGE RESOLUTION CAPS ###
-                    caps = Gst.Caps.from_string("video/x-" + VideoCodec[self.Video_Mode] + capsstr[self.req_resolution])
+                    res_fps = capsstr[self.req_resolution] + FpsModes[COMM_vars.Framerate].__str__() + "/1"
+                    caps = Gst.Caps.from_string("video/x-" + VideoCodec[self.Video_Mode] + res_fps)
                     self.sender_video_capsfilter[self.Video_Mode].set_property("caps", caps)
 
                     if self.Video_Mode is not False:
@@ -548,7 +568,8 @@ class StreamThread(threading.Thread):
                 elif req_mode == Gst.State.READY:
                     Console.print("Preparing Gstreamer", end="...")
                 elif req_mode == Gst.State.PLAYING:
-                    Console.print("Requested streaming in mode " + self.req_resolution.__str__() + '... ')
+                    Console.print("Requested streaming in mode " + self.req_resolution.__str__() + "/" +
+                                  FpsModes[COMM_vars.Framerate].__str__() + "... ")
                 else:
                     Console.print('ERROR: resolution' + self.req_resolution.__str__() + ", mode " + req_mode)
                     res_switch = 10
@@ -644,12 +665,8 @@ class DriverThread(threading.Thread):
 
                 if resp_data[0] + resp_data[DRV_A1_MSGLEN_RES - 1] == 510:
                     SRV_vars.DRV_A1_response = resp_data.decode(Encoding)
-                    # ticker = int.from_bytes(SRV_vars.DRV_A1_response[3].encode(Encoding), byteorder='little')
-                    # # print("TXN OK!")
                 else:
                     Console.print(">>>BAD CHKSUM", resp_data[0], resp_data[15])
-                    # print("data  out:", NoOfBytes, data)
-                    # print("data back:", len(resp_data), resp_data)
                     SerPort1.flushInput()
             else:
                 Console.print(">>>Flush:", NoOfBytes)
@@ -821,18 +838,6 @@ class Console:
 
             Txt_Console.scroll_mark_onscreen(TextBuffer.get_insert())
             # time.sleep(.2)
-
-
-def execute_cmd(cmd_string):
-    #  system("clear")
-    # retcode = system(cmd_string)
-    stdout = subprocess.check_output(cmd_string, shell=True)
-    # if retcode == 0:
-    #     if Debug > 1: print("\nCommand executed successfully")
-    # else:
-    #     if Debug > 1: print("\nCommand terminated with error: " + str(retcode))
-    # raw_input("Press enter")
-    return stdout
 
 
 class ServiceExit(Exception):

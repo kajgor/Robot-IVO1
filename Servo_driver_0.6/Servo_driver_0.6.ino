@@ -21,7 +21,7 @@ CH - Camera horizontal
  #include <Servo.h>
 
  #define VER "0.59"
- #define COMM_BITRATE 57600
+ #define COMM_BITRATE 115200
  #define RIGHT 1
  #define LEFT 0
  #define HORIZONTAL 1
