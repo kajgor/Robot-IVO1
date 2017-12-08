@@ -117,6 +117,8 @@ class RacConnection:
     Port_Comm   = None
     Last_Active = 0
 
+    CtrlQueue   = queue.Queue()
+
     player_video      = ([Gst.Pipeline.new("player_test"),
                           Gst.Pipeline.new("player")],
                          [Gst.Pipeline.new("player_test_udp"),
@@ -179,6 +181,7 @@ class RacConnection:
         self.capsfilter_video[self.Source_test].set_property("caps", caps)
         self.capsfilter_video[self.Source_h264].set_property("caps", caps)
 
+        # glimagesink(default)/gtksink/cacasink/autovideosink
         self.sink_video[0][self.Source_test].set_property("sync", False)
         self.sink_video[0][self.Source_h264].set_property("sync", False)
         self.sink_video[1][self.Source_test].set_property("sync", False)
@@ -203,17 +206,16 @@ class RacConnection:
                                          [Gst.ElementFactory.make("rtpspeexdepay", "depayloader_audio_test"),
                                           Gst.ElementFactory.make("rtpspeexdepay", "depayloader_audio")])
 
-        # self.convert_audio = ([Gst.ElementFactory.make("audioresample"),
-        #                        Gst.ElementFactory.make("audioresample")],
-        #                       [Gst.ElementFactory.make("audioresample"),
-        #                        Gst.ElementFactory.make("audioresample")])
-        # 
         self.player_audio_decoder = ([Gst.ElementFactory.make("speexdec", "decoder_audio_test"),
                                       Gst.ElementFactory.make("speexdec", "decoder_audio")],
                                      [Gst.ElementFactory.make("speexdec", "decoder_audio_test_udp"),
                                       Gst.ElementFactory.make("speexdec", "decoder_audio_udp")])
 
-        # glimagesink(default)/gtksink/cacasink/autovideosink
+        # self.convert_audio = ([Gst.ElementFactory.make("audioresample"),
+        #                        Gst.ElementFactory.make("audioresample")],
+        #                       [Gst.ElementFactory.make("audioresample"),
+        #                        Gst.ElementFactory.make("audioresample")])
+        #
         self.sink_audio = ([Gst.ElementFactory.make("pulsesink", "sink_audio_test"),
                             Gst.ElementFactory.make("pulsesink", "sink_audio")],
                            [Gst.ElementFactory.make("pulsesink", "sink_audio_test_udp"),
@@ -575,8 +577,8 @@ class RacConnection:
         self.srv = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         server_address = (Host, Port_Comm)
         IP_addr = socket.gethostbyname(Host)
-        # Console.print(server_address, "[", IP_addr, "]")
-        Console.print("RacCONN:", end="")
+
+        Console.print("CONN:", end="")
 
         COMM_vars.connected = True
         try:
@@ -598,7 +600,6 @@ class RacConnection:
             Console.print("Link with", self.srv.getpeername(), "established.")
 
             time.sleep(1)
-            # time.sleep(1.48)
 
             initstr = Protocol[self.Protocol] + chr(self.Video_Mode + 48)  # Add 48(ASCII) to show integer in the log.
             ipint_list = map(int, findall('\d+', IP_addr))
@@ -612,7 +613,7 @@ class RacConnection:
 
         cam0_restart = False
         resolution_last = None
-        curr_AudioBitrate = None
+        AudioBitrate_last = None
         mic_last = not COMM_vars.mic
         speaker_last = not COMM_vars.speakers
 
@@ -622,8 +623,8 @@ class RacConnection:
                 RacUio.calculate_MotorPower()     # Set control variables
                 RacUio.mouseInput()               # Set mouse Variables
 
-            if AudioBitrate[COMM_vars.Abitrate] != curr_AudioBitrate:
-                curr_AudioBitrate = AudioBitrate[COMM_vars.Abitrate]
+            if AudioBitrate[COMM_vars.Abitrate] != AudioBitrate_last:
+                AudioBitrate_last = AudioBitrate[COMM_vars.Abitrate]
                 self.sender_audio[self.Protocol][self.Video_Mode].set_state(Gst.State.READY)
                 speaker_last = None
 
@@ -654,6 +655,9 @@ class RacConnection:
 
             if self.check_connection(None) is True:
                 self.send_and_receive()
+# ToDo:
+                if not self.CtrlQueue.empty():
+                    OuText = self.CtrlQueue.get()
 
         self.close_connection()
         Console.print("Closing Thread.")
@@ -685,6 +689,7 @@ class RacConnection:
                 if Debug > 1:
                     Console.print("CheckSum Sent/Received:", checksum, ord(resp[0]))
         else:
+# ToDo:
             self.transmit_message("HALTHALT")
             COMM_vars.connected = False
 
@@ -827,7 +832,6 @@ class RacConnection:
     def load_HostList(combobox_host, HostList_str):
         x = 0
         for HostName in HostList_str:
-            # print("HostName", HostName)
             Host = HostName.split(":")[0]
             Port = HostName.split(":")[1]
             # Ssh  = HostName.split(":")[2]
@@ -908,11 +912,11 @@ class RacDisplay:
     background_control = ImageSurface.create_from_png(Paths.background_file)
 
     def draw_arrow(self, message):
-        message.set_source_surface(self.background_control, 15, 0)
+        message.set_source_surface(self.background_control, 0, 0)
         message.paint()
 
         message.set_line_width(1)
-        message.translate(105, 81)
+        message.translate(90, 81)
 
         if COMM_vars.speed >= 0:
             message.rotate(COMM_vars.direction / (pi * 5))
@@ -1014,7 +1018,7 @@ class RacUio:
 
     @staticmethod
     def get_speed_and_direction():
-        # print("COMM_vars:", KEY_control.Down, KEY_control.Up, KEY_control.Left, KEY_control.Right, COMM_vars.speed, COMM_vars.direction)
+
         if KEY_control.Down is True:
             if COMM_vars.speed > -MAX_SPEED:
                 COMM_vars.speed -= ACCELERATION
@@ -1060,12 +1064,6 @@ class Console:
 
     def __init__(self):
         pass
-        # self.GUI = GUI
-        # if self.GUI:
-        #     print("++++GUI!!!!!!")
-        #     self.TextQueue  = queue.Queue()
-        # else:
-        #     print("---NoGUI!!!!!")
 
     @staticmethod
     def print(*args, **kwargs):
@@ -1095,7 +1093,6 @@ class Console:
 
 def keybuffer_set(event, value):
     key_name = Gdk.keyval_name(event.keyval)
-    # Console.print("key", key_name, value)
     if key_name == "Left" or key_name.replace("A", "a", 1) == "a":
         KEY_control.Left = value
 
@@ -1115,7 +1112,7 @@ def keybuffer_set(event, value):
 
     if event.state is True and Gdk.KEY_Shift_L is not KEY_control.Shift:
         KEY_control.Shift = Gdk.KEY_Shift_L
-        Console.print("SHIIIIIIIIIIIIIIIFT!!!")
+        Console.print("SHIFT!!!")
 
     return key_name
 
@@ -1130,6 +1127,3 @@ def mousebuffer_set(mouse_event, value):
     if mouse_event.button == Gdk.BUTTON_SECONDARY:
         KEY_control.time = mouse_event.time
         KEY_control.MouseBtn[RIGHT] = value
-        # if value is True:
-        #     KEY_control.MouseXY = [int(mouse_event.x) / 2,
-        #                            int(mouse_event.y) / 2]

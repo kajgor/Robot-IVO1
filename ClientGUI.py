@@ -76,19 +76,15 @@ class MainWindow(Gtk.Window):
     def init_vars(self):
         builder = Gtk.Builder()
         builder.add_from_file(Paths.GUI_file)
-
-        # builder.add_objects_from_file(Paths.GUI_file, ("MainBox_CON", "Adjustement_Port", "Action_StartTestServer",
-        #                                                "Window_Log", "Window_Advanced", "Menu_CamOptions", "image2",
-        #                                                "image3", "image4", "image5", "image6"))
         print("GUI file added: ", Paths.GUI_file)
 
         self.add(builder.get_object("MainBox_CON"))
         self.ToggleButton_connect   = builder.get_object("ToggleButton_Connect")
         self.LiveCam_window         = builder.get_object("DrawingArea_Cam")
-        self.CheckButton_localtest  = builder.get_object("CheckButton_LocalTest")
-        self.CheckButton_camera     = builder.get_object("CheckButton_Cam")
         self.ComboBox_host          = builder.get_object("ComboBox_Host")
         self.ComboBoxText_host      = builder.get_object("ComboBoxTextEntry_Host")
+        self.CheckButton_localtest  = builder.get_object("CheckButton_LocalTest")
+        self.CheckButton_camera     = builder.get_object("CheckButton_Cam")
         self.CheckButton_Lights     = builder.get_object("CheckButton_Lights")
         self.CheckButton_Speakers   = builder.get_object("CheckButton_Speakers")
         self.CheckButton_Display    = builder.get_object("CheckButton_Display")
@@ -122,8 +118,10 @@ class MainWindow(Gtk.Window):
         # self.on_Button_Adv          = builder.get_object("on_Button_Adv")
         self.ComboBoxText_Framerate = builder.get_object("ComboBoxText_Framerate")
         self.ComboBoxText_Abitrate  = builder.get_object("ComboBoxText_Abitrate")
-        self.ComboBoxText_Flip      = builder.get_object("ComboBoxText_Flip")
+        self.ComboBoxText_Rotate    = builder.get_object("ComboBoxText_Rotate")
         self.ComboBoxResolution     = builder.get_object("ComboBoxResolution")
+
+        self.AdvancedCamWindow      = builder.get_object("Window_AdvancedCam")
 
         self.LabelRpmL              = builder.get_object("LabelRpmL")
         self.LabelRpmR              = builder.get_object("LabelRpmR")
@@ -227,7 +225,7 @@ class MainWindow(Gtk.Window):
         self.ComboBoxText_Acodec.set_active(Compression[2])
         self.ComboBoxText_Framerate.set_active(Compression[3])
         self.ComboBoxText_Abitrate.set_active(Compression[4])
-        self.ComboBoxText_Flip.set_active(Compression[5])
+        self.ComboBoxText_Rotate.set_active(Compression[5])
         self.ComboBoxText_Proto.set_active(Network)
         self.CheckButton_localtest.set_active(Local_Test)
 
@@ -237,7 +235,7 @@ class MainWindow(Gtk.Window):
         self.on_ComboBoxText_Acodec_changed(self.ComboBoxText_Acodec)
         self.on_ComboBoxText_Framerate_changed(self.ComboBoxText_Framerate)
         self.on_ComboBoxText_Abitrate_changed(self.ComboBoxText_Abitrate)
-        self.on_ComboBoxText_Flip_changed(self.ComboBoxText_Flip)
+        self.on_ComboBoxText_Rotate_changed(self.ComboBoxText_Rotate)
         self.on_CheckButton_LocalTest_toggled(self.CheckButton_localtest)
         self.on_CheckButton_Mic_toggled(self.CheckButton_Mic)
         self.on_CheckButton_Speakers_toggled(self.CheckButton_Display)
@@ -349,7 +347,7 @@ class MainWindow(Gtk.Window):
         Console.print("Video Framerate:", VideoFramerate[COMM_vars.Framerate])
         self.SSBar_update()
 
-    def on_ComboBoxText_Flip_changed(self, widget):
+    def on_ComboBoxText_Rotate_changed(self, widget):
         CAM0_control.Flip = widget.get_active()
 
     def on_ComboBoxText_Abitrate_changed(self, widget):
@@ -431,6 +429,9 @@ class MainWindow(Gtk.Window):
         # Rac_connection.config_snapshot(Host_list)
         # reset_save(Paths.cfg_file)
 
+    def on_Button_AdvancedCam_clicked(self, widget):
+        self.AdvancedCamWindow.show()
+
     def on_Window_Advanced_delete_event(self, bus, message):
         self.AdvancedWindow.hide()
         return True
@@ -455,7 +456,7 @@ class MainWindow(Gtk.Window):
                             self.ComboBoxText_Acodec.get_active(),
                             self.ComboBoxText_Framerate.get_active(),
                             self.ComboBoxText_Abitrate.get_active(),
-                            self.ComboBoxText_Flip.get_active())
+                            self.ComboBoxText_Rotate.get_active())
 
         Ssh_Mask = (self.Entry_RsaKey.get_text(),
                     self.Entry_KeyPass.get_text(),

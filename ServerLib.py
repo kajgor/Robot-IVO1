@@ -16,7 +16,7 @@ from Common_vars import *
 Gst.init(None)
 
 
-class ClientThread(threading.Thread):
+class ServerThread(threading.Thread):
     srv = None
 
     def __init__(self):
@@ -27,7 +27,7 @@ class ClientThread(threading.Thread):
         self.shutdown_flag = threading.Event()
 
     def run(self):
-        Console.print('Client Thread #%s started' % self.ident)
+        Console.print('Server Thread #%s started' % self.ident)
 
         while not self.shutdown_flag.is_set():
             success = False
@@ -47,7 +47,7 @@ class ClientThread(threading.Thread):
                 self.listen_socket()
 
         # ... Clean shutdown code here ...
-        Console.print('Client Thread #%s stopped' % self.ident)
+        Console.print('Server Thread #%s stopped' % self.ident)
 
     def listen_socket(self):
         self.srv.listen(5)
@@ -210,7 +210,6 @@ class ClientThread(threading.Thread):
     def create_socket(self):
         # Create Socket
         self.srv = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        # ClientThread.srv.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         Console.print('Socket created')
         srv_address = (HOST, Port_COMM)
 
@@ -246,7 +245,7 @@ class ClientThread(threading.Thread):
             except AttributeError:
                 pass
 
-            ClientThread.srv = None
+            ServerThread.srv = None
             time.sleep(.5)
 
 
@@ -745,10 +744,10 @@ class ThreadManager():
         else:
             self._init_DriverThread()
 
-        self._init_ClientThread()
+        self._init_ServerThread()
 
-    def _init_ClientThread(self):
-        self.Client_Thread = ClientThread()
+    def _init_ServerThread(self):
+        self.Server_Thread = ServerThread()
 
     def _init_DriverThread(self):
         self.Driver_Thread = DriverThread()
@@ -763,14 +762,14 @@ class ThreadManager():
                         self._init_DriverThread()
                         self.Driver_Thread.start()
 
-            if not self.Client_Thread.is_alive():
+            if not self.Server_Thread.is_alive():
                 try:
-                    self.Client_Thread.start()
+                    self.Server_Thread.start()
                 except RuntimeError:
-                    self._init_ClientThread()
-                    self.Client_Thread.start()
+                    self._init_ServerThread()
+                    self.Server_Thread.start()
         else:
-            if not(self.Client_Thread.shutdown_flag.is_set() and self.Client_Thread.shutdown_flag.is_set()):
+            if not(self.Server_Thread.shutdown_flag.is_set() and self.Server_Thread.shutdown_flag.is_set()):
                 Console.print("shutting down services...")
                 self._stop()
 
@@ -779,13 +778,13 @@ class ThreadManager():
         return True
 
     def _stop(self):
-        self.Client_Thread.shutdown_flag.set()
+        self.Server_Thread.shutdown_flag.set()
 
-        if self.Client_Thread.srv is not None:
-            self.Client_Thread.closesrv()
+        if self.Server_Thread.srv is not None:
+            self.Server_Thread.closesrv()
 
-        if self.Client_Thread.is_alive():
-            self.Client_Thread.join()
+        if self.Server_Thread.is_alive():
+            self.Server_Thread.join()
 
         if SRV_vars.Serial_Port is not None:
             self.Driver_Thread.shutdown_flag.set()

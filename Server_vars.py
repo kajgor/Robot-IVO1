@@ -68,4 +68,3 @@ from sys import argv
 class Paths:
     pathname = path.dirname(argv[0])
     GUI_file = pathname + "/gui_artifacts/Server_GUI.glade"
-    # GUI_file = pathname + "/gui_artifacts/MainConsole_extendedIII.glade"
