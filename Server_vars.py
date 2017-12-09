@@ -39,7 +39,7 @@ class SRV_vars:
     DRV_A1_request = chr(50) + chr(50) + chr(0) + chr(0) + chr(0)
 
     DRV_A1_response  = chr(0) + chr(0) + chr(0) + chr(0) + chr(0)
-    DRV_A1_response += chr(0) + chr(0) + chr(0) + chr(0) + chr(0)
+    DRV_A1_response += chr(0) + chr(0) + chr(0) + chr(0) + chr(0) + chr(0)
 
     available_ports = list(serial.tools.list_ports.comports())
     available_ports.append(None)

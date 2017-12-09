@@ -1,4 +1,3 @@
-import subprocess
 import threading
 import signal
 import socket
@@ -65,27 +64,28 @@ class ServerThread(threading.Thread):
             client_IP = addr[0]
             Console.print('Connected with ' + client_IP + ':' + str(addr[1]))
             # Sending message to connected client
-            data = self.get_bytes_from_client(conn, 9)
+            data = self.get_bytes_from_client(conn, CLIMSGLEN)
             if len(data) == 9:
                 Console.print("Message Validation... ")
                 Protocol = None
-                if data[1:3].decode(Encoding) == "TC":
+                if int(data[1]) == 48:
                     Protocol = TCP
-                elif data[1:3].decode(Encoding) == "UD":
+                elif int(data[1]) == 49:
                     Protocol = UDP
 
                 if Protocol is not None:
-                    Video_Mode = int(data[3]) - 48  # Substract 48 ASCII to decode the mode
+                    Video_Codec = int(data[2]) - 48
+                    Test_Mode  = int(data[3]) - 48  # Substract 48 ASCII to decode the mode
                     ConnIP  = data[4].__str__() + "."
                     ConnIP += data[5].__str__() + "."
                     ConnIP += data[6].__str__() + "."
                     ConnIP += data[7].__str__()
                     Console.print("Client: " + client_IP + "[" + PROTO_NAME[Protocol] + "]")
-                    Console.print("Video Codec is " + VideoCodec[Video_Mode])
+                    Console.print("Video Codec is " + VideoCodec[Video_Codec])
 
-                    SRV_vars.TestMode = not bool(Video_Mode)
+                    SRV_vars.TestMode = Test_Mode
 
-                    conn = self.connection_loop(conn, Video_Mode, client_IP, Protocol)
+                    conn = self.connection_loop(conn, client_IP, Protocol, Video_Codec)
 
                     # STOP THE ROBOT!
                     SRV_vars.DRV_A1_request = chr(50) + chr(50) + chr(0) + chr(0) + chr(0)
@@ -101,24 +101,24 @@ class ServerThread(threading.Thread):
             else:
                 Console.print("Incomplete message received! Breaking connection.")
 
-    def connection_loop(self, conn, Video_Mode, client_IP, Protocol):
+    def connection_loop(self, conn, client_IP, Protocol, Video_Codec):
         noData_cnt = 0
         COMM_vars.streaming_mode = 0
-        self.Stream_Thread = StreamThread(Video_Mode, client_IP, Protocol)
+        self.Stream_Thread = StreamThread(client_IP, Protocol, Video_Codec)
         self.Stream_Thread.start()
         # now keep talking with the client
         while not self.shutdown_flag.is_set():
             # Receiving from client
-            data = self.get_bytes_from_client(conn, 9)
+            data = self.get_bytes_from_client(conn, CLIMSGLEN)
             try:
                 data_len = len(data)
             except TypeError:
                 data_len = False
 
-            if data_len < 9:
+            if data_len < CLIMSGLEN:
                 noData_cnt += 1
                 if noData_cnt > RETRY_LIMIT:
-                    Console.print("NO DATA - closing connection")
+                    Console.print("NO DATA - closing connection", data_len)
                     break
             else:
                 noData_cnt = 0
@@ -127,11 +127,11 @@ class ServerThread(threading.Thread):
                 response = self.encode_data(data)
 
                 if Debug > 0:
-                    Console.print("Chksum", response[0].__str__())
+                    print("Chksum", response[0].__str__())
 
                     if Debug > 2:
-                        Console.print("DATA_IN>> " + data.__str__())
-                        Console.print("DATA_OUT>> " + response.__str__())
+                        print("DATA_IN>>", data.__str__(), len(data))
+                        print("DATA_OUT>>", response.__str__(), len(response))
 
                 if self.Stream_Thread.res_queue.empty():
                     self.Stream_Thread.req_resolution = resolution
@@ -254,13 +254,13 @@ class StreamThread(threading.Thread):
     Source_test = 0
     Source_h264 = 1
 
-    def __init__(self, Video_Mode, client_IP, Protocol):
+    def __init__(self, client_IP, Protocol, Video_Codec):
         threading.Thread.__init__(self)
         self.shutdown_flag = threading.Event()
 
         self.res_queue = queue.Queue()
 
-        self.Video_Mode = Video_Mode
+        self.Video_Codec = Video_Codec
 
         self.sender_video            = [Gst.Pipeline.new("player_video_test"),
                                         Gst.Pipeline.new("player_video")]
@@ -361,7 +361,7 @@ class StreamThread(threading.Thread):
         self.sender_audio_sink[self.Source_test].set_property("port", Port_MIC0)
         self.sender_audio_sink[self.Source_h264].set_property("port", Port_MIC0)
 
-        self.player_audio_source[self.Video_Mode].set_property("port", Port_SPK0)
+        self.player_audio_source[SRV_vars.TestMode].set_property("port", Port_SPK0)
         caps = Gst.Caps.from_string("application/x-rtp, media=audio, clock-rate=32000, encoding-name=SPEEX, payload=96")
         self.player_audio_capsfilter[self.Source_test].set_property("caps", caps)
         self.player_audio_capsfilter[self.Source_h264].set_property("caps", caps)
@@ -486,13 +486,13 @@ class StreamThread(threading.Thread):
         curr_AudioBitrate = None
         curr_FxMode = None
         curr_Framerate = None
-        self.sender_audio[self.Video_Mode].set_state(req_audio_mode[curr_mic0])
-        self.player_audio[self.Video_Mode].set_state(req_audio_mode[curr_speakers])
+        self.sender_audio[SRV_vars.TestMode].set_state(req_audio_mode[curr_mic0])
+        self.player_audio[SRV_vars.TestMode].set_state(req_audio_mode[curr_speakers])
 
         while not self.shutdown_flag.is_set():
             if AudioBitrate[COMM_vars.Abitrate] != curr_AudioBitrate:
                 curr_AudioBitrate = AudioBitrate[COMM_vars.Abitrate]
-                self.sender_audio[self.Video_Mode].set_state(Gst.State.READY)
+                self.sender_audio[SRV_vars.TestMode].set_state(Gst.State.READY)
                 curr_mic0 = None
 
             if curr_mic0 is not COMM_vars.mic:
@@ -505,7 +505,7 @@ class StreamThread(threading.Thread):
                 else:
                     Console.print(" Mic0 muted")
 
-                self.sender_audio[self.Video_Mode].set_state(req_audio_mode[COMM_vars.mic])
+                self.sender_audio[SRV_vars.TestMode].set_state(req_audio_mode[COMM_vars.mic])
 
             if curr_speakers is not COMM_vars.speakers:
                 curr_speakers = COMM_vars.speakers
@@ -514,7 +514,7 @@ class StreamThread(threading.Thread):
                 else:
                     Console.print(" Speakers muted", COMM_vars.speakers)
 # ToDo:
-                self.player_audio[self.Video_Mode].set_state(req_audio_mode[COMM_vars.speakers])
+                self.player_audio[SRV_vars.TestMode].set_state(req_audio_mode[COMM_vars.speakers])
 
             if curr_FxMode != COMM_vars.Fxmode:
                 curr_FxMode = COMM_vars.Fxmode
@@ -533,10 +533,10 @@ class StreamThread(threading.Thread):
                     Console.print("Changing Gstreamer fps/resolution")
                     ### CHANGE RESOLUTION CAPS ###
                     res_fps = capsstr[self.req_resolution] + FpsModes[COMM_vars.Framerate].__str__() + "/1"
-                    caps = Gst.Caps.from_string("video/x-" + VideoCodec[self.Video_Mode] + res_fps)
-                    self.sender_video_capsfilter[self.Video_Mode].set_property("caps", caps)
+                    caps = Gst.Caps.from_string("video/x-" + VideoCodec[self.Video_Codec] + res_fps)
+                    self.sender_video_capsfilter[SRV_vars.TestMode].set_property("caps", caps)
 
-                    if self.Video_Mode is not False:
+                    if self.Video_Codec > 0:
                         self.res_queue.put(Gst.State.READY)
                         # self.res_queue.put(Gst.State.PAUSED)
                         self.res_queue.put(Gst.State.PLAYING)
@@ -550,7 +550,7 @@ class StreamThread(threading.Thread):
                 curr_resolution = self.req_resolution
 
             if not self.res_queue.empty():
-                curr_state = self.sender_video[self.Video_Mode].get_state(1)[1]
+                curr_state = self.sender_video[SRV_vars.TestMode].get_state(1)[1]
                 if curr_state == req_mode:
                     Update = True
                     req_mode = self.res_queue.get()
@@ -564,17 +564,21 @@ class StreamThread(threading.Thread):
                 res_switch = 0
                 if req_mode == Gst.State.PAUSED:
                     Console.print("Pausing Gstreamer", end="...")
+                    self.sender_video[SRV_vars.TestMode].set_state(req_mode)
                 elif req_mode == Gst.State.READY:
                     Console.print("Preparing Gstreamer", end="...")
+                    self.sender_video[SRV_vars.TestMode].set_state(req_mode)
                 elif req_mode == Gst.State.PLAYING:
+                    # Host = self.sender_video_sink[SRV_vars.TestMode].get_property("host")
+                    # Console.print("Gst:Host:::", Host)
+                    # Port = self.sender_video_sink[SRV_vars.TestMode].get_property("port")
+                    # Console.print("Gst:Port:::", Port)
                     Console.print("Requested streaming in mode " + self.req_resolution.__str__() + "/" +
                                   FpsModes[COMM_vars.Framerate].__str__() + "... ")
+                    self.sender_video[SRV_vars.TestMode].set_state(req_mode)
                 else:
                     Console.print('ERROR: resolution' + self.req_resolution.__str__() + ", mode " + req_mode)
                     res_switch = 10
-
-                if res_switch == 0:
-                    self.sender_video[self.Video_Mode].set_state(req_mode)
 
             if Update is True:
                 Update = False
@@ -588,15 +592,15 @@ class StreamThread(threading.Thread):
 
             time.sleep(.25)
 
-        self.sender_video[self.Video_Mode].set_state(Gst.State.PAUSED)
+        self.sender_video[SRV_vars.TestMode].set_state(Gst.State.PAUSED)
         self.sender_video[self.Source_test].set_state(Gst.State.NULL)
         self.sender_video[self.Source_h264].set_state(Gst.State.NULL)
 
-        self.sender_audio[self.Video_Mode].set_state(Gst.State.READY)
+        self.sender_audio[SRV_vars.TestMode].set_state(Gst.State.READY)
         self.sender_audio[self.Source_test].set_state(Gst.State.NULL)
         self.sender_audio[self.Source_h264].set_state(Gst.State.NULL)
 
-        self.player_audio[self.Video_Mode].set_state(Gst.State.READY)
+        self.player_audio[SRV_vars.TestMode].set_state(Gst.State.READY)
         self.player_audio[self.Source_test].set_state(Gst.State.NULL)
         self.player_audio[self.Source_h264].set_state(Gst.State.NULL)
 
@@ -615,7 +619,7 @@ class DriverThread(threading.Thread):
     def run(self):
         Console.print('Driver Thread #%s started' % self.ident)
 
-        if SRV_vars.TestMode is True:
+        if not bool(SRV_vars.TestMode) is True:
             self._testrun()
         else:
             self._liverun()

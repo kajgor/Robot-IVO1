@@ -5,6 +5,7 @@ Port_DSP0 = Port_COMM + 4
 Port_SPK0 = Port_COMM + 5
 ######################
 RECMSGLEN = 16
+CLIMSGLEN = 12
 TIMEOUT_GUI = 50
 COMM_IDLE   = 10
 RETRY_LIMIT = 15
@@ -65,7 +66,6 @@ class COMM_vars:
     voltage     = 0
     coreTemp    = 0
     distanceS1  = 100
-    streaming_mode = 0
     Vcodec      = 0
     Vbitrate    = 0
     Framerate   = 3
@@ -85,12 +85,9 @@ def calc_checksum(string):
 
 import subprocess
 def execute_cmd(cmd_string):
-    #  system("clear")
-    # retcode = system(cmd_string)
-    stdout = subprocess.check_output(cmd_string, shell=True)
-    # if retcode == 0:
-    #     if Debug > 1: Console.print("\nCommand executed successfully")
-    # else:
-    #     if Debug > 1: Console.print("\nCommand terminated with error: " + str(retcode))
-    # # raw_input("Press enter")
+    stdout = None
+    try:
+        stdout = subprocess.check_output(cmd_string, shell=True)
+    except subprocess.CalledProcessError:
+        pass
     return stdout

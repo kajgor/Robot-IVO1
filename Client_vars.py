@@ -37,8 +37,7 @@ class KEY_control:
 
 
 class CAM0_control:
-    Flip    = 0
-
+    Flip     = 0
 
 from os import path
 from sys import argv

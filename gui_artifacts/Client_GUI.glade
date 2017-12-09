@@ -1588,9 +1588,10 @@
                         <property name="visible">True</property>
                         <property name="can_focus">False</property>
                         <property name="active">1</property>
+                        <property name="active_id">1</property>
                         <items>
-                          <item translatable="yes">TCP</item>
-                          <item translatable="yes">UDP</item>
+                          <item id="0" translatable="yes">TCP</item>
+                          <item id="1" translatable="yes">UDP</item>
                         </items>
                         <signal name="changed" handler="on_ComboBoxText_Proto_changed" swapped="no"/>
                       </object>

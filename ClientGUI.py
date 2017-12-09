@@ -10,11 +10,12 @@ from Common_vars import TIMEOUT_GUI, VideoFramerate, AudioBitrate, AudioCodec, V
 from Client_vars import Paths, Debug, CAM0_control
 
 from config_rw import *
-from ClientLib import RacConnection, RacUio, RacDisplay, MainLoop, Console
+from ClientLib import ConnectionThread, RacUio, MainLoop, Console
 
 
 # noinspection PyAttributeOutsideInit
 class MainWindow(Gtk.Window):
+
     def __init__(self):
         super(MainWindow, self).__init__()
 
@@ -25,6 +26,7 @@ class MainWindow(Gtk.Window):
         self.context_id2            = self.StatusBar2.get_context_id("message")
         self.camera_on = True
         self.resolution = 0
+        self.Protocol = 0
 
         Console.print("Console 3.0 initialized.\n")
 
@@ -33,7 +35,8 @@ class MainWindow(Gtk.Window):
         ############################################
         self.init_ui()
 
-        self.CAMXPROP = self.LiveCam_window.get_property('window')
+        CAMXPROP = self.LiveCam_window.get_property('window')
+        self.Connection_Thread = ConnectionThread(CAMXPROP)
 
         # Connect signals
         builder.connect_signals(self)
@@ -42,35 +45,13 @@ class MainWindow(Gtk.Window):
         # reset_save(Paths.cfg_file)
         HostList = self.load_config()
 
-        Rac_connection.load_HostList(self.ComboBox_host, HostList)
+        self.init_config()
+
+        self.Connection_Thread.load_HostList(self.ComboBox_host, HostList)
 
         if Debug > 2:
             print("Objects:")
             print(builder.get_objects().__str__())
-
-        bus = RacConnection.player_video[0][False].get_bus()
-        bus.add_signal_watch()
-        bus.enable_sync_message_emission()
-        bus.connect("message", self.on_cam_message)
-        bus.connect("sync-message::element", self.on_cam_sync_message)
-
-        bus_test = RacConnection.player_video[0][True].get_bus()
-        bus_test.add_signal_watch()
-        bus_test.enable_sync_message_emission()
-        bus_test.connect("message", self.on_cam_message)
-        bus_test.connect("sync-message::element", self.on_cam_sync_message)
-
-        bus = RacConnection.player_video[1][False].get_bus()
-        bus.add_signal_watch()
-        bus.enable_sync_message_emission()
-        bus.connect("message", self.on_cam_message)
-        bus.connect("sync-message::element", self.on_cam_sync_message)
-
-        bus_test = RacConnection.player_video[1][True].get_bus()
-        bus_test.add_signal_watch()
-        bus_test.enable_sync_message_emission()
-        bus_test.connect("message", self.on_cam_message)
-        bus_test.connect("sync-message::element", self.on_cam_sync_message)
 
     @property
     def init_vars(self):
@@ -225,10 +206,13 @@ class MainWindow(Gtk.Window):
         self.ComboBoxText_Acodec.set_active(Compression[2])
         self.ComboBoxText_Framerate.set_active(Compression[3])
         self.ComboBoxText_Abitrate.set_active(Compression[4])
-        self.ComboBoxText_Rotate.set_active(Compression[5])
+        # self.ComboBoxText_Rotate.set_active(Compression[5])
         self.ComboBoxText_Proto.set_active(Network)
         self.CheckButton_localtest.set_active(Local_Test)
 
+        return HostList
+
+    def init_config(self):
         self.on_ComboBoxText_Proto_changed(self.ComboBoxText_Proto)
         self.on_ComboBoxResolution_changed(self.ComboBoxResolution)
         self.on_ComboBoxText_Vcodec_changed(self.ComboBoxText_Vcodec)
@@ -240,20 +224,10 @@ class MainWindow(Gtk.Window):
         self.on_CheckButton_Mic_toggled(self.CheckButton_Mic)
         self.on_CheckButton_Speakers_toggled(self.CheckButton_Display)
 
-        return HostList
-
-    @staticmethod
-    def on_DrawingArea_Control_draw(bus, message):
-        Rac_Display.draw_arrow(message)
-
-    def on_cam_message(self, bus, message):
-        retmsg = Rac_Display.on_message(message)
-        if retmsg is not None:
-            self.ToggleButton_connect.set_active(False)
-            self.StatusBar.push(self.context_id, retmsg)
-
-    def on_cam_sync_message(self, bus, message):
-        Rac_Display.on_sync_message(message, self.CAMXPROP)
+    # @staticmethod
+    def on_DrawingArea_Control_draw(self, bus, message):
+        # pass
+        self.Connection_Thread.draw_arrow(message)
 
     def on_ComboBox_Host_changed(self, widget):
         # print("widget", widget.get_model()[widget.get_active()][1])
@@ -265,11 +239,12 @@ class MainWindow(Gtk.Window):
         self.Port = widget.get_value_as_int()
 
     def on_CheckButton_LocalTest_toggled(self, widget):
-        RacConnection.Video_Mode = not(widget.get_active())
+        self.Connection_Thread.Video_Mode = not(widget.get_active())
+        self.Connection_Thread.Video_Codec = bool(self.Protocol + self.Connection_Thread.Video_Mode)
         self.SSBar_update()
 
     def on_ComboBoxText_Proto_changed(self, widget):
-        RacConnection.Protocol = widget.get_active()
+        self.Protocol = widget.get_active()
         self.SSBar_update()
 
     def on_ToggleButton_Connect_toggled(self, widget):
@@ -279,23 +254,23 @@ class MainWindow(Gtk.Window):
             self.connect_gui()
 
             if self.CheckButton_SshTunnel.get_active() is True:
-                Host, Port = Rac_connection.open_ssh_tunnel(self.Host, self.Port,
-                                                            self.Entry_RsaKey.get_text(),
-                                                            self.Entry_KeyPass.get_text(),
-                                                            self.Entry_User.get_text(),
-                                                            self.Entry_RemoteHost.get_text(),
-                                                            self.Switch_Compression.get_active())
+                Host, Port = self.Connection_Thread.open_ssh_tunnel(self.Host, self.Port,
+                                                                    self.Entry_RsaKey.get_text(),
+                                                                    self.Entry_KeyPass.get_text(),
+                                                                    self.Entry_User.get_text(),
+                                                                    self.Entry_RemoteHost.get_text(),
+                                                                    self.Switch_Compression.get_active())
             else:
                 Host, Port = self.Host, self.Port
 
             success = bool(Host)
             retmsg = "SSH Connection Error!"
             if success is True:
-                success, retmsg = Rac_connection.establish_connection(Host, Port)
+                success, retmsg = self.Connection_Thread.establish_connection(Host, Port, self.Protocol)
 
                 if success is True:
                     self.connect_gui_handlers()
-                    RacConnection.update_server_list(self.ComboBox_host, self.SpinButton_port.get_value())
+                    self.Connection_Thread.update_server_list(self.ComboBox_host, self.SpinButton_port.get_value())
 
             if success is not True:
                 self.disconnect_gui()
@@ -437,8 +412,8 @@ class MainWindow(Gtk.Window):
         return True
 
     def SSBar_update(self):
-        SStatBar = PROTO_NAME[Rac_connection.Protocol] + ": "
-        SStatBar += VideoCodec[RacConnection.Video_Mode] + "/"
+        SStatBar = PROTO_NAME[self.Protocol] + ": "
+        SStatBar += VideoCodec[self.Connection_Thread.Video_Codec] + "/"
         SStatBar += VideoFramerate[COMM_vars.Framerate] + "  "
         SStatBar += AudioCodec[COMM_vars.Acodec] + "/"
         SStatBar += AudioBitrate[COMM_vars.Abitrate]
@@ -476,7 +451,7 @@ class MainWindow(Gtk.Window):
                     self.CheckButton_localtest.get_active())
 
     def gtk_main_quit(self, dialog):
-        Rac_connection.close_connection()
+        self.Connection_Thread.close_connection()
         # Host_list = Rac_connection.HostList_get(self.combobox_host.get_model(), None)
         # Rac_connection.config_snapshot(Host_list)
         self.save_config()
@@ -484,14 +459,8 @@ class MainWindow(Gtk.Window):
         Gtk.main_quit ()
 
 ###############################################################################
-
-
-def main():
-    MainWindow()
-    Gtk.main()
+# def main():
 
 if __name__ == "__main__":
-    Rac_connection = RacConnection()
-    Rac_Display = RacDisplay()
-    # Rac_Console = Console(True)
-    main()
+    MainWindow()
+    Gtk.main()
