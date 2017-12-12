@@ -1996,7 +1996,7 @@ video signal.</property>
             <property name="visible">True</property>
             <property name="can_focus">False</property>
             <child>
-              <object class="GtkCheckMenuItem" id="Menu_CamFx_Item1">
+              <object class="GtkCheckMenuItem" id="Menu_CamFx_Item0">
                 <property name="name">0</property>
                 <property name="visible">True</property>
                 <property name="can_focus">False</property>
@@ -2007,8 +2007,28 @@ video signal.</property>
               </object>
             </child>
             <child>
-              <object class="GtkCheckMenuItem" id="Menu_CamFx_Item2">
+              <object class="GtkCheckMenuItem" id="Menu_CamFx_Item1">
                 <property name="name">1</property>
+                <property name="visible">True</property>
+                <property name="can_focus">False</property>
+                <property name="label" translatable="yes">Black &amp; White</property>
+                <property name="draw_as_radio">True</property>
+                <signal name="activate" handler="on_Menu_CamFx_Item_activate" swapped="no"/>
+              </object>
+            </child>
+            <child>
+              <object class="GtkCheckMenuItem" id="Menu_CamFx_Item2">
+                <property name="name">2</property>
+                <property name="visible">True</property>
+                <property name="can_focus">False</property>
+                <property name="label" translatable="yes">Sepia</property>
+                <property name="draw_as_radio">True</property>
+                <signal name="activate" handler="on_Menu_CamFx_Item_activate" swapped="no"/>
+              </object>
+            </child>
+            <child>
+              <object class="GtkCheckMenuItem" id="Menu_CamFx_Item3">
+                <property name="name">3</property>
                 <property name="visible">True</property>
                 <property name="can_focus">False</property>
                 <property name="label" translatable="yes">Negative</property>
@@ -2017,8 +2037,8 @@ video signal.</property>
               </object>
             </child>
             <child>
-              <object class="GtkCheckMenuItem" id="Menu_CamFx_Item3">
-                <property name="name">2</property>
+              <object class="GtkCheckMenuItem" id="Menu_CamFx_Item4">
+                <property name="name">4</property>
                 <property name="visible">True</property>
                 <property name="can_focus">False</property>
                 <property name="label" translatable="yes">Emboss</property>
@@ -2027,55 +2047,111 @@ video signal.</property>
               </object>
             </child>
             <child>
-              <object class="GtkCheckMenuItem" id="Menu_CamFx_Item4">
-                <property name="name">3</property>
-                <property name="visible">True</property>
-                <property name="can_focus">False</property>
-                <property name="label" translatable="yes">Saturate</property>
-                <property name="draw_as_radio">True</property>
-                <signal name="activate" handler="on_Menu_CamFx_Item_activate" swapped="no"/>
-              </object>
-            </child>
-            <child>
-              <object class="GtkSeparatorMenuItem" id="separatormenuitem1">
-                <property name="visible">True</property>
-                <property name="can_focus">False</property>
-              </object>
-            </child>
-            <child>
               <object class="GtkCheckMenuItem" id="Menu_CamFx_Item5">
-                <property name="name">4</property>
+                <property name="name">5</property>
                 <property name="visible">True</property>
                 <property name="can_focus">False</property>
-                <property name="label" translatable="yes">Night Mode 1 (boost)</property>
+                <property name="label" translatable="yes">Sketch</property>
                 <property name="draw_as_radio">True</property>
                 <signal name="activate" handler="on_Menu_CamFx_Item_activate" swapped="no"/>
               </object>
             </child>
             <child>
               <object class="GtkCheckMenuItem" id="Menu_CamFx_Item6">
-                <property name="name">5</property>
+                <property name="name">6</property>
                 <property name="visible">True</property>
                 <property name="can_focus">False</property>
-                <property name="label" translatable="yes">Night Mode 2 (sepia)</property>
+                <property name="label" translatable="yes">Sky Blue</property>
                 <property name="draw_as_radio">True</property>
                 <signal name="activate" handler="on_Menu_CamFx_Item_activate" swapped="no"/>
               </object>
             </child>
             <child>
               <object class="GtkCheckMenuItem" id="Menu_CamFx_Item7">
-                <property name="name">6</property>
+                <property name="name">7</property>
                 <property name="visible">True</property>
                 <property name="can_focus">False</property>
-                <property name="label" translatable="yes">Night Mode 3 (monochrome)</property>
+                <property name="label" translatable="yes">Gras Green</property>
                 <property name="draw_as_radio">True</property>
                 <signal name="activate" handler="on_Menu_CamFx_Item_activate" swapped="no"/>
               </object>
             </child>
             <child>
               <object class="GtkCheckMenuItem" id="Menu_CamFx_Item8">
-                <property name="name">7</property>
+                <property name="name">8</property>
+                <property name="visible">True</property>
                 <property name="can_focus">False</property>
+                <property name="label" translatable="yes">Skin Whiten</property>
+                <property name="draw_as_radio">True</property>
+                <signal name="activate" handler="on_Menu_CamFx_Item_activate" swapped="no"/>
+              </object>
+            </child>
+            <child>
+              <object class="GtkCheckMenuItem" id="Menu_CamFx_Item9">
+                <property name="name">9</property>
+                <property name="visible">True</property>
+                <property name="can_focus">False</property>
+                <property name="label" translatable="yes">Vivid</property>
+                <property name="draw_as_radio">True</property>
+                <signal name="activate" handler="on_Menu_CamFx_Item_activate" swapped="no"/>
+              </object>
+            </child>
+            <child>
+              <object class="GtkCheckMenuItem" id="Menu_CamFx_Item10">
+                <property name="name">10</property>
+                <property name="visible">True</property>
+                <property name="can_focus">False</property>
+                <property name="label" translatable="yes">Aqua</property>
+                <property name="draw_as_radio">True</property>
+                <signal name="activate" handler="on_Menu_CamFx_Item_activate" swapped="no"/>
+              </object>
+            </child>
+            <child>
+              <object class="GtkCheckMenuItem" id="Menu_CamFx_Item11">
+                <property name="name">11</property>
+                <property name="visible">True</property>
+                <property name="can_focus">False</property>
+                <property name="label" translatable="yes">Art Freeze</property>
+                <property name="draw_as_radio">True</property>
+                <signal name="activate" handler="on_Menu_CamFx_Item_activate" swapped="no"/>
+              </object>
+            </child>
+            <child>
+              <object class="GtkCheckMenuItem" id="Menu_CamFx_Item12">
+                <property name="name">12</property>
+                <property name="visible">True</property>
+                <property name="can_focus">False</property>
+                <property name="label" translatable="yes">Silhouette</property>
+                <property name="draw_as_radio">True</property>
+                <signal name="activate" handler="on_Menu_CamFx_Item_activate" swapped="no"/>
+              </object>
+            </child>
+            <child>
+              <object class="GtkCheckMenuItem" id="Menu_CamFx_Item13">
+                <property name="name">13</property>
+                <property name="visible">True</property>
+                <property name="can_focus">False</property>
+                <property name="label" translatable="yes">Solarization</property>
+                <property name="draw_as_radio">True</property>
+                <signal name="activate" handler="on_Menu_CamFx_Item_activate" swapped="no"/>
+              </object>
+            </child>
+            <child>
+              <object class="GtkCheckMenuItem" id="Menu_CamFx_Item14">
+                <property name="name">14</property>
+                <property name="visible">True</property>
+                <property name="can_focus">False</property>
+                <property name="label" translatable="yes">Antique</property>
+                <property name="draw_as_radio">True</property>
+                <signal name="activate" handler="on_Menu_CamFx_Item_activate" swapped="no"/>
+              </object>
+            </child>
+            <child>
+              <object class="GtkCheckMenuItem" id="Menu_CamFx_Item15">
+                <property name="name">15</property>
+                <property name="visible">True</property>
+                <property name="can_focus">False</property>
+                <property name="label" translatable="yes">Set Cb/Cr</property>
                 <property name="draw_as_radio">True</property>
                 <signal name="activate" handler="on_Menu_CamFx_Item_activate" swapped="no"/>
               </object>
@@ -2386,6 +2462,8 @@ video signal.</property>
               <object class="GtkBox" id="box4">
                 <property name="visible">True</property>
                 <property name="can_focus">False</property>
+                <property name="margin_left">5</property>
+                <property name="margin_right">5</property>
                 <property name="margin_top">10</property>
                 <property name="homogeneous">True</property>
                 <child>
@@ -2461,7 +2539,63 @@ video signal.</property>
               </packing>
             </child>
             <child>
-              <placeholder/>
+              <object class="GtkBox" id="box14">
+                <property name="visible">True</property>
+                <property name="can_focus">False</property>
+                <property name="margin_left">5</property>
+                <property name="margin_right">5</property>
+                <property name="margin_top">10</property>
+                <property name="homogeneous">True</property>
+                <child>
+                  <object class="GtkLabel" id="label53">
+                    <property name="visible">True</property>
+                    <property name="can_focus">False</property>
+                    <property name="label" translatable="yes">FX effect</property>
+                  </object>
+                  <packing>
+                    <property name="expand">False</property>
+                    <property name="fill">True</property>
+                    <property name="position">0</property>
+                  </packing>
+                </child>
+                <child>
+                  <object class="GtkComboBoxText" id="ComboBoxText_FxEffect">
+                    <property name="visible">True</property>
+                    <property name="can_focus">False</property>
+                    <property name="active">0</property>
+                    <property name="active_id">0</property>
+                    <items>
+                      <item id="0" translatable="yes">Default</item>
+                      <item id="1" translatable="yes">Black &amp; White</item>
+                      <item id="2" translatable="yes">Sepia</item>
+                      <item id="3" translatable="yes">Negative</item>
+                      <item id="4" translatable="yes">Emboss</item>
+                      <item id="5" translatable="yes">Sketch</item>
+                      <item id="6" translatable="yes">Sky Blue</item>
+                      <item id="7" translatable="yes">Gras Green</item>
+                      <item id="8" translatable="yes">Skin Whiten</item>
+                      <item id="9" translatable="yes">Vivid</item>
+                      <item id="10" translatable="yes">Aqua</item>
+                      <item id="11" translatable="yes">Art Freeze</item>
+                      <item id="12" translatable="yes">Silhouette</item>
+                      <item id="13" translatable="yes">Solarization</item>
+                      <item id="14" translatable="yes">Antique</item>
+                      <item id="15" translatable="yes">Set Cb/Cr</item>
+                    </items>
+                    <signal name="changed" handler="on_ComboBoxText_FxEffect_changed" swapped="no"/>
+                  </object>
+                  <packing>
+                    <property name="expand">False</property>
+                    <property name="fill">True</property>
+                    <property name="position">1</property>
+                  </packing>
+                </child>
+              </object>
+              <packing>
+                <property name="expand">False</property>
+                <property name="fill">True</property>
+                <property name="position">10</property>
+              </packing>
             </child>
             <child>
               <placeholder/>

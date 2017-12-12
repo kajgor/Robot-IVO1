@@ -101,6 +101,7 @@ class MainWindow(Gtk.Window):
         self.ComboBoxText_Abitrate  = builder.get_object("ComboBoxText_Abitrate")
         self.ComboBoxText_Rotate    = builder.get_object("ComboBoxText_Rotate")
         self.ComboBoxResolution     = builder.get_object("ComboBoxResolution")
+        self.ComboBoxText_FxEffect  = builder.get_object("ComboBoxText_FxEffect")
 
         self.AdvancedCamWindow      = builder.get_object("Window_AdvancedCam")
 
@@ -130,6 +131,7 @@ class MainWindow(Gtk.Window):
         self.Menu_CamRes_Item3      = builder.get_object("Menu_CamRes_Item3")
         self.Menu_CamRes_Item4      = builder.get_object("Menu_CamRes_Item4")
         self.Menu_CamRes_Item5      = builder.get_object("Menu_CamRes_Item5")
+        self.Menu_CamFx_Item0       = builder.get_object("Menu_CamFx_Item0")
         self.Menu_CamFx_Item1       = builder.get_object("Menu_CamFx_Item1")
         self.Menu_CamFx_Item2       = builder.get_object("Menu_CamFx_Item2")
         self.Menu_CamFx_Item3       = builder.get_object("Menu_CamFx_Item3")
@@ -137,6 +139,14 @@ class MainWindow(Gtk.Window):
         self.Menu_CamFx_Item5       = builder.get_object("Menu_CamFx_Item5")
         self.Menu_CamFx_Item6       = builder.get_object("Menu_CamFx_Item6")
         self.Menu_CamFx_Item7       = builder.get_object("Menu_CamFx_Item7")
+        self.Menu_CamFx_Item8       = builder.get_object("Menu_CamFx_Item8")
+        self.Menu_CamFx_Item9       = builder.get_object("Menu_CamFx_Item9")
+        self.Menu_CamFx_Item10      = builder.get_object("Menu_CamFx_Item10")
+        self.Menu_CamFx_Item11      = builder.get_object("Menu_CamFx_Item11")
+        self.Menu_CamFx_Item12      = builder.get_object("Menu_CamFx_Item12")
+        self.Menu_CamFx_Item13      = builder.get_object("Menu_CamFx_Item13")
+        self.Menu_CamFx_Item14      = builder.get_object("Menu_CamFx_Item14")
+        self.Menu_CamFx_Item15      = builder.get_object("Menu_CamFx_Item15")
 
         return builder
 
@@ -288,6 +298,43 @@ class MainWindow(Gtk.Window):
 
         self.StatusBar.push(self.context_id, retmsg)
 
+    def on_ComboBoxText_FxEffect_changed(self, widget):
+        self.Connection_Thread.FXmode   = 8
+        self.Connection_Thread.FXvalue  = widget.get_active()
+
+        if self.Connection_Thread.FXvalue == 0:
+            self.Menu_CamFx_Item0.set_active(True)
+        if self.Connection_Thread.FXvalue == 1:
+            self.Menu_CamFx_Item1.set_active(True)
+        if self.Connection_Thread.FXvalue == 2:
+            self.Menu_CamFx_Item2.set_active(True)
+        if self.Connection_Thread.FXvalue == 3:
+            self.Menu_CamFx_Item3.set_active(True)
+        if self.Connection_Thread.FXvalue == 4:
+            self.Menu_CamFx_Item4.set_active(True)
+        if self.Connection_Thread.FXvalue == 5:
+            self.Menu_CamFx_Item5.set_active(True)
+        if self.Connection_Thread.FXvalue == 6:
+            self.Menu_CamFx_Item6.set_active(True)
+        if self.Connection_Thread.FXvalue == 7:
+            self.Menu_CamFx_Item7.set_active(True)
+        if self.Connection_Thread.FXvalue == 8:
+            self.Menu_CamFx_Item8.set_active(True)
+        if self.Connection_Thread.FXvalue == 9:
+            self.Menu_CamFx_Item9.set_active(True)
+        if self.Connection_Thread.FXvalue == 10:
+            self.Menu_CamFx_Item10.set_active(True)
+        if self.Connection_Thread.FXvalue == 11:
+            self.Menu_CamFx_Item11.set_active(True)
+        if self.Connection_Thread.FXvalue == 12:
+            self.Menu_CamFx_Item12.set_active(True)
+        if self.Connection_Thread.FXvalue == 13:
+            self.Menu_CamFx_Item13.set_active(True)
+        if self.Connection_Thread.FXvalue == 14:
+            self.Menu_CamFx_Item14.set_active(True)
+        if self.Connection_Thread.FXvalue == 15:
+            self.Menu_CamFx_Item15.set_active(True)
+
     def on_ComboBoxResolution_changed(self, widget):
         self.resolution = widget.get_active() + 1
         # Console.print("Change mode to", self.resolution)
@@ -359,7 +406,7 @@ class MainWindow(Gtk.Window):
     def on_Menu_CamRes_Item_activate(self, widget):
         if widget.get_active() is True:
             w_id = int(widget.get_name())
-            if self.ComboBoxResolution.get_active != w_id:
+            if self.ComboBoxResolution.get_active() != w_id:
                 self.ComboBoxResolution.set_active(w_id)
             if widget != self.Menu_CamRes_Item1:
                 self.Menu_CamRes_Item1.set_active(False)
@@ -374,7 +421,11 @@ class MainWindow(Gtk.Window):
 
     def on_Menu_CamFx_Item_activate(self, widget):
         if widget.get_active() is True:
-            COMM_vars.Fxmode = int(widget.get_name())
+            w_id = int(widget.get_name())
+            if self.ComboBoxText_FxEffect.get_active() != w_id:
+                self.ComboBoxText_FxEffect.set_active(w_id)
+            if widget != self.Menu_CamFx_Item0:
+                self.Menu_CamFx_Item0.set_active(False)
             if widget != self.Menu_CamFx_Item1:
                 self.Menu_CamFx_Item1.set_active(False)
             if widget != self.Menu_CamFx_Item2:
@@ -389,6 +440,24 @@ class MainWindow(Gtk.Window):
                 self.Menu_CamFx_Item6.set_active(False)
             if widget != self.Menu_CamFx_Item7:
                 self.Menu_CamFx_Item7.set_active(False)
+            if widget != self.Menu_CamFx_Item8:
+                self.Menu_CamFx_Item8.set_active(False)
+            if widget != self.Menu_CamFx_Item9:
+                self.Menu_CamFx_Item9.set_active(False)
+            if widget != self.Menu_CamFx_Item10:
+                self.Menu_CamFx_Item10.set_active(False)
+            if widget != self.Menu_CamFx_Item11:
+                self.Menu_CamFx_Item11.set_active(False)
+            if widget != self.Menu_CamFx_Item12:
+                self.Menu_CamFx_Item12.set_active(False)
+            if widget != self.Menu_CamFx_Item13:
+                self.Menu_CamFx_Item13.set_active(False)
+            if widget != self.Menu_CamFx_Item14:
+                self.Menu_CamFx_Item14.set_active(False)
+            if widget != self.Menu_CamFx_Item15:
+                self.Menu_CamFx_Item15.set_active(False)
+        # else:
+        #     widget.set_active(False)
 
     def on_Button_AdvOk_activate(self, widget):
         self.AdvancedWindow.hide()

@@ -220,8 +220,8 @@ class RacStream:
             self.sender_audio_sink = ([Gst.ElementFactory.make("udpsink", "sink_audio_test_udp"),
                                        Gst.ElementFactory.make("udpsink", "sink_audio_udp")])
 
-            self.sender_audio_sink[self.Source_test].set_property("sync", True)
-            self.sender_audio_sink[self.Source_h264].set_property("sync", True)
+            self.sender_audio_sink[self.Source_test].set_property("sync", False)
+            self.sender_audio_sink[self.Source_h264].set_property("sync", False)
             self.gst_init_test_udp()
             self.gst_init_live_udp()
 
@@ -495,6 +495,8 @@ class ConnectionThread:
     tunnel = None
     Video_Mode = 0
     Video_Codec = 0
+    FXmode = 0
+    FXvalue = 0
     Host = None
     Port_Comm = None
     Last_Active = 0
@@ -502,9 +504,10 @@ class ConnectionThread:
     CtrlQueue = queue.Queue()
 
     def __init__(self, CAMXPROP):
-        self.CAMXPROP = CAMXPROP
-        self.Rac_Stream = None
+        self.CAMXPROP       = CAMXPROP
+        self.Rac_Stream     = None
         self.Streaming_mode = 0
+        self.FXmode_sent    = 0
 
     def draw_arrow(self, message):
         self.Rac_Display.draw_arrow(message)
@@ -652,7 +655,6 @@ class ConnectionThread:
             Console.print("Connecting...")
         self.srv = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         server_address = (Host, Port_Comm)
-        IP_addr = socket.gethostbyname(Host)
 
         Console.print("CONN:", end="")
 
@@ -674,19 +676,9 @@ class ConnectionThread:
 
         if COMM_vars.connected is True:
             Console.print("Link with", self.srv.getpeername(), "established.")
-
             time.sleep(1)
-
-            initstr = chr(self.Rac_Stream.Protocol + 48) + chr(self.Video_Codec + 48) + chr(self.Video_Mode + 48)  # Add 48(ASCII) to show integer in the log.
-            ipint_list = map(int, findall('\d+', IP_addr))
-            for ipint in ipint_list:
-                initstr += chr(ipint)
-
-            initstr.ljust(CLIMSGLEN - 2, chr(10))
-            if Debug > 0:
-                Console.print(">>> init message sent:", initstr)
-
-            self.transmit_message(initstr)
+            IP_addr = socket.gethostbyname(Host)
+            self.send_init_string(IP_addr)
 
         cam0_restart = False
         resolution_last = None
@@ -715,13 +707,20 @@ class ConnectionThread:
                 speaker_last = self.conect_speakerstream(COMM_vars.speakers)
 
             if COMM_vars.resolution != resolution_last:
-                cam0_restart = bool(COMM_vars.resolution)
                 resolution_last = COMM_vars.resolution
+
+                self.FXmode = 0
+                self.FXvalue = COMM_vars.resolution
+
+                cam0_restart = bool(COMM_vars.resolution)
                 if COMM_vars.resolution > 0:
                     Console.print("Requesting mode", COMM_vars.resolution, end='...')
                 else:
                     Console.print("Pausing Video Stream")
                 self.connect_camstream(False)
+
+            # if self.FXmode < 255:
+            #     print("*** self.FXmode", self.FXmode)
 
             if cam0_restart is True:
                 if self.Rac_Stream.Protocol == TCP:
@@ -749,9 +748,22 @@ class ConnectionThread:
         Console.print("Closing Thread.")
         exit_thread()
 
+    def send_init_string(self, IP_addr):
+        initstr = chr(self.Rac_Stream.Protocol + 48) + chr(self.Video_Codec + 48) + chr(
+            self.Video_Mode + 48)  # Add 48(ASCII) to show integer in the log.
+        ipint_list = map(int, findall('\d+', IP_addr))
+        for ipint in ipint_list:
+            initstr += chr(ipint)
+
+        initstr.ljust(CLIMSGLEN - 2, chr(10))
+        if Debug > 0:
+            Console.print(">>> init message sent:", initstr)
+
+        self.transmit_message(initstr)
+
     def send_and_receive(self):
         if COMM_vars.speed != "HALT":
-            request  = self.encode_message()
+            request  = self.encode_message(self.FXmode, self.FXvalue)
             checksum = self.transmit_message(request)
             if checksum is None:
                 COMM_vars.connErr += 1
@@ -766,18 +778,20 @@ class ConnectionThread:
             resp = self.receive_message(RECMSGLEN)
 
             if resp is not None:
-                if checksum == ord(resp[0]):
-                    # RacConnection.decode_message(resp)
+                if checksum == ord(resp[0]): # ************* MESSAGE CONFIRMED ******************
                     self.Streaming_mode = self.decode_message(resp)
-
                     COMM_vars.motor_ACK = COMM_vars.motor_Power
+                    if self.FXmode == self.FXmode_sent < 255:
+                        self.FXmode = 255
+
+                    self.FXmode_sent = self.FXmode
                 else:
                     Console.print("Bad chksum:", checksum, ord(resp[0]))
                 if Debug > 1:
                     Console.print("CheckSum Sent/Received:", checksum, ord(resp[0]))
         else:
 # ToDo:
-            self.transmit_message("HALTHALT")
+            self.transmit_message("HALTHALTHALT")
             COMM_vars.connected = False
 
     ###############################################################################
@@ -839,6 +853,7 @@ class ConnectionThread:
         sendstr = str(chr(0) + out_str + chr(10)).encode(Encoding)
         if Debug > 1:
             print("CLISENT[len]: " + len(sendstr).__str__())
+        # print("CLISENT: ", sendstr.__str__())
 
         if self.srv is None:
             Console.print("self.srv is NONE!")
@@ -958,15 +973,18 @@ class ConnectionThread:
         return Streaming_mode
 
     @staticmethod
-    def encode_message():
+    def encode_message(FXmode, FXvalue):
         CntrlMask1 = 0
         for idx, x in enumerate([COMM_vars.AutoMode, COMM_vars.light, COMM_vars.speakers, COMM_vars.mic,
                                  COMM_vars.display, COMM_vars.laser, 0, 0]):
             CntrlMask1 |= (x << idx)
 
-        COMM_vars.Framerate = 3
+        # COMM_vars.Framerate = 3
         BitrateMask  = 100 * COMM_vars.Abitrate + 10 * COMM_vars.Vbitrate + COMM_vars.Framerate
-        VideoCtlMask = 100 * RIGHT + 10 * COMM_vars.Fxmode + COMM_vars.resolution
+        # VideoCtlMask = 10 * FXmode + COMM_vars.resolution
+
+        FxVal0 = int(FXvalue / 256)
+        FxVal1 = FXvalue % 256
 
         reqMsgVal = []
         reqMsgVal.append(COMM_vars.motor_Power[RIGHT] + 50)     # 1
@@ -974,10 +992,10 @@ class ConnectionThread:
         reqMsgVal.append(COMM_vars.camPosition[X_AXIS])         # 3
         reqMsgVal.append(COMM_vars.camPosition[Y_AXIS])         # 4
         reqMsgVal.append(CntrlMask1)                            # 5
-        reqMsgVal.append(VideoCtlMask)                          # 6
-        reqMsgVal.append(BitrateMask)                           # 7
-        reqMsgVal.append(0)                                     # 8
-        reqMsgVal.append(0)                                     # 9
+        reqMsgVal.append(FXmode)                                # 6
+        reqMsgVal.append(FxVal0)                                # 7
+        reqMsgVal.append(FxVal1)                                # 8
+        reqMsgVal.append(BitrateMask)                           # 9
         reqMsgVal.append(0)                                     # 10
 
         requestMsg = ""

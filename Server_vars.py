@@ -4,7 +4,11 @@ capsstr[2] = ", width=640, height=480, framerate="
 capsstr[3] = ", width=800, height=600, framerate="
 capsstr[4] = ", width=1024, height=768, framerate="
 capsstr[5] = ", width=1152, height=864, framerate="
-FxModes  = [0, 3, 4, 5, 13, 2, 1]
+FxModes  = ["brightness", "contrast", "saturation", "red_balance", "blue_balance", "power_line_frequency", "sharpness",
+            "color_effects", "color_effects_cbcr", "video_bitrate_mode", "video_bitrate", "repeat_sequence_header",
+            "h264_i_frame_period", "h264_level", "h264_profile", "auto_exposure", "exposure_time_absolute",
+            "exposure_dynamic_framerate", "auto_exposure_bias", "white_balance_auto_preset", "image_stabilization",
+            "iso_sensitivity", "iso_sensitivity_auto", "exposure_metering_mode", "scene_mode", "compression_quality"]
 FpsModes = [5, 15, 25, 30]
 
 VERSION = "B3.0"

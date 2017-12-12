@@ -1,3 +1,32 @@
+
+# 0 - Resolution ***
+# 1 - Brightness
+# 2 - Contrast
+# 3 - Saturation
+# 4 - RedBalance
+# 5 - BlueBalance
+# 6 - PowerLineFreq
+# 7 - Sharpness
+# 8 - ColorEffects
+# 9 - ColorEffectsCbCr
+# 10 - BRmode
+# 11 - BR
+# 12 - RepeatSeqHeader
+# 13 - IframePeriod
+# 14 - H264level
+# 15 - H264profile
+# 16 - ExpAuto
+# 17 - ExpTimeAbs
+# 18 - ExpDynFrate
+# 19 - ExpAutoBias
+# 20 - WBalanceAuto
+# 21 - ImageStabilization
+# 22 - IsoSens
+# 23 - IsoSensAuto
+# 24 - ExpMeteringMode
+# 25 - Scene Mode
+# 26 - JpgComprQual
+
 Port_COMM = 4550
 Port_CAM0 = Port_COMM + 1
 Port_MIC0 = Port_COMM + 2
@@ -69,12 +98,14 @@ class COMM_vars:
     Vcodec      = 0
     Vbitrate    = 0
     Framerate   = 3
-    Fxmode      = 0
+    Fxmode      = 255
+    Fxvalue     = 0
     Exposure    = 0
     Contrast    = 0
     Brightness  = 0
     Acodec      = 0
     Abitrate    = 0
+
 
 import binascii
 def calc_checksum(string):

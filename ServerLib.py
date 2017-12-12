@@ -103,9 +103,9 @@ class ServerThread(threading.Thread):
 
     def connection_loop(self, conn, client_IP, Protocol, Video_Codec):
         noData_cnt = 0
-        COMM_vars.streaming_mode = 0
-        self.Stream_Thread = StreamThread(client_IP, Protocol, Video_Codec)
-        self.Stream_Thread.start()
+        resolution = 0
+        Stream_Thread = StreamThread(client_IP, Protocol, Video_Codec)
+        Stream_Thread.start()
         # now keep talking with the client
         while not self.shutdown_flag.is_set():
             # Receiving from client
@@ -123,18 +123,30 @@ class ServerThread(threading.Thread):
             else:
                 noData_cnt = 0
 
-                resolution = self.decode_data(data)
-                response = self.encode_data(data)
+                Fxmode, Fxvalue = self.decode_data(data)
+
+                if Fxmode == 0:
+                    resolution = Fxvalue
+                elif Fxmode < 30:
+                    # if curr_Fxvalue != COMM_vars.Fxvalue:
+                    Console.print(" Entering FX mode", FxModes[Fxmode - 1], Fxvalue)
+                    cmd = "v4l2-ctl --set-ctrl=" + FxModes[Fxmode - 1] + "=" + Fxvalue.__str__()
+                    retmsg = execute_cmd(cmd)
+                    if retmsg:
+                        Console.print(retmsg)
+
+                response = self.encode_data(data, Stream_Thread.streaming_mode)
+
+                if Stream_Thread.res_queue.empty():
+                    Stream_Thread.req_resolution = resolution
 
                 if Debug > 0:
                     print("Chksum", response[0].__str__())
 
                     if Debug > 2:
-                        print("DATA_IN>>", data.__str__(), len(data))
+                        pass
                         print("DATA_OUT>>", response.__str__(), len(response))
-
-                if self.Stream_Thread.res_queue.empty():
-                    self.Stream_Thread.req_resolution = resolution
+                        print("DATA_IN>>", data.__str__(), len(data))
 
                 try:
                     conn.sendall(response.encode(Encoding))
@@ -155,7 +167,7 @@ class ServerThread(threading.Thread):
 
                     break
 
-        self.Stream_Thread.shutdown_flag.set()
+        Stream_Thread.shutdown_flag.set()
 
         return conn
 
@@ -184,23 +196,22 @@ class ServerThread(threading.Thread):
         # COMM_vars.          = bool(int(CTRL1_Mask[1]))
         # COMM_vars.          = bool(int(CTRL1_Mask[0]))
 
-        VideoCtlMask = str(int(data[6]) + 1000)
-        COMM_vars.Fxmode    = int(VideoCtlMask[2])
-        resolution          = int(VideoCtlMask[3])
+        FXmode              = data[6]
+        FXvalue             = data[7] * 256 + data[8]
 
-        Bitratemask  = str(int(data[7]) + 1000)
+        Bitratemask  = str(int(data[9]) + 1000)
         COMM_vars.Abitrate  = int(Bitratemask[1])
         COMM_vars.Vbitrate  = int(Bitratemask[2])
         COMM_vars.Framerate = int(Bitratemask[3])
 
-        return resolution
+        return FXmode, FXvalue
 
     @staticmethod
-    def encode_data(data):
+    def encode_data(data, streaming_mode):
         retstr = chr(calc_checksum(data))               # 1
         retstr += str(SRV_vars.DRV_A1_response[1:11])   # 2,3,4,5,6,7,8,9,10,11
         retstr += chr(data[5])  # CntrlMask1            # 12
-        retstr += chr(COMM_vars.streaming_mode)         # 13
+        retstr += chr(streaming_mode)         # 13
         retstr += chr(255)                              # 14
         retstr += chr(COMM_vars.coreTemp)               # 15
         retstr += chr(255)                              # 16
@@ -251,6 +262,7 @@ class ServerThread(threading.Thread):
 
 class StreamThread(threading.Thread):
     req_resolution = 0
+    streaming_mode = 0
     Source_test = 0
     Source_h264 = 1
 
@@ -484,7 +496,7 @@ class StreamThread(threading.Thread):
         curr_mic0 = not COMM_vars.mic
         curr_speakers = not COMM_vars.speakers
         curr_AudioBitrate = None
-        curr_FxMode = None
+        # curr_Fxvalue = None
         curr_Framerate = None
         self.sender_audio[SRV_vars.TestMode].set_state(req_audio_mode[curr_mic0])
         self.player_audio[SRV_vars.TestMode].set_state(req_audio_mode[curr_speakers])
@@ -515,14 +527,6 @@ class StreamThread(threading.Thread):
                     Console.print(" Speakers muted", COMM_vars.speakers)
 # ToDo:
                 self.player_audio[SRV_vars.TestMode].set_state(req_audio_mode[COMM_vars.speakers])
-
-            if curr_FxMode != COMM_vars.Fxmode:
-                curr_FxMode = COMM_vars.Fxmode
-                Console.print(" Entering FX mode", curr_FxMode)
-                cmd = "v4l2-ctl --set-ctrl=color_effects=" + FxModes[curr_FxMode].__str__()
-                err = execute_cmd(cmd)
-                if err:
-                    Console.print(err)
 
             if curr_Framerate != COMM_vars.Framerate:
                 curr_Framerate = COMM_vars.Framerate
@@ -588,7 +592,7 @@ class StreamThread(threading.Thread):
                     Console.print("Ready.")
                 elif curr_state == Gst.State.PLAYING:
                     Console.print("Streaming in mode " + self.req_resolution.__str__())
-                    COMM_vars.streaming_mode = self.req_resolution
+                    self.streaming_mode = self.req_resolution
 
             time.sleep(.25)
 
@@ -619,7 +623,7 @@ class DriverThread(threading.Thread):
     def run(self):
         Console.print('Driver Thread #%s started' % self.ident)
 
-        if not bool(SRV_vars.TestMode) is True:
+        if bool(SRV_vars.TestMode) is True:
             self._testrun()
         else:
             self._liverun()
@@ -627,8 +631,6 @@ class DriverThread(threading.Thread):
         Console.print('Driver Thread #%s stopped' % self.ident)
 
     def _liverun(self):
-        Console.print("Serial Port", SRV_vars.Serial_Port)
-
         SerPort1          = serial.Serial(SRV_vars.Serial_Port)
         SerPort1.port     = SRV_vars.Serial_Port
         SerPort1.baudrate = SRV_vars.Port_Baudrate
@@ -640,6 +642,7 @@ class DriverThread(threading.Thread):
         SerPort1.dsrdtr   = SRV_vars.Port_DsrDtr
         SerPort1.rtscts   = SRV_vars.Port_RtsCts
         SerPort1.flush()
+        Console.print("Serial Port", SRV_vars.Serial_Port, "connected.")
 
         inStr = ""
         while True:
@@ -684,6 +687,7 @@ class DriverThread(threading.Thread):
 
 
     def _testrun(self):
+        Console.print("Test Port Emulated")
         inc = 30 ; adx = 1
         idx = 30
         while not self.shutdown_flag.is_set():

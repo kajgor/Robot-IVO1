@@ -50,7 +50,7 @@ class GtkTsMain(Gtk.Window):
         self.set_destroy_with_parent(True)
         # self.set_deletable(False)
 
-        self.set_title("ROBOT SERVER")
+        self.set_title("* ROBOT SERVER *")
         # self.set_title(self.Main_Box[POSITION])
         self.connect("destroy", self.gtk_main_quit)
         self.connect("delete-event", Gtk.main_quit)
