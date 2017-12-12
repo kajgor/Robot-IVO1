@@ -1,48 +1,82 @@
 import pickle
+from Common_vars import COMM_vars
 
-def config_read(self, filename):
+
+def config_read(filename):
     with open(filename, "rb") as iniFile:
-        self.Host = pickle.load(iniFile)
-        self.Port_Comm = pickle.load(iniFile)
-        self.Port_Video = pickle.load(iniFile)
-        self.Port_Audio = pickle.load(iniFile)
-        self.Gstreamer_Path = pickle.load(iniFile)
-        self.Reserved_1 = pickle.load(iniFile)
-        self.Reserved_2 = pickle.load(iniFile)
-        self.Reserved_3 = pickle.load(iniFile)
-        self.Reserved_4 = pickle.load(iniFile)
-        self.Local_Test = pickle.load(iniFile)
-        self.END_CFG = pickle.load(iniFile)
-    print ("Configuration read.")
+        HostList        = pickle.load(iniFile)
+        Mask1           = pickle.load(iniFile)
+        RSA_Key         = pickle.load(iniFile)
+        Key_Pass        = pickle.load(iniFile)
+        Ssh_User        = pickle.load(iniFile)
+        Remote_Host     = pickle.load(iniFile)
+        Compression     = pickle.load(iniFile)
+        Reserved_6      = pickle.load(iniFile)
+        Reserved_7      = pickle.load(iniFile)
+        Local_Test      = pickle.load(iniFile)
+        END_CFG         = pickle.load(iniFile)
 
-def config_save(self, filename):
+        COMM_vars.resolution = Mask1[0]
+        COMM_vars.light      = Mask1[1]
+        COMM_vars.mic        = Mask1[2]
+        COMM_vars.display    = Mask1[3]
+        COMM_vars.speakers   = Mask1[4]
+        COMM_vars.laser      = Mask1[5]
+        COMM_vars.AutoMode   = Mask1[6]
+
+    print ("Configuration read from", filename)
+    return HostList,\
+           Mask1,\
+           RSA_Key,\
+           Key_Pass,\
+           Ssh_User,\
+           Remote_Host,\
+           Compression,\
+           Reserved_6,\
+           Reserved_7,\
+           Local_Test
+
+
+def config_save(filename, HostList, RSA_Key, Key_Pass, Ssh_User, Remote_Host,
+                Compression, Reserved_6, Reserved_7, Local_Test):
     with open(filename, "wb") as iniFile:
-        for item in [self.Host,
-                     self.Port_Comm,
-                     self.Port_Video,
-                     self.Port_Audio,
-                     self.Gstreamer_Path,
-                     "X",
-                     "X",
-                     "X",
-                     "X",
-                     self.Local_Test,
-                     "END"]:
-            pickle.dump(item,iniFile)
+
+        # print("HostList", HostList)
+
+        Mask1 = (COMM_vars.resolution,
+                 COMM_vars.light,
+                 COMM_vars.mic,
+                 COMM_vars.display,
+                 COMM_vars.speakers,
+                 COMM_vars.laser,
+                 COMM_vars.AutoMode)
+
+        for item in [HostList,
+                    Mask1,
+                    RSA_Key,
+                    Key_Pass,
+                    Ssh_User,
+                    Remote_Host,
+                    Compression,
+                    Reserved_6,
+                    Reserved_7,
+                    Local_Test,
+                    "END"]:
+            pickle.dump(item, iniFile)
     print ("Configuration saved.")
 
 def reset_save(filename):
     with open(filename, "wb") as iniFile:
-        for item in ("127.0.0.1",
-                     5000,
-                     5101,
-                     5102,
-                     "/usr/bin",
-                     "X",
-                     "X",
-                     "X",
-                     "X",
-                     "1",
+        for item in (("localhost:4550:True", "10.0.0.23:4550:False", "athome106.hopto.org:222:True"),
+                     (1, False, False, False, False, False, False, False),
+                     "/home/igor/.ssh/id_rsa",
+                     "nescape",
+                     "igor",
+                     "127.0.0.1",
+                     True,
+                     False,
+                     False,
+                     True,
                      "END"):
-            pickle.dump(item,iniFile)
+            pickle.dump(item, iniFile)
     print ("Configuration reset.")
