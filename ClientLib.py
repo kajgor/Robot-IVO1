@@ -960,8 +960,8 @@ class ConnectionThread:
         COMM_vars.motor_RPM[RIGHT] = dataint[3]                                 #4
         COMM_vars.motor_RPM[LEFT]  = dataint[4]                                 #5
         curr_sensor = 0.0048 * (dataint[5] * 250 + dataint[6])                  #6,7
-        COMM_vars.current          = (2.5 - curr_sensor) * 5
-        COMM_vars.voltage          = 0.012 * (dataint[7] * 250 + dataint[8])    #8,9
+        COMM_vars.current          = (2.48 - curr_sensor) * 5
+        COMM_vars.voltage          = 0.0155 * (dataint[7] * 250 + dataint[8]) - 0.5 #8,9
         COMM_vars.distanceS1       = int((dataint[9] * 250 + dataint[10]) / 58) #10,11
 
         CntrlMask1 = ord(resp[11])                                              #12

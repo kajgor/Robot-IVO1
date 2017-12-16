@@ -1194,9 +1194,9 @@
                 <property name="can_focus">False</property>
                 <property name="margin_top">5</property>
                 <property name="margin_bottom">5</property>
-                <property name="value">5</property>
-                <property name="min_value">5</property>
-                <property name="max_value">13</property>
+                <property name="value">9</property>
+                <property name="min_value">9</property>
+                <property name="max_value">12.25</property>
               </object>
               <packing>
                 <property name="expand">False</property>
