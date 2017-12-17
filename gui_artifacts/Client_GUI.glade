@@ -1194,9 +1194,9 @@
                 <property name="can_focus">False</property>
                 <property name="margin_top">5</property>
                 <property name="margin_bottom">5</property>
-                <property name="value">9</property>
-                <property name="min_value">9</property>
-                <property name="max_value">12.25</property>
+                <property name="value">10</property>
+                <property name="min_value">10</property>
+                <property name="max_value">12</property>
               </object>
               <packing>
                 <property name="expand">False</property>
@@ -2967,6 +2967,7 @@ Framerate</property>
                       <item id="8" translatable="yes">Night</item>
                       <item id="11" translatable="yes">Sport</item>
                     </items>
+                    <signal name="changed" handler="on_ComboBoxText_SceneMode_changed" swapped="no"/>
                   </object>
                   <packing>
                     <property name="left_attach">1</property>
@@ -3039,7 +3040,7 @@ Framerate</property>
                   </packing>
                 </child>
                 <child>
-                  <object class="GtkComboBoxText" id="comboboxtext1">
+                  <object class="GtkComboBoxText" id="ComboBoxText_ExpMeteringMode">
                     <property name="visible">True</property>
                     <property name="can_focus">False</property>
                     <property name="halign">start</property>
@@ -3050,6 +3051,7 @@ Framerate</property>
                       <item id="1" translatable="yes">Center Weighted</item>
                       <item id="2" translatable="yes">Spot</item>
                     </items>
+                    <signal name="changed" handler="on_ComboBoxText_ExpMeteringMode_changed" swapped="no"/>
                   </object>
                   <packing>
                     <property name="left_attach">1</property>
@@ -3062,6 +3064,7 @@ Framerate</property>
                     <property name="can_focus">True</property>
                     <property name="halign">start</property>
                     <property name="adjustment">adjustment_JpgQuality</property>
+                    <signal name="change-value" handler="on_SpinButton_JpgComprQuality_change_value" swapped="no"/>
                   </object>
                   <packing>
                     <property name="left_attach">1</property>
@@ -3138,13 +3141,14 @@ Framerate</property>
                 <property name="margin_bottom">5</property>
                 <property name="column_spacing">5</property>
                 <child>
-                  <object class="GtkCheckButton" id="checkbutton1">
+                  <object class="GtkCheckButton" id="CheckButton_h264Header">
                     <property name="visible">True</property>
                     <property name="can_focus">True</property>
                     <property name="receives_default">False</property>
                     <property name="halign">start</property>
                     <property name="xalign">0</property>
                     <property name="draw_indicator">True</property>
+                    <signal name="toggled" handler="on_CheckButton_h264Header_toggled" swapped="no"/>
                   </object>
                   <packing>
                     <property name="left_attach">3</property>
@@ -3165,7 +3169,7 @@ Header</property>
                   </packing>
                 </child>
                 <child>
-                  <object class="GtkComboBoxText" id="ComboBoxText_VbitRateMode">
+                  <object class="GtkComboBoxText" id="ComboBoxText_h264BitRateMode">
                     <property name="visible">True</property>
                     <property name="can_focus">False</property>
                     <property name="halign">start</property>
@@ -3175,6 +3179,7 @@ Header</property>
                       <item id="0" translatable="yes">Variable</item>
                       <item id="1" translatable="yes">Constant</item>
                     </items>
+                    <signal name="changed" handler="on_ComboBoxText_h264BitRateMode_changed" swapped="no"/>
                   </object>
                   <packing>
                     <property name="left_attach">1</property>
@@ -3194,13 +3199,14 @@ Header</property>
                   </packing>
                 </child>
                 <child>
-                  <object class="GtkSpinButton" id="spinbutton1">
+                  <object class="GtkSpinButton" id="SpinButton_h264BitRate">
                     <property name="visible">True</property>
                     <property name="can_focus">True</property>
                     <property name="halign">start</property>
                     <property name="text" translatable="yes">10000000</property>
                     <property name="adjustment">adjustment_VbitRate</property>
                     <property name="value">10000000</property>
+                    <signal name="change-value" handler="on_SpinButton_h264BitRate_change_value" swapped="no"/>
                   </object>
                   <packing>
                     <property name="left_attach">1</property>
@@ -3219,7 +3225,7 @@ Header</property>
                   </packing>
                 </child>
                 <child>
-                  <object class="GtkComboBoxText" id="comboboxtext3">
+                  <object class="GtkComboBoxText" id="ComboBoxText_h264Level">
                     <property name="visible">True</property>
                     <property name="can_focus">False</property>
                     <property name="halign">start</property>
@@ -3238,6 +3244,7 @@ Header</property>
                       <item id="10" translatable="yes">3.2</item>
                       <item id="11" translatable="yes">4</item>
                     </items>
+                    <signal name="changed" handler="on_ComboBoxText_h264Level_changed" swapped="no"/>
                   </object>
                   <packing>
                     <property name="left_attach">3</property>
@@ -3256,7 +3263,7 @@ Header</property>
                   </packing>
                 </child>
                 <child>
-                  <object class="GtkComboBoxText" id="comboboxtext2">
+                  <object class="GtkComboBoxText" id="ComboBoxText_h264Profile">
                     <property name="visible">True</property>
                     <property name="can_focus">False</property>
                     <property name="halign">start</property>
@@ -3268,6 +3275,7 @@ Header</property>
                       <item id="2" translatable="yes">Main</item>
                       <item id="4" translatable="yes">High</item>
                     </items>
+                    <signal name="changed" handler="on_ComboBoxText_h264Profile_changed" swapped="no"/>
                   </object>
                   <packing>
                     <property name="left_attach">1</property>

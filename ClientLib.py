@@ -1,13 +1,11 @@
-import datetime
 import socket
 import queue
 import time
 import gi
 
 gi.require_version('Gst', '1.0')
-gi.require_version('Gdk', '3.0')
 gi.require_version('GstVideo', '1.0')
-from gi.repository import Gst, GstVideo, Gdk, GdkPixbuf
+from gi.repository import Gst, GstVideo, GdkPixbuf
 
 from sshtunnel import SSHTunnelForwarder
 from paramiko import RSAKey
@@ -15,98 +13,16 @@ from cairo import ImageSurface
 from math import pi
 from re import findall
 from _thread import *
-from Common_vars import *
+from Common_vars import COMM_vars, TCP, MAX_SPEED, Port_COMM, Port_CAM0, Port_MIC0, Port_SPK0, AudioBitrate,\
+    RETRY_LIMIT, CLIMSGLEN, RECMSGLEN, Encoding, LEFT, RIGHT, calc_checksum, X_AXIS, Y_AXIS
+
 from Client_vars import *
 
 Gst.init(None)
 
 
-class MainLoop:
-    ###############################################################################
-    ################   MAIN LOOP START   ##########################################
-    ###############################################################################
-    def __init__(self, GUI):
-        self.counter = 0
-        self.GUI = GUI
-        self.Console = Console()
-        self.TextView_Log = self.GUI.TextView_Log
-        self.last_MouseButtonR = False
-        self.DispAvgVal = [0, 0]
-
-    def on_timer(self):
-        if COMM_vars.connected:
-            self.counter += .05
-
-        if COMM_vars.comm_link_idle > COMM_IDLE:
-            self.GUI.Spinner_connection.stop()
-            COMM_vars.comm_link_idle = COMM_IDLE  # Do not need to increase counter anymore
-        else:
-            self.GUI.Spinner_connection.start()
-
-        # Idle timer for checking the link
-        COMM_vars.comm_link_idle += 1
-        if KEY_control.MouseBtn[RIGHT] is not self.last_MouseButtonR:
-            self.GUI.Menu_CamOptions.popup(None, None, None, None, Gdk.BUTTON_SECONDARY, KEY_control.time)
-            self.last_MouseButtonR = KEY_control.MouseBtn[RIGHT]
-
-        # Any update tasks would go here (moving sprites, advancing animation frames etc.)
-        self.UpdateControlData()
-        self.UpdateMonitorData()
-        self.Console.display_message(self.TextView_Log)
-
-        self.GUI.StatusBar2.push(self.GUI.context_id2, str(datetime.timedelta(seconds=int(self.counter))))
-        self.GUI.DrawingArea_control.queue_draw()
-
-        if COMM_vars.connected is True:
-            if CommunicationFFb is False:
-                RacUio.get_speed_and_direction()  # Keyboard input
-                RacUio.calculate_MotorPower()
-                RacUio.mouseInput()               # Mouse input
-
-        else:
-            if self.GUI.ToggleButton_connect.get_active() is True:
-                self.GUI.ToggleButton_connect.set_active(False)
-                # self.GUI.on_ToggleButton_Connect_toggled(self.GUI.ToggleButton_Connect)
-
-        return True
-
-    def UpdateMonitorData(self):
-        self.GUI.LabelRpmL.set_text(COMM_vars.motor_RPM[LEFT].__str__())
-        self.GUI.LabelRpmR.set_text(COMM_vars.motor_RPM[RIGHT].__str__())
-        self.GUI.LabelPowerL.set_text(COMM_vars.motor_PWR[LEFT].__str__())
-        self.GUI.LabelPowerR.set_text(COMM_vars.motor_PWR[RIGHT].__str__())
-        self.GUI.LabelRpmReqL.set_text(COMM_vars.motor_Power[LEFT].__str__())
-        self.GUI.LabelRpmReqR.set_text(COMM_vars.motor_Power[RIGHT].__str__())
-        self.GUI.LabelRpmAckL.set_text(COMM_vars.motor_ACK[LEFT].__str__())
-        self.GUI.LabelRpmAckR.set_text(COMM_vars.motor_ACK[RIGHT].__str__())
-        self.GUI.LabelCamPosH.set_text(COMM_vars.camPosition[X_AXIS].__str__())
-        self.GUI.LabelCamPosV.set_text(COMM_vars.camPosition[Y_AXIS].__str__())
-
-        self.GUI.LabelCoreTemp.set_text("{:.2f}".format(COMM_vars.coreTemp).__str__())
-        self.GUI.LabelBattV.set_text("{:.2f}".format(COMM_vars.voltage).__str__())
-        self.GUI.LabelPowerA.set_text("{:.2f}".format(COMM_vars.current).__str__())
-        self.GUI.LabelS1Dist.set_text(COMM_vars.distanceS1.__str__())
-
-        return
-
-    def UpdateControlData(self):
-        self.DispAvgVal[0] = (self.DispAvgVal[0] * 4 + COMM_vars.voltage) / 5
-        self.DispAvgVal[1] = (self.DispAvgVal[1] * 4 + COMM_vars.current) / 5
-        self.GUI.LevelBar_Voltage.set_value(self.DispAvgVal[0])
-        self.GUI.LevelBar_Current.set_value(self.DispAvgVal[1])
-        self.GUI.LeverBar_PowerL.set_value(COMM_vars.motor_PWR[LEFT])
-        self.GUI.LeverBar_PowerR.set_value(COMM_vars.motor_PWR[RIGHT])
-        # print("int(COMM_vars.Current * 10) - 70", int(COMM_vars.Current * 10))
-
-        return
-###############################################################################
-################   MAIN LOOP END   ############################################
-###############################################################################
-
-
 # noinspection PyPep8Naming
 class RacStream:
-
     # TCP
     # SRV TEST TCP:
     # Source>Capsfilter>Payloader>Sink
@@ -691,9 +607,9 @@ class ConnectionThread:
             self.Rac_Stream.video_flip[self.Video_Mode].set_property("method", CAM0_control.Flip)  # => "rotate"
 
             if CommunicationFFb is True:
-                RacUio.get_speed_and_direction()  # Keyboard input
-                RacUio.calculate_MotorPower()     # Set control variables
-                RacUio.mouseInput()               # Set mouse Variables
+                self.get_speed_and_direction()  # Keyboard input
+                self.calculate_MotorPower()     # Set control variables
+                self.mouseInput()               # Set mouse Variables
 
             if AudioBitrate[COMM_vars.Abitrate] != AudioBitrate_last:
                 AudioBitrate_last = AudioBitrate[COMM_vars.Abitrate]
@@ -961,7 +877,7 @@ class ConnectionThread:
         COMM_vars.motor_RPM[LEFT]  = dataint[4]                                 #5
         curr_sensor = 0.0048 * (dataint[5] * 250 + dataint[6])                  #6,7
         COMM_vars.current          = (2.48 - curr_sensor) * 5
-        COMM_vars.voltage          = 0.0155 * (dataint[7] * 250 + dataint[8]) - 0.5 #8,9
+        COMM_vars.voltage          = 0.0157 * (dataint[7] * 250 + dataint[8]) - 0.95 #8,9
         COMM_vars.distanceS1       = int((dataint[9] * 250 + dataint[10]) / 58) #10,11
 
         CntrlMask1 = ord(resp[11])                                              #12
@@ -1016,49 +932,6 @@ class ConnectionThread:
             Console.print("requestMsg", requestMsg)
 
         return requestMsg
-
-
-class RacUio:
-    def on_key_press(self, event):
-        keybuffer_set(event, True)
-        return True
-
-    def on_key_release(self, event):
-        key_name = keybuffer_set(event, False)
-        return key_name
-
-    def on_mouse_press(self, mouse_event):
-        mousebuffer_set(mouse_event, True)
-
-    def on_mouse_release(self, mouse_event):
-        mousebuffer_set(mouse_event, False)
-
-    def on_motion_notify(self, mouse_event):
-        mouseX = int(mouse_event.x)
-        mouseY = int(mouse_event.y)
-        if KEY_control.MouseBtn[LEFT] is True:
-            tmp = (KEY_control.MouseXY[X_AXIS] - mouseX) / 2
-            if abs(tmp) >= 1:
-                if COMM_vars.camPosition[X_AXIS] + tmp > MOUSE_MAX[X_AXIS]:
-                    COMM_vars.camPosition[X_AXIS] = MOUSE_MAX[X_AXIS]
-                elif COMM_vars.camPosition[X_AXIS] + tmp < MOUSE_MIN[X_AXIS]:
-                    COMM_vars.camPosition[X_AXIS] = MOUSE_MIN[X_AXIS]
-                else:
-                    COMM_vars.camPosition[X_AXIS] += int(tmp)
-
-            tmp = (mouseY - KEY_control.MouseXY[Y_AXIS]) / 2
-            if abs(tmp) >= 1:
-                if COMM_vars.camPosition[Y_AXIS] + tmp > MOUSE_MAX[Y_AXIS]:
-                    COMM_vars.camPosition[Y_AXIS] = MOUSE_MAX[Y_AXIS]
-                elif COMM_vars.camPosition[Y_AXIS] + tmp < MOUSE_MIN[Y_AXIS]:
-                    COMM_vars.camPosition[Y_AXIS] = MOUSE_MIN[Y_AXIS]
-                else:
-                    COMM_vars.camPosition[Y_AXIS] += int(tmp)
-
-            KEY_control.MouseXY = [mouseX, mouseY]
-
-        # if KEY_control.MouseBtn[RIGHT] is True:
-        #     Console.print("KEY_control.MouseXY[right]", KEY_control.MouseXY)
 
     @staticmethod
     def get_speed_and_direction():
@@ -1132,41 +1005,3 @@ class Console:
                 TextBuffer.insert_at_cursor(str(cText) + " ")
 
                 Console.scroll_mark_onscreen(TextBuffer.get_insert())
-
-
-def keybuffer_set(event, value):
-    key_name = Gdk.keyval_name(event.keyval)
-    if key_name == "Left" or key_name.replace("A", "a", 1) == "a":
-        KEY_control.Left = value
-
-    elif key_name == "Right" or key_name.replace("D", "d", 1) == "d":
-        KEY_control.Right = value
-
-    elif key_name == "Up" or key_name.replace("W", "w", 1) == "w":
-        KEY_control.Up = value
-
-    elif key_name == "Down" or key_name.replace("S", "s", 1) == "s":
-        KEY_control.Down = value
-
-    elif key_name == "space":
-        COMM_vars.speed = 0
-        COMM_vars.direction = 0
-        KEY_control.Space = value
-
-    if event.state is True and Gdk.KEY_Shift_L is not KEY_control.Shift:
-        KEY_control.Shift = Gdk.KEY_Shift_L
-        Console.print("SHIFT!!!")
-
-    return key_name
-
-
-def mousebuffer_set(mouse_event, value):
-    if mouse_event.button == Gdk.BUTTON_PRIMARY:
-        KEY_control.MouseBtn[LEFT] = value
-        if value is True:
-            KEY_control.MouseXY = [int(mouse_event.x),
-                                   int(mouse_event.y)]
-
-    if mouse_event.button == Gdk.BUTTON_SECONDARY:
-        KEY_control.time = mouse_event.time
-        KEY_control.MouseBtn[RIGHT] = value

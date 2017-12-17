@@ -1,37 +1,39 @@
 #!/usr/bin/env python3.5
 # -*- coding: CP1252 -*-
+import datetime
+import pickle
 import gi
-gi.require_version('Gst', '1.0')
 gi.require_version('Gtk', '3.0')
-gi.require_version('GstVideo', '1.0')
-from gi.repository import Gtk, Gdk, GdkX11, GLib
+gi.require_version('Gdk', '3.0')
+from gi.repository import Gtk, Gdk, GLib
 
-from Common_vars import TIMEOUT_GUI, VideoFramerate, AudioBitrate, AudioCodec, VideoCodec, PROTO_NAME
-from Client_vars import Paths, Debug, CAM0_control
-
-from config_rw import *
-from ClientLib import ConnectionThread, RacUio, MainLoop, Console
+from ClientLib   import ConnectionThread, Console
+from Client_vars import Paths, Debug, CAM0_control, KEY_control, CommunicationFFb
+from Common_vars import VideoFramerate, AudioBitrate, AudioCodec, VideoCodec, \
+    TIMEOUT_GUI, PROTO_NAME, LEFT, RIGHT, X_AXIS, Y_AXIS, MOUSE_MIN, MOUSE_MAX, COMM_vars, COMM_IDLE
 
 
 # noinspection PyAttributeOutsideInit
 class MainWindow(Gtk.Window):
-
     def __init__(self):
         super(MainWindow, self).__init__()
 
         builder = self.init_vars
 
-        self.context_id             = self.StatusBar.get_context_id("message")
-        self.context_id1            = self.StatusBar1.get_context_id("message")
-        self.context_id2            = self.StatusBar2.get_context_id("message")
-        self.camera_on = True
-        self.resolution = 0
-        self.Protocol = 0
+        self.counter         = 0
+        self.context_id      = self.StatusBar.get_context_id("message")
+        self.context_id1     = self.StatusBar1.get_context_id("message")
+        self.context_id2     = self.StatusBar2.get_context_id("message")
+        self.camera_on       = True
+        self.resolution      = 0
+        self.Protocol        = 0
+        self.DispAvgVal      = [0, 0]
+        self.Console         = Console()
 
-        Console.print("Console 3.0 initialized.\n")
+        self.Console.print("Console 3.0 initialized.\n")
 
         ####### Main loop definition ###############
-        GLib.timeout_add(TIMEOUT_GUI, MainLoop(self).on_timer)
+        GLib.timeout_add(TIMEOUT_GUI, self.on_timer)
         ############################################
         self.init_ui()
 
@@ -166,11 +168,11 @@ class MainWindow(Gtk.Window):
         self.CheckButton_SshTunnel.set_sensitive(False)
 
     def connect_gui_handlers(self):
-        self.on_key_press_handler = self.connect("key-press-event", RacUio.on_key_press)
-        self.on_key_release_handler = self.connect("key-release-event", RacUio.on_key_release)
-        self.on_mouse_press_handler = self.connect("button-press-event", RacUio.on_mouse_press)
-        self.on_mouse_release_handler = self.connect("button-release-event", RacUio.on_mouse_release)
-        self.on_motion_notify_handler = self.connect("motion-notify-event", RacUio.on_motion_notify)
+        self.on_key_press_handler = self.connect("key-press-event", self.on_key_press)
+        self.on_key_release_handler = self.connect("key-release-event", self.on_key_release)
+        self.on_mouse_press_handler = self.connect("button-press-event", self.on_mouse_press)
+        self.on_mouse_release_handler = self.connect("button-release-event", self.on_mouse_release)
+        self.on_motion_notify_handler = self.connect("motion-notify-event", self.on_motion_notify)
 
     def disconnect_gui(self):
         if self.on_key_press_handler is not None:
@@ -197,7 +199,7 @@ class MainWindow(Gtk.Window):
         Compression, \
         Ssh, \
         Reserved_7, \
-        Local_Test = config_read(Paths.cfg_file)
+        Local_Test = configstorage.read(Paths.cfg_file)
 
         self.CheckButton_camera.set_active(bool(COMM_vars.resolution))
         self.ComboBoxResolution.set_active(int(COMM_vars.resolution) - bool(COMM_vars.resolution))
@@ -233,6 +235,75 @@ class MainWindow(Gtk.Window):
         self.on_CheckButton_LocalTest_toggled(self.CheckButton_localtest)
         self.on_CheckButton_Mic_toggled(self.CheckButton_Mic)
         self.on_CheckButton_Speakers_toggled(self.CheckButton_Display)
+
+    ###############################################################################
+    ################   MAIN LOOP START ############################################
+    ###############################################################################
+    def on_timer(self):
+        if COMM_vars.connected:
+            self.counter += .05
+
+        if COMM_vars.comm_link_idle > COMM_IDLE:
+            self.Spinner_connection.stop()
+            COMM_vars.comm_link_idle = COMM_IDLE  # Do not need to increase counter anymore
+        else:
+            self.Spinner_connection.start()
+
+        # Idle timer for checking the link
+        COMM_vars.comm_link_idle += 1
+
+        # Any update tasks would go here (moving sprites, advancing animation frames etc.)
+        self.UpdateControlData()
+        self.UpdateMonitorData()
+        self.Console.display_message(self.TextView_Log)
+
+        self.StatusBar2.push(self.context_id2, str(datetime.timedelta(seconds=int(self.counter))))
+        self.DrawingArea_control.queue_draw()
+
+        if COMM_vars.connected is True:
+            if CommunicationFFb is False:
+                ConnectionThread.get_speed_and_direction()  # Keyboard input
+                ConnectionThread.calculate_MotorPower()
+                ConnectionThread.mouseInput()  # Mouse input
+        else:
+            if self.ToggleButton_connect.get_active() is True:
+                self.ToggleButton_connect.set_active(False)
+                # self.on_ToggleButton_Connect_toggled(self.ToggleButton_Connect)
+
+        return True
+
+    def UpdateMonitorData(self):
+        self.LabelRpmL.set_text(COMM_vars.motor_RPM[LEFT].__str__())
+        self.LabelRpmR.set_text(COMM_vars.motor_RPM[RIGHT].__str__())
+        self.LabelPowerL.set_text(COMM_vars.motor_PWR[LEFT].__str__())
+        self.LabelPowerR.set_text(COMM_vars.motor_PWR[RIGHT].__str__())
+        self.LabelRpmReqL.set_text(COMM_vars.motor_Power[LEFT].__str__())
+        self.LabelRpmReqR.set_text(COMM_vars.motor_Power[RIGHT].__str__())
+        self.LabelRpmAckL.set_text(COMM_vars.motor_ACK[LEFT].__str__())
+        self.LabelRpmAckR.set_text(COMM_vars.motor_ACK[RIGHT].__str__())
+        self.LabelCamPosH.set_text(COMM_vars.camPosition[X_AXIS].__str__())
+        self.LabelCamPosV.set_text(COMM_vars.camPosition[Y_AXIS].__str__())
+
+        self.LabelCoreTemp.set_text("{:.2f}".format(COMM_vars.coreTemp).__str__())
+        self.LabelBattV.set_text("{:.2f}".format(COMM_vars.voltage).__str__())
+        self.LabelPowerA.set_text("{:.2f}".format(COMM_vars.current).__str__())
+        self.LabelS1Dist.set_text(COMM_vars.distanceS1.__str__())
+
+        return
+
+    def UpdateControlData(self):
+        self.DispAvgVal[0] = (self.DispAvgVal[0] * 4 + COMM_vars.voltage) / 5
+        self.DispAvgVal[1] = (self.DispAvgVal[1] * 4 + COMM_vars.current) / 5
+        self.LevelBar_Voltage.set_value(self.DispAvgVal[0])
+        self.LevelBar_Current.set_value(self.DispAvgVal[1])
+        self.LeverBar_PowerL.set_value(COMM_vars.motor_PWR[LEFT])
+        self.LeverBar_PowerR.set_value(COMM_vars.motor_PWR[RIGHT])
+
+        return
+
+###############################################################################
+################   MAIN LOOP END   ############################################
+###############################################################################
 
     # @staticmethod
     def on_DrawingArea_Control_draw(self, bus, message):
@@ -356,6 +427,38 @@ class MainWindow(Gtk.Window):
 
         COMM_vars.resolution = self.resolution * self.camera_on
 
+    def on_ComboBoxText_h264BitRateMode_changed(self, widget):
+        self.Connection_Thread.FXmode   = 10
+        self.Connection_Thread.FXvalue  = widget.get_active()
+
+    def on_SpinButton_h264BitRate_change_value(self, widget):
+        self.Connection_Thread.FXmode   = 11
+        self.Connection_Thread.FXvalue  = widget.get_active()
+
+    def on_CheckButton_h264Header_toggled(self, widget):
+        self.Connection_Thread.FXmode   = 12
+        self.Connection_Thread.FXvalue  = widget.get_active()
+
+    def on_ComboBoxText_h264Level_changed(self, widget):
+        self.Connection_Thread.FXmode   = 14
+        self.Connection_Thread.FXvalue  = widget.get_active()
+
+    def on_ComboBoxText_h264Profile_changed(self, widget):
+        self.Connection_Thread.FXmode   = 15
+        self.Connection_Thread.FXvalue  = widget.get_active()
+
+    def on_ComboBoxText_ExpMeteringMode_changed(self, widget):
+        self.Connection_Thread.FXmode   = 24
+        self.Connection_Thread.FXvalue  = widget.get_active()
+
+    def on_ComboBoxText_SceneMode_changed(self, widget):
+        self.Connection_Thread.FXmode   = 25
+        self.Connection_Thread.FXvalue  = widget.get_active()
+
+    def on_SpinButton_JpgComprQuality_change_value(self, widget):
+        self.Connection_Thread.FXmode   = 26
+        self.Connection_Thread.FXvalue  = widget.get_active()
+
     def on_ComboBoxText_Vcodec_changed(self, widget):
         COMM_vars.Vcodec = widget.get_active()
         self.SSBar_update()
@@ -366,7 +469,7 @@ class MainWindow(Gtk.Window):
 
     def on_ComboBoxText_Framerate_changed(self, widget):
         COMM_vars.Framerate = widget.get_active()
-        Console.print("Video Framerate:", VideoFramerate[COMM_vars.Framerate])
+        self.Console.print("Video Framerate:", VideoFramerate[COMM_vars.Framerate])
         self.SSBar_update()
 
     def on_ComboBoxText_Rotate_changed(self, widget):
@@ -374,28 +477,28 @@ class MainWindow(Gtk.Window):
 
     def on_ComboBoxText_Abitrate_changed(self, widget):
         COMM_vars.Abitrate = widget.get_active()
-        Console.print("Audio Bitrate:", AudioBitrate[COMM_vars.Abitrate])
+        self.Console.print("Audio Bitrate:", AudioBitrate[COMM_vars.Abitrate])
         self.SSBar_update()
 
     def on_CheckButton_Speakers_toggled(self, widget):
         COMM_vars.speakers = widget.get_active()
-        Console.print("Speakers:", COMM_vars.speakers)
+        self.Console.print("Speakers:", COMM_vars.speakers)
 
     def on_CheckButton_Display_toggled(self, widget):
         COMM_vars.display = widget.get_active()
-        Console.print("Display:", COMM_vars.display)
+        self.Console.print("Display:", COMM_vars.display)
 
     def on_CheckButton_Lights_toggled(self, widget):
         COMM_vars.light = widget.get_active()
-        Console.print("Light:", COMM_vars.light)
+        self.Console.print("Light:", COMM_vars.light)
 
     def on_CheckButton_Mic_toggled(self, widget):
         COMM_vars.mic = widget.get_active()
-        Console.print("Mic:", COMM_vars.mic)
+        self.Console.print("Mic:", COMM_vars.mic)
 
     def on_CheckButton_Laser_toggled(self, widget):
         COMM_vars.laser = widget.get_active()
-        Console.print("Laser:", COMM_vars.laser)
+        self.Console.print("Laser:", COMM_vars.laser)
 
     def on_ToggleButton_Log_toggled(self, widget):
         if widget.get_active() is True:
@@ -489,6 +592,85 @@ class MainWindow(Gtk.Window):
 
         self.StatusBar1.push(self.context_id1, SStatBar)
 
+    def on_key_press(self, widget, event):
+        self.keybuffer_set(event, True)
+        return True
+
+    def on_key_release(self, widget, event):
+        key_name = self.keybuffer_set(event, False)
+        return key_name
+
+    @staticmethod
+    def keybuffer_set(event, value):
+        key_name = Gdk.keyval_name(event.keyval)
+        if key_name == "Left" or key_name.replace("A", "a", 1) == "a":
+            KEY_control.Left = value
+
+        elif key_name == "Right" or key_name.replace("D", "d", 1) == "d":
+            KEY_control.Right = value
+
+        elif key_name == "Up" or key_name.replace("W", "w", 1) == "w":
+            KEY_control.Up = value
+
+        elif key_name == "Down" or key_name.replace("S", "s", 1) == "s":
+            KEY_control.Down = value
+
+        elif key_name == "space":
+            COMM_vars.speed = 0
+            COMM_vars.direction = 0
+            KEY_control.Space = value
+
+        if event.state is True and Gdk.KEY_Shift_L is not KEY_control.Shift:
+            KEY_control.Shift = Gdk.KEY_Shift_L
+            # self.Console.print("SHIFT!!!")
+
+        return key_name
+
+    def on_mouse_press(self, widget, mouse_event):
+        self.mousebuffer_set(mouse_event, True)
+
+    def on_mouse_release(self, widget, mouse_event):
+        self.mousebuffer_set(mouse_event, False)
+
+    def mousebuffer_set(self, mouse_event, value):
+        if mouse_event.button == Gdk.BUTTON_PRIMARY:
+            KEY_control.MouseBtn[LEFT] = value
+            if value is True:
+                KEY_control.MouseXY = [int(mouse_event.x),
+                                       int(mouse_event.y)]
+
+        if mouse_event.button == Gdk.BUTTON_SECONDARY:
+            KEY_control.MouseBtn[RIGHT] = value
+            self.Menu_CamOptions.popup(None, None, None, None, Gdk.BUTTON_SECONDARY, mouse_event.time)
+            self.last_MouseButtonR = KEY_control.MouseBtn[RIGHT]
+
+    def on_motion_notify(self, widget, mouse_event):
+        mouseX = int(mouse_event.x)
+        mouseY = int(mouse_event.y)
+        if KEY_control.MouseBtn[LEFT] is True:
+            tmp = (KEY_control.MouseXY[X_AXIS] - mouseX) / 2
+            if abs(tmp) >= 1:
+                if COMM_vars.camPosition[X_AXIS] + tmp > MOUSE_MAX[X_AXIS]:
+                    COMM_vars.camPosition[X_AXIS] = MOUSE_MAX[X_AXIS]
+                elif COMM_vars.camPosition[X_AXIS] + tmp < MOUSE_MIN[X_AXIS]:
+                    COMM_vars.camPosition[X_AXIS] = MOUSE_MIN[X_AXIS]
+                else:
+                    COMM_vars.camPosition[X_AXIS] += int(tmp)
+
+            tmp = (mouseY - KEY_control.MouseXY[Y_AXIS]) / 2
+            if abs(tmp) >= 1:
+                if COMM_vars.camPosition[Y_AXIS] + tmp > MOUSE_MAX[Y_AXIS]:
+                    COMM_vars.camPosition[Y_AXIS] = MOUSE_MAX[Y_AXIS]
+                elif COMM_vars.camPosition[Y_AXIS] + tmp < MOUSE_MIN[Y_AXIS]:
+                    COMM_vars.camPosition[Y_AXIS] = MOUSE_MIN[Y_AXIS]
+                else:
+                    COMM_vars.camPosition[Y_AXIS] += int(tmp)
+
+            KEY_control.MouseXY = [mouseX, mouseY]
+
+        # if KEY_control.MouseBtn[RIGHT] is True:
+        #     self.Console.print("KEY_control.MouseXY[right]", KEY_control.MouseXY)
+
     def save_config(self):
         HostList = []
         HostListRaw = self.ComboBox_host.get_model()
@@ -509,7 +691,7 @@ class MainWindow(Gtk.Window):
 
         Network_Mask = self.ComboBoxText_Proto.get_active()
 
-        config_save(Paths.cfg_file, tuple(HostList),
+        configstorage.save(Paths.cfg_file, tuple(HostList),
                     False,
                     False,
                     False,
@@ -529,6 +711,89 @@ class MainWindow(Gtk.Window):
 
 ###############################################################################
 # def main():
+
+
+class configstorage:
+    @staticmethod
+    def read(filename):
+        with open(filename, "rb") as iniFile:
+            HostList = pickle.load(iniFile)
+            Mask1 = pickle.load(iniFile)
+            RSA_Key = pickle.load(iniFile)
+            Key_Pass = pickle.load(iniFile)
+            Ssh_User = pickle.load(iniFile)
+            Remote_Host = pickle.load(iniFile)
+            Compression = pickle.load(iniFile)
+            Reserved_6 = pickle.load(iniFile)
+            Reserved_7 = pickle.load(iniFile)
+            Local_Test = pickle.load(iniFile)
+            END_CFG = pickle.load(iniFile)
+
+            COMM_vars.resolution = Mask1[0]
+            COMM_vars.light = Mask1[1]
+            COMM_vars.mic = Mask1[2]
+            COMM_vars.display = Mask1[3]
+            COMM_vars.speakers = Mask1[4]
+            COMM_vars.laser = Mask1[5]
+            COMM_vars.AutoMode = Mask1[6]
+
+        print("Configuration read from", filename)
+        return HostList, \
+               Mask1, \
+               RSA_Key, \
+               Key_Pass, \
+               Ssh_User, \
+               Remote_Host, \
+               Compression, \
+               Reserved_6, \
+               Reserved_7, \
+               Local_Test
+
+    @staticmethod
+    def save(filename, HostList, RSA_Key, Key_Pass, Ssh_User, Remote_Host,
+                    Compression, Reserved_6, Reserved_7, Local_Test):
+        with open(filename, "wb") as iniFile:
+            # print("HostList", HostList)
+
+            Mask1 = (COMM_vars.resolution,
+                     COMM_vars.light,
+                     COMM_vars.mic,
+                     COMM_vars.display,
+                     COMM_vars.speakers,
+                     COMM_vars.laser,
+                     COMM_vars.AutoMode)
+
+            for item in [HostList,
+                         Mask1,
+                         RSA_Key,
+                         Key_Pass,
+                         Ssh_User,
+                         Remote_Host,
+                         Compression,
+                         Reserved_6,
+                         Reserved_7,
+                         Local_Test,
+                         "END"]:
+                pickle.dump(item, iniFile)
+        print("Configuration saved.")
+
+    @staticmethod
+    def reset(filename):
+        with open(filename, "wb") as iniFile:
+            for item in (("localhost:4550:True", "10.0.0.23:4550:False", "athome106.hopto.org:222:True"),
+                         (1, False, False, False, False, False, False, False),
+                         "/home/igor/.ssh/id_rsa",
+                         "nescape",
+                         "igor",
+                         "127.0.0.1",
+                         True,
+                         False,
+                         False,
+                         True,
+                         "END"):
+                pickle.dump(item, iniFile)
+        print("Configuration reset.")
+
 
 if __name__ == "__main__":
     MainWindow()
