@@ -128,7 +128,8 @@ class ServerThread(threading.Thread):
                 if Fxmode == 0:
                     resolution = Fxvalue
                 elif Fxmode < 30:
-                    # if curr_Fxvalue != COMM_vars.Fxvalue:
+                    if Fxmode < 4:
+                        Fxvalue -= 100
                     Console.print(" Entering FX mode", FxModes[Fxmode - 1], Fxvalue)
                     cmd = "v4l2-ctl --set-ctrl=" + FxModes[Fxmode - 1] + "=" + Fxvalue.__str__()
                     retmsg = execute_cmd(cmd)
@@ -496,7 +497,6 @@ class StreamThread(threading.Thread):
         curr_mic0 = not COMM_vars.mic
         curr_speakers = not COMM_vars.speakers
         curr_AudioBitrate = None
-        # curr_Fxvalue = None
         curr_Framerate = None
         self.sender_audio[SRV_vars.TestMode].set_state(req_audio_mode[curr_mic0])
         self.player_audio[SRV_vars.TestMode].set_state(req_audio_mode[curr_speakers])

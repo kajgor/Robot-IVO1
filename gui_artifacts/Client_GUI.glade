@@ -113,7 +113,7 @@
           </packing>
         </child>
         <child>
-          <object class="GtkSpinner" id="spinner1">
+          <object class="GtkSpinner" id="Spinner_Connected">
             <property name="visible">True</property>
             <property name="can_focus">False</property>
             <property name="opacity">0.5</property>
@@ -220,9 +220,6 @@
                               <item translatable="yes">1152x864</item>
                             </items>
                             <signal name="changed" handler="on_ComboBoxResolution_changed" swapped="no"/>
-                            <child>
-                              <object class="GtkCellRendererText" id="Resolution"/>
-                            </child>
                           </object>
                           <packing>
                             <property name="left_attach">0</property>
@@ -340,7 +337,6 @@
                             <property name="active">True</property>
                             <property name="draw_indicator">True</property>
                             <signal name="toggled" handler="on_CheckButton_Cam_toggled" swapped="no"/>
-                            <accelerator key="c" signal="clicked" modifiers="GDK_CONTROL_MASK"/>
                           </object>
                           <packing>
                             <property name="left_attach">0</property>
@@ -2186,7 +2182,6 @@ video signal.</property>
             <property name="left_margin">5</property>
             <property name="right_margin">5</property>
             <property name="cursor_visible">False</property>
-            <property name="monospace">True</property>
           </object>
         </child>
       </object>
@@ -2285,6 +2280,7 @@ video signal.</property>
             </child>
             <child>
               <object class="GtkScale" id="ScaleBrightness">
+                <property name="name">1</property>
                 <property name="height_request">25</property>
                 <property name="visible">True</property>
                 <property name="can_focus">True</property>
@@ -2293,6 +2289,9 @@ video signal.</property>
                 <property name="round_digits">1</property>
                 <property name="digits">0</property>
                 <property name="value_pos">right</property>
+                <signal name="button-press-event" handler="on_mouse_press" swapped="no"/>
+                <signal name="button-release-event" handler="on_mouse_release" swapped="no"/>
+                <signal name="format-value" handler="on_FxValue_scrolled" swapped="no"/>
               </object>
               <packing>
                 <property name="expand">False</property>
@@ -2315,6 +2314,7 @@ video signal.</property>
             </child>
             <child>
               <object class="GtkScale" id="ScaleContrast">
+                <property name="name">2</property>
                 <property name="height_request">25</property>
                 <property name="visible">True</property>
                 <property name="can_focus">True</property>
@@ -2323,6 +2323,9 @@ video signal.</property>
                 <property name="round_digits">1</property>
                 <property name="digits">0</property>
                 <property name="value_pos">right</property>
+                <signal name="button-press-event" handler="on_mouse_press" swapped="no"/>
+                <signal name="button-release-event" handler="on_mouse_release" swapped="no"/>
+                <signal name="format-value" handler="on_FxValue_scrolled" swapped="no"/>
               </object>
               <packing>
                 <property name="expand">False</property>
@@ -2345,6 +2348,7 @@ video signal.</property>
             </child>
             <child>
               <object class="GtkScale" id="ScaleSaturation">
+                <property name="name">3</property>
                 <property name="height_request">25</property>
                 <property name="visible">True</property>
                 <property name="can_focus">True</property>
@@ -2353,6 +2357,9 @@ video signal.</property>
                 <property name="round_digits">1</property>
                 <property name="digits">0</property>
                 <property name="value_pos">right</property>
+                <signal name="button-press-event" handler="on_mouse_press" swapped="no"/>
+                <signal name="button-release-event" handler="on_mouse_release" swapped="no"/>
+                <signal name="format-value" handler="on_FxValue_scrolled" swapped="no"/>
               </object>
               <packing>
                 <property name="expand">False</property>
@@ -2375,6 +2382,7 @@ video signal.</property>
             </child>
             <child>
               <object class="GtkScale" id="ScaleSharpness">
+                <property name="name">7</property>
                 <property name="height_request">25</property>
                 <property name="visible">True</property>
                 <property name="can_focus">True</property>
@@ -2383,6 +2391,9 @@ video signal.</property>
                 <property name="round_digits">1</property>
                 <property name="digits">0</property>
                 <property name="value_pos">right</property>
+                <signal name="button-press-event" handler="on_mouse_press" swapped="no"/>
+                <signal name="button-release-event" handler="on_mouse_release" swapped="no"/>
+                <signal name="format-value" handler="on_FxValue_scrolled" swapped="no"/>
               </object>
               <packing>
                 <property name="expand">False</property>
@@ -2421,6 +2432,7 @@ video signal.</property>
                 </child>
                 <child>
                   <object class="GtkScale" id="ScaleRedBalance">
+                    <property name="name">4</property>
                     <property name="visible">True</property>
                     <property name="can_focus">True</property>
                     <property name="margin_right">10</property>
@@ -2429,6 +2441,9 @@ video signal.</property>
                     <property name="round_digits">1</property>
                     <property name="digits">0</property>
                     <property name="value_pos">right</property>
+                    <signal name="button-press-event" handler="on_mouse_press" swapped="no"/>
+                    <signal name="button-release-event" handler="on_mouse_release" swapped="no"/>
+                    <signal name="format-value" handler="on_FxValue_scrolled" swapped="no"/>
                   </object>
                   <packing>
                     <property name="left_attach">0</property>
@@ -2437,6 +2452,7 @@ video signal.</property>
                 </child>
                 <child>
                   <object class="GtkScale" id="ScaleBlueBalance">
+                    <property name="name">5</property>
                     <property name="visible">True</property>
                     <property name="can_focus">True</property>
                     <property name="margin_left">10</property>
@@ -2445,6 +2461,9 @@ video signal.</property>
                     <property name="round_digits">1</property>
                     <property name="digits">0</property>
                     <property name="value_pos">right</property>
+                    <signal name="button-press-event" handler="on_mouse_press" swapped="no"/>
+                    <signal name="button-release-event" handler="on_mouse_release" swapped="no"/>
+                    <signal name="format-value" handler="on_FxValue_scrolled" swapped="no"/>
                   </object>
                   <packing>
                     <property name="left_attach">1</property>
@@ -2663,6 +2682,7 @@ Exposure</property>
                 </child>
                 <child>
                   <object class="GtkCheckButton" id="CheckButton_ExpAutoMode">
+                    <property name="name">16</property>
                     <property name="visible">True</property>
                     <property name="can_focus">True</property>
                     <property name="receives_default">False</property>
@@ -2671,6 +2691,7 @@ Exposure</property>
                     <property name="xalign">0</property>
                     <property name="active">True</property>
                     <property name="draw_indicator">True</property>
+                    <signal name="toggled" handler="on_FxValue_changed" swapped="no"/>
                     <child>
                       <placeholder/>
                     </child>
@@ -2694,6 +2715,7 @@ Exposure</property>
                 </child>
                 <child>
                   <object class="GtkComboBoxText" id="ComboBoxText_ExpAutoBias">
+                    <property name="name">19</property>
                     <property name="visible">True</property>
                     <property name="can_focus">False</property>
                     <property name="active">12</property>
@@ -2724,6 +2746,7 @@ Exposure</property>
                       <item id="23" translatable="yes">3667</item>
                       <item id="24" translatable="yes">4000</item>
                     </items>
+                    <signal name="changed" handler="on_FxValue_changed" swapped="no"/>
                   </object>
                   <packing>
                     <property name="left_attach">3</property>
@@ -2732,9 +2755,12 @@ Exposure</property>
                 </child>
                 <child>
                   <object class="GtkSpinButton" id="SpinButton_ExpAbsTime">
+                    <property name="name">17</property>
                     <property name="visible">True</property>
                     <property name="can_focus">True</property>
                     <property name="adjustment">adjustment_ExpAbsTime</property>
+                    <property name="value">1000</property>
+                    <signal name="value-changed" handler="on_FxValue_spinned" swapped="no"/>
                   </object>
                   <packing>
                     <property name="left_attach">1</property>
@@ -2754,6 +2780,7 @@ Exposure</property>
                 </child>
                 <child>
                   <object class="GtkCheckButton" id="CheckButton_ExpDynFrameRate">
+                    <property name="name">18</property>
                     <property name="visible">True</property>
                     <property name="can_focus">True</property>
                     <property name="receives_default">False</property>
@@ -2761,6 +2788,7 @@ Exposure</property>
                     <property name="margin_left">10</property>
                     <property name="xalign">0</property>
                     <property name="draw_indicator">True</property>
+                    <signal name="toggled" handler="on_FxValue_changed" swapped="no"/>
                     <child>
                       <placeholder/>
                     </child>
@@ -2828,69 +2856,6 @@ Framerate</property>
                 <property name="margin_right">10</property>
                 <property name="row_spacing">3</property>
                 <child>
-                  <object class="GtkLabel" id="label27">
-                    <property name="visible">True</property>
-                    <property name="can_focus">False</property>
-                    <property name="margin_left">10</property>
-                    <property name="label" translatable="yes">WB preset</property>
-                  </object>
-                  <packing>
-                    <property name="left_attach">2</property>
-                    <property name="top_attach">1</property>
-                  </packing>
-                </child>
-                <child>
-                  <object class="GtkComboBoxText" id="ComboBoxText_WbPreset">
-                    <property name="visible">True</property>
-                    <property name="can_focus">False</property>
-                    <property name="active">1</property>
-                    <items>
-                      <item id="0" translatable="yes">Manual</item>
-                      <item id="1" translatable="yes">Auto</item>
-                      <item id="2" translatable="yes">Incandescent</item>
-                      <item id="3" translatable="yes">Fluorescent</item>
-                      <item id="4" translatable="yes">Fluorescent H</item>
-                      <item id="5" translatable="yes">Horizon</item>
-                      <item id="6" translatable="yes">Daylight</item>
-                      <item id="7" translatable="yes">Flash</item>
-                      <item id="8" translatable="yes">Cloudy</item>
-                      <item id="9" translatable="yes">Shade</item>
-                    </items>
-                  </object>
-                  <packing>
-                    <property name="left_attach">3</property>
-                    <property name="top_attach">1</property>
-                  </packing>
-                </child>
-                <child>
-                  <object class="GtkLabel" id="label43">
-                    <property name="visible">True</property>
-                    <property name="can_focus">False</property>
-                    <property name="margin_left">10</property>
-                    <property name="label" translatable="yes">WB Auto</property>
-                  </object>
-                  <packing>
-                    <property name="left_attach">2</property>
-                    <property name="top_attach">0</property>
-                  </packing>
-                </child>
-                <child>
-                  <object class="GtkCheckButton" id="CheckButton_WbAutoMode">
-                    <property name="visible">True</property>
-                    <property name="can_focus">True</property>
-                    <property name="receives_default">False</property>
-                    <property name="halign">start</property>
-                    <property name="margin_left">10</property>
-                    <property name="xalign">0</property>
-                    <property name="active">True</property>
-                    <property name="draw_indicator">True</property>
-                  </object>
-                  <packing>
-                    <property name="left_attach">3</property>
-                    <property name="top_attach">0</property>
-                  </packing>
-                </child>
-                <child>
                   <object class="GtkLabel" id="label44">
                     <property name="visible">True</property>
                     <property name="can_focus">False</property>
@@ -2903,6 +2868,7 @@ Framerate</property>
                 </child>
                 <child>
                   <object class="GtkCheckButton" id="CheckButton_IsoAutoMode">
+                    <property name="name">23</property>
                     <property name="visible">True</property>
                     <property name="can_focus">True</property>
                     <property name="receives_default">False</property>
@@ -2911,6 +2877,7 @@ Framerate</property>
                     <property name="xalign">0</property>
                     <property name="active">True</property>
                     <property name="draw_indicator">True</property>
+                    <signal name="toggled" handler="on_FxValue_changed" swapped="no"/>
                   </object>
                   <packing>
                     <property name="left_attach">1</property>
@@ -2930,8 +2897,8 @@ Framerate</property>
                 </child>
                 <child>
                   <object class="GtkComboBoxText" id="ComboBoxText_IsoSens">
+                    <property name="name">22</property>
                     <property name="visible">True</property>
-                    <property name="sensitive">False</property>
                     <property name="can_focus">False</property>
                     <property name="active_id">4</property>
                     <items>
@@ -2940,10 +2907,48 @@ Framerate</property>
                       <item id="3" translatable="yes">400.000</item>
                       <item id="4" translatable="yes">800.000</item>
                     </items>
+                    <signal name="changed" handler="on_FxValue_changed" swapped="no"/>
                   </object>
                   <packing>
                     <property name="left_attach">1</property>
                     <property name="top_attach">1</property>
+                  </packing>
+                </child>
+                <child>
+                  <object class="GtkLabel" id="label27">
+                    <property name="visible">True</property>
+                    <property name="can_focus">False</property>
+                    <property name="margin_left">10</property>
+                    <property name="label" translatable="yes">WB preset</property>
+                  </object>
+                  <packing>
+                    <property name="left_attach">2</property>
+                    <property name="top_attach">0</property>
+                  </packing>
+                </child>
+                <child>
+                  <object class="GtkComboBoxText" id="ComboBoxText_WbPreset">
+                    <property name="name">20</property>
+                    <property name="visible">True</property>
+                    <property name="can_focus">False</property>
+                    <property name="active">1</property>
+                    <items>
+                      <item id="0" translatable="yes">Manual</item>
+                      <item id="1" translatable="yes">Auto</item>
+                      <item id="2" translatable="yes">Incandescent</item>
+                      <item id="3" translatable="yes">Fluorescent</item>
+                      <item id="4" translatable="yes">Fluorescent H</item>
+                      <item id="5" translatable="yes">Horizon</item>
+                      <item id="6" translatable="yes">Daylight</item>
+                      <item id="7" translatable="yes">Flash</item>
+                      <item id="8" translatable="yes">Cloudy</item>
+                      <item id="9" translatable="yes">Shade</item>
+                    </items>
+                    <signal name="changed" handler="on_FxValue_changed" swapped="no"/>
+                  </object>
+                  <packing>
+                    <property name="left_attach">3</property>
+                    <property name="top_attach">0</property>
                   </packing>
                 </child>
                 <child>
@@ -2953,12 +2958,13 @@ Framerate</property>
                     <property name="label" translatable="yes">Scene</property>
                   </object>
                   <packing>
-                    <property name="left_attach">0</property>
-                    <property name="top_attach">2</property>
+                    <property name="left_attach">2</property>
+                    <property name="top_attach">1</property>
                   </packing>
                 </child>
                 <child>
                   <object class="GtkComboBoxText" id="ComboBoxText_SceneMode">
+                    <property name="name">25</property>
                     <property name="visible">True</property>
                     <property name="can_focus">False</property>
                     <property name="active">0</property>
@@ -2967,18 +2973,12 @@ Framerate</property>
                       <item id="8" translatable="yes">Night</item>
                       <item id="11" translatable="yes">Sport</item>
                     </items>
-                    <signal name="changed" handler="on_ComboBoxText_SceneMode_changed" swapped="no"/>
+                    <signal name="changed" handler="on_FxValue_changed" swapped="no"/>
                   </object>
                   <packing>
-                    <property name="left_attach">1</property>
-                    <property name="top_attach">2</property>
+                    <property name="left_attach">3</property>
+                    <property name="top_attach">1</property>
                   </packing>
-                </child>
-                <child>
-                  <placeholder/>
-                </child>
-                <child>
-                  <placeholder/>
                 </child>
               </object>
               <packing>
@@ -3041,6 +3041,7 @@ Framerate</property>
                 </child>
                 <child>
                   <object class="GtkComboBoxText" id="ComboBoxText_ExpMeteringMode">
+                    <property name="name">24</property>
                     <property name="visible">True</property>
                     <property name="can_focus">False</property>
                     <property name="halign">start</property>
@@ -3051,7 +3052,7 @@ Framerate</property>
                       <item id="1" translatable="yes">Center Weighted</item>
                       <item id="2" translatable="yes">Spot</item>
                     </items>
-                    <signal name="changed" handler="on_ComboBoxText_ExpMeteringMode_changed" swapped="no"/>
+                    <signal name="changed" handler="on_FxValue_changed" swapped="no"/>
                   </object>
                   <packing>
                     <property name="left_attach">1</property>
@@ -3060,11 +3061,12 @@ Framerate</property>
                 </child>
                 <child>
                   <object class="GtkSpinButton" id="SpinButton_JpgComprQuality">
+                    <property name="name">26</property>
                     <property name="visible">True</property>
                     <property name="can_focus">True</property>
                     <property name="halign">start</property>
                     <property name="adjustment">adjustment_JpgQuality</property>
-                    <signal name="change-value" handler="on_SpinButton_JpgComprQuality_change_value" swapped="no"/>
+                    <signal name="value-changed" handler="on_FxValue_spinned" swapped="no"/>
                   </object>
                   <packing>
                     <property name="left_attach">1</property>
@@ -3142,13 +3144,14 @@ Framerate</property>
                 <property name="column_spacing">5</property>
                 <child>
                   <object class="GtkCheckButton" id="CheckButton_h264Header">
+                    <property name="name">12</property>
                     <property name="visible">True</property>
                     <property name="can_focus">True</property>
                     <property name="receives_default">False</property>
                     <property name="halign">start</property>
                     <property name="xalign">0</property>
                     <property name="draw_indicator">True</property>
-                    <signal name="toggled" handler="on_CheckButton_h264Header_toggled" swapped="no"/>
+                    <signal name="toggled" handler="on_FxValue_changed" swapped="no"/>
                   </object>
                   <packing>
                     <property name="left_attach">3</property>
@@ -3170,6 +3173,7 @@ Header</property>
                 </child>
                 <child>
                   <object class="GtkComboBoxText" id="ComboBoxText_h264BitRateMode">
+                    <property name="name">10</property>
                     <property name="visible">True</property>
                     <property name="can_focus">False</property>
                     <property name="halign">start</property>
@@ -3179,7 +3183,7 @@ Header</property>
                       <item id="0" translatable="yes">Variable</item>
                       <item id="1" translatable="yes">Constant</item>
                     </items>
-                    <signal name="changed" handler="on_ComboBoxText_h264BitRateMode_changed" swapped="no"/>
+                    <signal name="changed" handler="on_FxValue_changed" swapped="no"/>
                   </object>
                   <packing>
                     <property name="left_attach">1</property>
@@ -3200,13 +3204,14 @@ Header</property>
                 </child>
                 <child>
                   <object class="GtkSpinButton" id="SpinButton_h264BitRate">
+                    <property name="name">11</property>
                     <property name="visible">True</property>
                     <property name="can_focus">True</property>
                     <property name="halign">start</property>
                     <property name="text" translatable="yes">10000000</property>
                     <property name="adjustment">adjustment_VbitRate</property>
                     <property name="value">10000000</property>
-                    <signal name="change-value" handler="on_SpinButton_h264BitRate_change_value" swapped="no"/>
+                    <signal name="value-changed" handler="on_FxValue_spinned" swapped="no"/>
                   </object>
                   <packing>
                     <property name="left_attach">1</property>
@@ -3226,6 +3231,7 @@ Header</property>
                 </child>
                 <child>
                   <object class="GtkComboBoxText" id="ComboBoxText_h264Level">
+                    <property name="name">14</property>
                     <property name="visible">True</property>
                     <property name="can_focus">False</property>
                     <property name="halign">start</property>
@@ -3244,7 +3250,7 @@ Header</property>
                       <item id="10" translatable="yes">3.2</item>
                       <item id="11" translatable="yes">4</item>
                     </items>
-                    <signal name="changed" handler="on_ComboBoxText_h264Level_changed" swapped="no"/>
+                    <signal name="changed" handler="on_FxValue_changed" swapped="no"/>
                   </object>
                   <packing>
                     <property name="left_attach">3</property>
@@ -3264,6 +3270,7 @@ Header</property>
                 </child>
                 <child>
                   <object class="GtkComboBoxText" id="ComboBoxText_h264Profile">
+                    <property name="name">15</property>
                     <property name="visible">True</property>
                     <property name="can_focus">False</property>
                     <property name="halign">start</property>
@@ -3275,7 +3282,7 @@ Header</property>
                       <item id="2" translatable="yes">Main</item>
                       <item id="4" translatable="yes">High</item>
                     </items>
-                    <signal name="changed" handler="on_ComboBoxText_h264Profile_changed" swapped="no"/>
+                    <signal name="changed" handler="on_FxValue_changed" swapped="no"/>
                   </object>
                   <packing>
                     <property name="left_attach">1</property>
