@@ -419,8 +419,8 @@ class ConnectionThread:
     Rac_Display = RacDisplay()
     CtrlQueue = queue.Queue()
 
-    def __init__(self, CAMXPROP):
-        self.CAMXPROP       = CAMXPROP
+    def __init__(self, SXID):
+        self.SXID       = SXID
         self.Rac_Stream     = None
         self.Streaming_mode = 0
         self.FXmode_sent    = 0
@@ -436,7 +436,7 @@ class ConnectionThread:
             # self.StatusBar.push(self.context_id, retmsg)
 
     def on_cam_sync_message(self, bus, message):
-        self.Rac_Display.on_sync_message(message, self.CAMXPROP)
+        self.Rac_Display.on_sync_message(message, self.SXID)
 
     def open_ssh_tunnel(self, Host, Port, rsa_file, rsa_password, username, remote_host, compression):
         if compression == 0:  # Auto

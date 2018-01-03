@@ -37,8 +37,8 @@ class MainWindow(Gtk.Window):
         ############################################
         self.init_ui()
 
-        CAMXPROP = self.DrawingArea_Cam.get_property('window')
-        self.Connection_Thread = ConnectionThread(CAMXPROP)
+        SXID = self.DrawingArea_Cam.get_property('window')
+        self.Connection_Thread = ConnectionThread(SXID)
 
         # Connect signals
         builder.connect_signals(self)
@@ -58,7 +58,7 @@ class MainWindow(Gtk.Window):
     @property
     def init_gui(self):
         builder = Gtk.Builder()
-        print("Adding GUI file",Paths.GUI_file, end="... ")
+        print("Adding GUI file", Paths.GUI_file, end="... ")
         builder.add_from_file(Paths.GUI_file)
         print("done.")
 
@@ -358,7 +358,11 @@ class MainWindow(Gtk.Window):
 
     def on_FxValue_spinned(self, widget):
         self.Connection_Thread.FXmode   = int(widget.get_name())
-        self.Connection_Thread.FXvalue  = int(widget.get_value())
+        if self.Connection_Thread.FXmode == 11:
+            self.Connection_Thread.FXvalue = int(widget.get_value()) / 1000
+        else:
+            self.Connection_Thread.FXvalue  = int(widget.get_value())
+
 
     def on_FxValue_scrolled(self, widget, event):
         if KEY_control.MouseBtn[LEFT] is True:

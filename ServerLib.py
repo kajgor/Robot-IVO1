@@ -199,6 +199,8 @@ class ServerThread(threading.Thread):
 
         FXmode              = data[6]
         FXvalue             = data[7] * 256 + data[8]
+        if FXmode == 11:
+            FXvalue *= 1000
 
         Bitratemask  = str(int(data[9]) + 1000)
         COMM_vars.Abitrate  = int(Bitratemask[1])
@@ -596,15 +598,24 @@ class StreamThread(threading.Thread):
 
             time.sleep(.25)
 
+        if curr_resolution > 3:
+            Console.print("Switching to low resolution...")
+            res_fps = capsstr[1] + FpsModes[1].__str__() + "/1"
+            caps = Gst.Caps.from_string("video/x-" + VideoCodec[self.Video_Codec] + res_fps)
+            self.sender_video_capsfilter[SRV_vars.TestMode].set_property("caps", caps)
+            self.sender_video[SRV_vars.TestMode].set_state(Gst.State.READY)
+            time.sleep(1)
+
         self.sender_video[SRV_vars.TestMode].set_state(Gst.State.PAUSED)
+        self.sender_audio[SRV_vars.TestMode].set_state(Gst.State.READY)
+        self.player_audio[SRV_vars.TestMode].set_state(Gst.State.READY)
+        time.sleep(0.25)
         self.sender_video[self.Source_test].set_state(Gst.State.NULL)
         self.sender_video[self.Source_h264].set_state(Gst.State.NULL)
 
-        self.sender_audio[SRV_vars.TestMode].set_state(Gst.State.READY)
         self.sender_audio[self.Source_test].set_state(Gst.State.NULL)
         self.sender_audio[self.Source_h264].set_state(Gst.State.NULL)
 
-        self.player_audio[SRV_vars.TestMode].set_state(Gst.State.READY)
         self.player_audio[self.Source_test].set_state(Gst.State.NULL)
         self.player_audio[self.Source_h264].set_state(Gst.State.NULL)
 
