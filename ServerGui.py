@@ -5,6 +5,7 @@ gi.require_version('Gtk', '3.0')
 from gi.repository import Gtk, Gdk, GLib
 
 from ServerLib import *
+from sys import argv
 
 
 class GtkTsMain(Gtk.Window):
@@ -19,6 +20,7 @@ class GtkTsMain(Gtk.Window):
         self.Thread_ID = None
 
         builder = self.init_GUI(POSITION)
+        builder.connect_signals(self)
 
         self.switch_ServerStart   = builder.get_object(self.Sw_Start[POSITION])
         self.StatusBar_Server     = builder.get_object(self.SB_Server[POSITION])
@@ -29,9 +31,7 @@ class GtkTsMain(Gtk.Window):
         self.TextView_Console.override_background_color(Gtk.StateType.NORMAL, Gdk.RGBA(.15, 0.15, 0.15, 1))
 
         self.show_all()
-        builder.connect_signals(self)
-
-        Gtk.main()
+        self.process_argv()
 
     def init_Thread(self):
         self.Thread_Manager = ThreadManager(self.TextView_Console)
@@ -40,7 +40,6 @@ class GtkTsMain(Gtk.Window):
     def init_GUI(self, POSITION):
         super(GtkTsMain, self).__init__()
         builder = Gtk.Builder()
-        # builder.add_from_file(GUI_file)
         builder.add_objects_from_file(Paths.GUI_file, (self.Main_Box[POSITION], self.SB_Server[POSITION],
                                       self.TV_Console[POSITION], self.Sw_Start[POSITION]))
         print("GUI file %s loaded. " % Paths.GUI_file)
@@ -48,14 +47,20 @@ class GtkTsMain(Gtk.Window):
         self.add(builder.get_object(self.Main_Box[POSITION]))
         self.set_resizable(False)
         self.set_destroy_with_parent(True)
-        # self.set_deletable(False)
 
         self.set_title("* ROBOT SERVER *")
-        # self.set_title(self.Main_Box[POSITION])
+        self.set_icon_from_file("./icons/robot_icon_24x24.png")
         self.connect("destroy", self.gtk_main_quit)
-        self.connect("delete-event", Gtk.main_quit)
+        self.connect("delete-event", self.gtk_main_quit)
 
         return builder
+
+    def process_argv(self):
+        for x in range(1, len(argv)):
+            if argv[x] == "start":
+                self.switch_ServerStart.set_active(True)
+            else:
+                print("Invalid arument:", argv[x])
 
     def on_Switch_ServerStart_activate(self, widget, event):
         if widget.get_active() is True:  # and ClientThread.srv is None:
@@ -74,19 +79,21 @@ class GtkTsMain(Gtk.Window):
             if self.Thread_Manager.shutdown_flag is False:
                 self.Thread_Manager.shutdown_flag = True
 
-            # if self.Thread_Manager.shutdown_flag is None:
-            #     print("remove GLIB")
-            #     GLib.source_remove(self.Thread_ID)
-
             # self.set_deletable(True)
             self.StatusBar_Server.push(self.context_id, "Port " + Port_COMM.__str__() + " closed.")
 
         self.show_all()
 
-    def gtk_main_quit(self, dialog):
-        self.Thread_Manager.ProgramExit()
+    def gtk_main_quit(self, *args):
+        if self.switch_ServerStart.get_active() is True:
+            self.switch_ServerStart.set_active(False)
+            self.Thread_Manager.ProgramExit()
+            time.sleep(1)
         Gtk.main_quit()
 
-GtkTsMain(VERTICAL)
+
+if __name__ == "__main__":
+    GtkTsMain(VERTICAL)
+    Gtk.main()
 
 exit(0)

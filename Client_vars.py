@@ -44,5 +44,5 @@ from sys import argv
 class Paths:
     pathname = path.dirname(argv[0])
     GUI_file = pathname + "/gui_artifacts/Client_GUI.glade"
-    cfg_file = pathname + "/ClientGUI.cfg"
+    ini_file = pathname + "/ClientGUI.ini"
     background_file = pathname + "/gui_artifacts/images/HUD_small.png"

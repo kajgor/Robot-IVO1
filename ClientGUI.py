@@ -6,6 +6,7 @@ import gi
 gi.require_version('Gtk', '3.0')
 gi.require_version('Gdk', '3.0')
 from gi.repository import Gtk, Gdk, GLib
+from sys import argv
 
 from ClientLib   import ConnectionThread, Console
 from Client_vars import Paths, Debug, CAM0_control, KEY_control, CommunicationFFb
@@ -19,41 +20,40 @@ class MainWindow(Gtk.Window):
     def __init__(self):
         super(MainWindow, self).__init__()
 
-        builder = self.init_gui
+        self.builder = self.init_gui
+        self.Window_Console.show()
 
         self.counter         = 0
+        self.resolution      = 0
+        self.Protocol        = 0
+        self.camera_on       = True
+        self.DispAvgVal      = [0, 0]
         self.context_id      = self.StatusBar.get_context_id("message")
         self.context_id1     = self.StatusBar1.get_context_id("message")
         self.context_id2     = self.StatusBar2.get_context_id("message")
-        self.camera_on       = True
-        self.resolution      = 0
-        self.Protocol        = 0
-        self.DispAvgVal      = [0, 0]
 
         self.Console.print("Console 3.0 initialized.\n")
-
-        ####### Main loop definition ###############
-        GLib.timeout_add(TIMEOUT_GUI, self.on_timer)
-        ############################################
-        self.init_ui()
 
         SXID = self.DrawingArea_Cam.get_property('window')
         self.Connection_Thread = ConnectionThread(SXID)
 
         # Connect signals
-        builder.connect_signals(self)
+        self.builder.connect_signals(self)
 
-        self.Host, self.Port = None, None
-        # reset_save(Paths.cfg_file)
-        HostList = self.load_config()
-
-        self.init_config()
-
-        self.Connection_Thread.load_HostList(self.ComboBox_Host, HostList)
+        configstorage.load_setup(self.builder)
+        self.process_argv()
 
         if Debug > 2:
             print("Objects:")
-            print(builder.get_objects().__str__())
+            print(self.builder.get_objects().__str__())
+
+    def process_argv(self):
+        for x in range(1, len(argv)):
+            if argv[x] == "reset":
+                configstorage.reset(Paths.cfg_file)
+            else:
+                print("Invalid arument:", argv[x])
+            pass
 
     @property
     def init_gui(self):
@@ -62,8 +62,6 @@ class MainWindow(Gtk.Window):
         builder.add_from_file(Paths.GUI_file)
         print("done.")
 
-        # self.add(builder.get_object("MainBox_CON"))
-
         for obj in builder.get_objects():
             if issubclass(type(obj), Gtk.Buildable):
                 name = Gtk.Buildable.get_name(obj)
@@ -71,20 +69,12 @@ class MainWindow(Gtk.Window):
             else:
                 print("WARNING: can not get name for '%s'" % obj)
 
-        self.add(self.MainBox_CON)
+        self.Window_Console.connect("destroy", self.gtk_main_quit)
         self.TextView_Log.override_color(Gtk.StateType.NORMAL, Gdk.RGBA(1, .75, 0, 1))
         self.TextView_Log.override_background_color(Gtk.StateType.NORMAL, Gdk.RGBA(.15, 0.15, 0.15, 1))
+        self.DrawingArea_Cam.set_can_default(True)
 
         return builder
-
-    def init_ui(self):
-        ###### Initiate UI start ######
-        self.connect("destroy", self.gtk_main_quit)
-        self.DrawingArea_Cam.set_can_default(True)
-        # self.movie_window.set_size_request(640, 480)
-        ####### Initiate UI end #######
-
-        self.show_all()
 
     def connect_gui(self):
         self.ComboBox_Host.set_sensitive(False)
@@ -93,19 +83,21 @@ class MainWindow(Gtk.Window):
         self.CheckButton_SshTunnel.set_sensitive(False)
 
     def connect_gui_handlers(self):
-        self.on_key_press_handler = self.connect("key-press-event", self.on_key_press)
-        self.on_key_release_handler = self.connect("key-release-event", self.on_key_release)
-        self.on_mouse_press_handler = self.connect("button-press-event", self.on_mouse_press)
-        self.on_mouse_release_handler = self.connect("button-release-event", self.on_mouse_release)
-        self.on_motion_notify_handler = self.connect("motion-notify-event", self.on_motion_notify)
+        # self.on_mouse_press_handler = self.connect("button-press-event", self.on_mouse_press)
+        # self.on_mouse_release_handler = self.connect("button-release-event", self.on_mouse_release)
+        # self.on_motion_notify_handler = self.connect("motion-notify-event", self.on_motion_notify)
+
+        ####### Main loop definition ###############
+        GLib.timeout_add(TIMEOUT_GUI, self.on_timer)
+        ############################################
 
     def disconnect_gui(self):
-        if self.on_key_press_handler is not None:
-            self.disconnect(self.on_key_press_handler)
-            self.disconnect(self.on_key_release_handler)
-            self.disconnect(self.on_mouse_press_handler)
-            self.disconnect(self.on_mouse_release_handler)
-            self.disconnect(self.on_motion_notify_handler)
+        # if self.on_key_press_handler is not None:
+        #     self.disconnect(self.on_key_press_handler)
+        #     self.disconnect(self.on_key_release_handler)
+        #     self.disconnect(self.on_mouse_press_handler)
+        #     self.disconnect(self.on_mouse_release_handler)
+        #     self.disconnect(self.on_motion_notify_handler)
 
         self.ToggleButton_Connect.set_active(False)
         self.CheckButton_LocalTest.set_sensitive(True)
@@ -114,60 +106,10 @@ class MainWindow(Gtk.Window):
         self.SpinButton_Port.set_sensitive(True)
         self.CheckButton_SshTunnel.set_sensitive(True)
 
-    def load_config(self):
-        HostList, \
-        Mask1, \
-        Reserved_1, \
-        Reserved_2, \
-        Reserved_3, \
-        Network, \
-        Compression, \
-        Ssh, \
-        Reserved_7, \
-        Local_Test = configstorage.read(Paths.cfg_file)
-
-        self.CheckButton_Cam.set_active(bool(COMM_vars.resolution))
-        self.ComboBoxResolution.set_active(int(COMM_vars.resolution) - bool(COMM_vars.resolution))
-        self.CheckButton_Lights.set_active(COMM_vars.light)
-        self.CheckButton_Speakers.set_active(COMM_vars.speakers)
-        self.CheckButton_Display.set_active(COMM_vars.display)
-        self.CheckButton_Mic.set_active(COMM_vars.mic)
-        self.CheckButton_Laser.set_active(COMM_vars.laser)
-        self.CheckButton_Auto.set_active(COMM_vars.AutoMode)
-        self.Entry_RsaKey.set_text(Ssh[0])
-        self.Entry_KeyPass.set_text(Ssh[1])
-        self.Entry_User.set_text(Ssh[2])
-        self.Entry_RemoteHost.set_text(Ssh[3])
-        self.ComboBoxText_Ssh_Compression.set_active(Compression[0])
-        self.ComboBoxText_Vcodec.set_active(Compression[1])
-        self.ComboBoxText_Acodec.set_active(Compression[2])
-        self.ComboBoxText_Framerate.set_active(Compression[3])
-        self.ComboBoxText_Abitrate.set_active(Compression[4])
-        # self.ComboBoxText_Rotate.set_active(Compression[5])
-        self.ComboBoxText_Proto.set_active(Network)
-        self.CheckButton_LocalTest.set_active(Local_Test)
-
-        return HostList
-
-    def init_config(self):
-        self.on_ComboBoxText_Proto_changed(self.ComboBoxText_Proto)
-        self.on_ComboBoxResolution_changed(self.ComboBoxResolution)
-        self.on_ComboBoxText_Vcodec_changed(self.ComboBoxText_Vcodec)
-        self.on_ComboBoxText_Acodec_changed(self.ComboBoxText_Acodec)
-        self.on_ComboBoxText_Framerate_changed(self.ComboBoxText_Framerate)
-        self.on_ComboBoxText_Abitrate_changed(self.ComboBoxText_Abitrate)
-        self.on_ComboBoxText_Rotate_changed(self.ComboBoxText_Rotate)
-        self.on_CheckButton_LocalTest_toggled(self.CheckButton_LocalTest)
-        self.on_CheckButton_Mic_toggled(self.CheckButton_Mic)
-        self.on_CheckButton_Speakers_toggled(self.CheckButton_Display)
-
     ###############################################################################
     ################   MAIN LOOP START ############################################
     ###############################################################################
     def on_timer(self):
-        if COMM_vars.connected:
-            self.counter += .05
-
         if COMM_vars.comm_link_idle > COMM_IDLE:
             self.Spinner_Connected.stop()
             COMM_vars.comm_link_idle = COMM_IDLE  # Do not need to increase counter anymore
@@ -195,7 +137,12 @@ class MainWindow(Gtk.Window):
                 self.ToggleButton_Connect.set_active(False)
                 # self.on_ToggleButton_Connect_toggled(self.ToggleButton_Connect)
 
-        return True
+        if COMM_vars.connected:
+            self.counter += .05
+            return True
+        else:
+            self.counter = 0
+            return False
 
     def UpdateMonitorData(self):
         self.LabelRpmL.set_text(COMM_vars.motor_RPM[LEFT].__str__())
@@ -363,7 +310,6 @@ class MainWindow(Gtk.Window):
         else:
             self.Connection_Thread.FXvalue  = int(widget.get_value())
 
-
     def on_FxValue_scrolled(self, widget, event):
         if KEY_control.MouseBtn[LEFT] is True:
             self.Connection_Thread.FXmode   = int(widget.get_name())
@@ -505,11 +451,11 @@ class MainWindow(Gtk.Window):
 
         self.StatusBar1.push(self.context_id1, SStatBar)
 
-    def on_key_press(self, widget, event):
+    def on_Window_Console_key_press_event(self, widget, event):
         self.keybuffer_set(event, True)
         return True
 
-    def on_key_release(self, widget, event):
+    def on_Window_Console_key_release_event(self, widget, event):
         key_name = self.keybuffer_set(event, False)
         return key_name
 
@@ -584,110 +530,96 @@ class MainWindow(Gtk.Window):
         # if KEY_control.MouseBtn[RIGHT] is True:
         #     self.Console.print("KEY_control.MouseXY[right]", KEY_control.MouseXY)
 
-    def save_config(self):
-        HostList = []
-        HostListRaw = self.ComboBox_Host.get_model()
-        for iter_x in range(0, HostListRaw.iter_n_children()):
-            HostList.append(HostListRaw[iter_x][0] + ":" + HostListRaw[iter_x][1])
-
-        Compression_Mask = (self.ComboBoxText_Ssh_Compression.get_active(),
-                            self.ComboBoxText_Vcodec.get_active(),
-                            self.ComboBoxText_Acodec.get_active(),
-                            self.ComboBoxText_Framerate.get_active(),
-                            self.ComboBoxText_Abitrate.get_active(),
-                            self.ComboBoxText_Rotate.get_active())
-
-        Ssh_Mask = (self.Entry_RsaKey.get_text(),
-                    self.Entry_KeyPass.get_text(),
-                    self.Entry_User.get_text(),
-                    self.Entry_RemoteHost.get_text())
-
-        Network_Mask = self.ComboBoxText_Proto.get_active()
-
-        configstorage.save(Paths.cfg_file, tuple(HostList),
-                           False,
-                           False,
-                           False,
-                           Network_Mask,
-                           Compression_Mask,
-                           Ssh_Mask,
-                           False,
-                           self.CheckButton_LocalTest.get_active())
-
     def gtk_main_quit(self, dialog):
         self.Connection_Thread.close_connection()
-        # Host_list = Rac_connection.HostList_get(self.combobox_host.get_model(), None)
-        # Rac_connection.config_snapshot(Host_list)
-        self.save_config()
+        configstorage.save_setup(self.builder)
 
-        Gtk.main_quit ()
+        Gtk.main_quit()
 
 ###############################################################################
-# def main():
 
 
 class configstorage:
     @staticmethod
-    def read(filename):
-        with open(filename, "rb") as iniFile:
-            HostList = pickle.load(iniFile)
-            Mask1 = pickle.load(iniFile)
-            RSA_Key = pickle.load(iniFile)
-            Key_Pass = pickle.load(iniFile)
-            Ssh_User = pickle.load(iniFile)
-            Remote_Host = pickle.load(iniFile)
-            Compression = pickle.load(iniFile)
-            Reserved_6 = pickle.load(iniFile)
-            Reserved_7 = pickle.load(iniFile)
-            Local_Test = pickle.load(iniFile)
-            END_CFG = pickle.load(iniFile)
+    def load_setup(builder):
+        with open(Paths.ini_file, "rb") as iniFile:
+            SetupVar = pickle.load(iniFile)
+            for v_list, name, value in SetupVar:
+                for obj in builder.get_objects():
+                    if issubclass(type(obj), Gtk.Buildable):
+                        if name != Gtk.Buildable.get_name(obj):
+                            continue
 
-            COMM_vars.resolution = Mask1[0]
-            COMM_vars.light = Mask1[1]
-            COMM_vars.mic = Mask1[2]
-            COMM_vars.display = Mask1[3]
-            COMM_vars.speakers = Mask1[4]
-            COMM_vars.laser = Mask1[5]
-            COMM_vars.AutoMode = Mask1[6]
+                        if type(obj) == Gtk.CheckButton:
+                            obj.set_active(value)
+                            continue
 
-        print("Configuration read from", filename)
-        return HostList, \
-               Mask1, \
-               RSA_Key, \
-               Key_Pass, \
-               Ssh_User, \
-               Remote_Host, \
-               Compression, \
-               Reserved_6, \
-               Reserved_7, \
-               Local_Test
+                        if type(obj) == Gtk.CheckMenuItem:
+                            obj.set_active(value)
+                            continue
+
+                        if type(obj) == Gtk.ComboBoxText:
+                            if name == "ComboBox_Host":
+                                for Host in v_list:
+                                    obj.append(Host[1], Host[0])
+                            obj.set_active(value)
+                            continue
+
+                        if type(obj) == Gtk.SpinButton:
+                            obj.set_value(value)
+                            continue
+
+                        if type(obj) == Gtk.Entry:
+                            obj.set_text(value)
+                            continue
+
+                        if type(obj) == Gtk.Scale:
+                            obj.set_value_pos(value)
+                            continue
+
+        print("Configuration loaded.")
 
     @staticmethod
-    def save(filename, HostList, RSA_Key, Key_Pass, Ssh_User, Remote_Host,
-                    Compression, Reserved_6, Reserved_7, Local_Test):
-        with open(filename, "wb") as iniFile:
-            # print("HostList", HostList)
+    def save_setup(builder):
+        SetupVar = []
+        for obj in builder.get_objects():
+            if issubclass(type(obj), Gtk.Buildable):
+                name = Gtk.Buildable.get_name(obj)
+            else:
+                continue
 
-            Mask1 = (COMM_vars.resolution,
-                     COMM_vars.light,
-                     COMM_vars.mic,
-                     COMM_vars.display,
-                     COMM_vars.speakers,
-                     COMM_vars.laser,
-                     COMM_vars.AutoMode)
+            if type(obj) == Gtk.CheckButton:
+                SetupVar.append((None, name, obj.get_active()))
+                continue
 
-            for item in [HostList,
-                         Mask1,
-                         RSA_Key,
-                         Key_Pass,
-                         Ssh_User,
-                         Remote_Host,
-                         Compression,
-                         Reserved_6,
-                         Reserved_7,
-                         Local_Test,
-                         "END"]:
-                pickle.dump(item, iniFile)
+            if type(obj) == Gtk.CheckMenuItem:
+                SetupVar.append((None, name, obj.get_active()))
+                continue
+
+            if type(obj) == Gtk.ComboBoxText:
+                HostList = []
+                if name == "ComboBox_Host":
+                    HostListRaw = obj.get_model()
+                    for iter_x in range(0, HostListRaw.iter_n_children()):
+                        HostList.append((HostListRaw[iter_x][0], HostListRaw[iter_x][1]))
+
+                SetupVar.append((tuple(HostList), name, obj.get_active()))
+                continue
+
+            if type(obj) == Gtk.SpinButton:
+                SetupVar.append((None, name, obj.get_value_as_int()))
+                continue
+
+            if type(obj) == Gtk.Entry:
+                SetupVar.append((None, name, obj.get_text()))
+                continue
+
+            if type(obj) == Gtk.Scale:
+                SetupVar.append((None, name, obj.get_value_pos()))
+                continue
+
+        with open(Paths.ini_file, "wb") as iniFile:
+            pickle.dump(SetupVar, iniFile)
         print("Configuration saved.")
 
     @staticmethod
