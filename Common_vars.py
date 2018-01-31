@@ -95,6 +95,7 @@ class COMM_vars:
     voltage     = 0
     coreTemp    = 0
     distanceS1  = 100
+    TestMode    = 1
     Vcodec      = 0
     Vbitrate    = 0
     Framerate   = 3
@@ -105,6 +106,7 @@ class COMM_vars:
     Brightness  = 0
     Acodec      = 0
     Abitrate    = 0
+    Protocol    = 0
 
 
 import binascii

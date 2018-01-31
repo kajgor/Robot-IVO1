@@ -17,46 +17,52 @@ from Common_vars import VideoFramerate, AudioBitrate, AudioCodec, VideoCodec, \
 # noinspection PyAttributeOutsideInit
 class MainWindow(Gtk.Window):
     Console = Console()
+
     def __init__(self):
         super(MainWindow, self).__init__()
 
-        self.builder = self.init_gui
-        self.Window_Console.show()
-
         self.counter         = 0
         self.resolution      = 0
-        self.Protocol        = 0
         self.camera_on       = True
         self.DispAvgVal      = [0, 0]
+
+        self.builder         = self.init_gui_builder
         self.context_id      = self.StatusBar.get_context_id("message")
         self.context_id1     = self.StatusBar1.get_context_id("message")
         self.context_id2     = self.StatusBar2.get_context_id("message")
 
-        self.Console.print("Console 3.0 initialized.\n")
-
-        SXID = self.DrawingArea_Cam.get_property('window')
-        self.Connection_Thread = ConnectionThread(SXID)
-
         # Connect signals
         self.builder.connect_signals(self)
 
-        configstorage.load_setup(self.builder)
-        self.process_argv()
+        self.Window_Console.show()
+        SXID = self.DrawingArea_Cam.get_property('window')
+        self.Connection_Thread = ConnectionThread(SXID)
 
-        if Debug > 2:
-            print("Objects:")
-            print(self.builder.get_objects().__str__())
+        Console.print("Console 3.0 initialized.\n")
 
-    def process_argv(self):
+        self.Config_Storage = ConfigStorage()
+        if self.get_argv("reset") is False:
+            self.Config_Storage.load_setup(self.builder)
+        else:
+            self.Console.print("Resetting to default configuration.")
+
+        Gtk.main_iteration()
+
+    def get_argv(self, checkval):
         for x in range(1, len(argv)):
-            if argv[x] == "reset":
-                configstorage.reset(Paths.cfg_file)
-            else:
-                print("Invalid arument:", argv[x])
-            pass
+            argtmp = argv[x].split("=")
+            if argtmp[0] == checkval:
+                if len(argtmp) > 1:
+                    return argtmp[1]
+                else:
+                    return True
+            # else:
+            #     print("Invalid arument:", argv[x])
+            # pass
+        return False
 
     @property
-    def init_gui(self):
+    def init_gui_builder(self):
         builder = Gtk.Builder()
         print("Adding GUI file", Paths.GUI_file, end="... ")
         builder.add_from_file(Paths.GUI_file)
@@ -69,29 +75,25 @@ class MainWindow(Gtk.Window):
             else:
                 print("WARNING: can not get name for '%s'" % obj)
 
-        self.Window_Console.connect("destroy", self.gtk_main_quit)
         self.TextView_Log.override_color(Gtk.StateType.NORMAL, Gdk.RGBA(1, .75, 0, 1))
         self.TextView_Log.override_background_color(Gtk.StateType.NORMAL, Gdk.RGBA(.15, 0.15, 0.15, 1))
-        self.DrawingArea_Cam.set_can_default(True)
 
         return builder
 
-    def connect_gui(self):
-        self.ComboBox_Host.set_sensitive(False)
-        self.SpinButton_Port.set_sensitive(False)
-        self.CheckButton_LocalTest.set_sensitive(False)
-        self.CheckButton_SshTunnel.set_sensitive(False)
-
-    def connect_gui_handlers(self):
-        # self.on_mouse_press_handler = self.connect("button-press-event", self.on_mouse_press)
-        # self.on_mouse_release_handler = self.connect("button-release-event", self.on_mouse_release)
-        # self.on_motion_notify_handler = self.connect("motion-notify-event", self.on_motion_notify)
+    def gui_connect_loop(self):
 
         ####### Main loop definition ###############
         GLib.timeout_add(TIMEOUT_GUI, self.on_timer)
         ############################################
 
-    def disconnect_gui(self):
+    def gui_update_connect(self):
+        self.ComboBox_Host.set_sensitive(False)
+        self.SpinButton_Port.set_sensitive(False)
+        self.CheckButton_LocalTest.set_sensitive(False)
+        self.CheckButton_SshTunnel.set_sensitive(False)
+        self.ComboBoxText_Proto.set_sensitive(False)
+
+    def gui_update_disconnect(self):
         # if self.on_key_press_handler is not None:
         #     self.disconnect(self.on_key_press_handler)
         #     self.disconnect(self.on_key_release_handler)
@@ -105,6 +107,7 @@ class MainWindow(Gtk.Window):
         self.ComboBox_Host.set_sensitive(True)
         self.SpinButton_Port.set_sensitive(True)
         self.CheckButton_SshTunnel.set_sensitive(True)
+        self.ComboBoxText_Proto.set_sensitive(True)
 
     ###############################################################################
     ################   MAIN LOOP START ############################################
@@ -119,7 +122,7 @@ class MainWindow(Gtk.Window):
         # Idle timer for checking the link
         COMM_vars.comm_link_idle += 1
 
-        # Any update tasks would go here (moving sprites, advancing animation frames etc.)
+        # Any update tasks wxould go here (moving sprites, advancing animation frames etc.)
         self.UpdateControlData()
         self.UpdateMonitorData()
         self.Console.display_message(self.TextView_Log)
@@ -177,34 +180,37 @@ class MainWindow(Gtk.Window):
 ################   MAIN LOOP END   ############################################
 ###############################################################################
 
-    # @staticmethod
     def on_DrawingArea_Control_draw(self, bus, message):
         # pass
         self.Connection_Thread.draw_arrow(message)
 
     def on_ComboBox_Host_changed(self, widget):
-        # print("widget", widget.get_model()[widget.get_active()][1])
         self.Host = widget.get_active_text()
-        self.Port = int(float(widget.get_model()[widget.get_active()][1]))
+        try:
+            self.Port = int(float(widget.get_model()[widget.get_active()][1]))
+        except IndexError:
+            return
+        # print("H/P", self.Host, self.Port)
         self.SpinButton_Port.set_value(self.Port)
 
     def on_SpinButton_Port_value_changed(self, widget):
         self.Port = widget.get_value_as_int()
 
     def on_CheckButton_LocalTest_toggled(self, widget):
-        self.Connection_Thread.Video_Mode = not(widget.get_active())
-        self.Connection_Thread.Video_Codec = bool(self.Protocol + self.Connection_Thread.Video_Mode)
+        COMM_vars.TestMode = not(widget.get_active())
+        # self.Connection_Thread.Video_Codec = bool(self.Protocol + self.Connection_Thread.Video_Mode)
+        COMM_vars.Vcodec = bool(COMM_vars.Protocol + COMM_vars.TestMode)
         self.SSBar_update()
 
     def on_ComboBoxText_Proto_changed(self, widget):
-        self.Protocol = widget.get_active()
+        COMM_vars.Protocol = widget.get_active()
         self.SSBar_update()
 
     def on_ToggleButton_Connect_toggled(self, widget):
         self.on_key_press_handler = None
         if widget.get_active() is True:
             widget.set_label(Gtk.STOCK_DISCONNECT)
-            self.connect_gui()
+            self.gui_update_connect()
 
             if self.CheckButton_SshTunnel.get_active() is True:
                 Host, Port = self.Connection_Thread.open_ssh_tunnel(self.Host, self.Port,
@@ -219,20 +225,20 @@ class MainWindow(Gtk.Window):
             success = bool(Host)
             retmsg = "SSH Connection Error!"
             if success is True:
-                success, retmsg = self.Connection_Thread.establish_connection(Host, Port, self.Protocol)
+                success, retmsg = self.Connection_Thread.establish_connection(Host, Port)
 
                 if success is True:
-                    self.connect_gui_handlers()
+                    self.gui_connect_loop()
                     self.Connection_Thread.update_server_list(self.ComboBox_Host, self.SpinButton_Port.get_value())
 
             if success is not True:
-                self.disconnect_gui()
+                self.gui_update_disconnect()
             self.StatusBar.push(self.context_id, retmsg)
         else:
             COMM_vars.connected = False
             widget.set_label(Gtk.STOCK_CONNECT)
             self.StatusBar.push(self.context_id, "Disconnected.")
-            self.disconnect_gui()
+            self.gui_update_disconnect()
 
     def on_CheckButton_Cam_toggled(self, widget):
         self.camera_on = widget.get_active()
@@ -421,11 +427,15 @@ class MainWindow(Gtk.Window):
         # else:
         #     widget.set_active(False)
 
-    def on_Button_AdvOk_activate(self, widget):
-        self.Window_Advanced.hide()
-
     def on_Button_AdvOk_clicked(self, widget):
+        # ConfigStorage.save_setup(self.builder)
         self.Window_Advanced.hide()
+        return True
+
+    def on_Button_AdvCamOk_clicked(self, widget):
+        # ConfigStorage.save_setup(self.builder)
+        self.Window_AdvancedCam.hide()
+        return True
 
     def on_Button_Preferences_clicked(self, widget):
         self.Window_Advanced.show()
@@ -439,12 +449,14 @@ class MainWindow(Gtk.Window):
         self.Window_AdvancedCam.show()
 
     def on_Window_Advanced_delete_event(self, bus, message):
+        # ConfigStorage.save_setup(self.builder)
         self.Window_Advanced.hide()
+
         return True
 
     def SSBar_update(self):
-        SStatBar = PROTO_NAME[self.Protocol] + ": "
-        SStatBar += VideoCodec[self.Connection_Thread.Video_Codec] + "/"
+        SStatBar = PROTO_NAME[COMM_vars.Protocol] + ": "
+        SStatBar += VideoCodec[COMM_vars.Vcodec] + "/"
         SStatBar += VideoFramerate[COMM_vars.Framerate] + "  "
         SStatBar += AudioCodec[COMM_vars.Acodec] + "/"
         SStatBar += AudioBitrate[COMM_vars.Abitrate]
@@ -530,18 +542,19 @@ class MainWindow(Gtk.Window):
         # if KEY_control.MouseBtn[RIGHT] is True:
         #     self.Console.print("KEY_control.MouseXY[right]", KEY_control.MouseXY)
 
-    def gtk_main_quit(self, dialog):
+    def gtk_main_quit(self, dialog, widget):
         self.Connection_Thread.close_connection()
-        configstorage.save_setup(self.builder)
+        self.Config_Storage.save_setup(self.builder)
 
         Gtk.main_quit()
+        return True
 
 ###############################################################################
 
 
-class configstorage:
-    @staticmethod
-    def load_setup(builder):
+class ConfigStorage:
+
+    def load_setup(self, builder):
         with open(Paths.ini_file, "rb") as iniFile:
             SetupVar = pickle.load(iniFile)
             for v_list, name, value in SetupVar:
@@ -549,38 +562,19 @@ class configstorage:
                     if issubclass(type(obj), Gtk.Buildable):
                         if name != Gtk.Buildable.get_name(obj):
                             continue
-
-                        if type(obj) == Gtk.CheckButton:
-                            obj.set_active(value)
-                            continue
-
-                        if type(obj) == Gtk.CheckMenuItem:
-                            obj.set_active(value)
-                            continue
-
-                        if type(obj) == Gtk.ComboBoxText:
+                        # print("LOAD ENTRY!!!", name, value, v_list)
+                        if v_list:
                             if name == "ComboBox_Host":
-                                for Host in v_list:
-                                    obj.append(Host[1], Host[0])
-                            obj.set_active(value)
-                            continue
-
-                        if type(obj) == Gtk.SpinButton:
-                            obj.set_value(value)
-                            continue
-
-                        if type(obj) == Gtk.Entry:
-                            obj.set_text(value)
-                            continue
-
-                        if type(obj) == Gtk.Scale:
-                            obj.set_value_pos(value)
-                            continue
+                                for Host, Port in v_list:
+                                    obj.append(Port, Host)
+                                    # print("Host/Port", Host, Port)
+                                obj.set_active(value)
+                        else:
+                            self.set_object_value(obj, value)
 
         print("Configuration loaded.")
 
-    @staticmethod
-    def save_setup(builder):
+    def save_setup(self, builder):
         SetupVar = []
         for obj in builder.get_objects():
             if issubclass(type(obj), Gtk.Buildable):
@@ -588,56 +582,77 @@ class configstorage:
             else:
                 continue
 
-            if type(obj) == Gtk.CheckButton:
-                SetupVar.append((None, name, obj.get_active()))
-                continue
+            value = self.get_object_value(obj)
+            if value is not None:
+                # print("SAVE ENTRY!!!", name, value)
+                if type(obj) == Gtk.ComboBoxText:
+                    if name == "ComboBox_Host":
+                        v_list = []
+                        v_list_raw = obj.get_model()
+                        for iter_x in range(0, v_list_raw.iter_n_children()):
+                            v_list.append(tuple(v_list_raw[iter_x]))
 
-            if type(obj) == Gtk.CheckMenuItem:
-                SetupVar.append((None, name, obj.get_active()))
-                continue
+                        SetupVar.append((tuple(v_list), name, value))
+                    else:
+                        SetupVar.append((None, name, value))
 
-            if type(obj) == Gtk.ComboBoxText:
-                HostList = []
-                if name == "ComboBox_Host":
-                    HostListRaw = obj.get_model()
-                    for iter_x in range(0, HostListRaw.iter_n_children()):
-                        HostList.append((HostListRaw[iter_x][0], HostListRaw[iter_x][1]))
-
-                SetupVar.append((tuple(HostList), name, obj.get_active()))
-                continue
-
-            if type(obj) == Gtk.SpinButton:
-                SetupVar.append((None, name, obj.get_value_as_int()))
-                continue
-
-            if type(obj) == Gtk.Entry:
-                SetupVar.append((None, name, obj.get_text()))
-                continue
-
-            if type(obj) == Gtk.Scale:
-                SetupVar.append((None, name, obj.get_value_pos()))
-                continue
+                else:
+                    SetupVar.append((None, name, value))
+                    continue
 
         with open(Paths.ini_file, "wb") as iniFile:
             pickle.dump(SetupVar, iniFile)
         print("Configuration saved.")
 
     @staticmethod
-    def reset(filename):
-        with open(filename, "wb") as iniFile:
-            for item in (("localhost:4550:True", "10.0.0.23:4550:False", "athome106.hopto.org:222:True"),
-                         (1, False, False, False, False, False, False, False),
-                         "/home/igor/.ssh/id_rsa",
-                         "nescape",
-                         "igor",
-                         "127.0.0.1",
-                         True,
-                         False,
-                         False,
-                         True,
-                         "END"):
-                pickle.dump(item, iniFile)
-        print("Configuration reset.")
+    def set_object_value(obj, value):
+        if type(obj) == Gtk.CheckButton:
+            obj.set_active(not(value))
+            obj.emit("clicked")
+            return
+
+        if type(obj) == Gtk.CheckMenuItem:
+            obj.set_active(value)
+            return
+
+        if type(obj) == Gtk.ComboBoxText:
+            obj.set_active(value)
+            obj.emit("changed")
+            return
+
+        if type(obj) == Gtk.SpinButton:
+            obj.set_value(value)
+            obj.emit("value-changed")
+            return
+
+        if type(obj) == Gtk.Entry:
+            obj.set_text(value)
+            return
+
+        if type(obj) == Gtk.Scale:
+            obj.set_value_pos(value)
+            obj.emit("format-value", 0)
+            return
+
+    @staticmethod
+    def get_object_value(obj):
+        if type(obj) == Gtk.CheckButton:
+            return obj.get_active()
+
+        if type(obj) == Gtk.CheckMenuItem:
+            return obj.get_active()
+
+        if type(obj) == Gtk.ComboBoxText:
+            return obj.get_active()
+
+        if type(obj) == Gtk.SpinButton:
+            return obj.get_value_as_int()
+
+        if type(obj) == Gtk.Entry:
+            return obj.get_text()
+
+        if type(obj) == Gtk.Scale:
+            return obj.get_value_pos()
 
 
 if __name__ == "__main__":
