@@ -19,9 +19,10 @@ HORIZONTAL = 1
 # Socket retry - make more than 60 as this is the default timeout
 SO_RETRY_LIMIT = 65
 
-# Arduino driver message len (in/out)
+# Arduino driver message len (in/out) and HeartBeat response shift
 DRV_A1_MSGLEN_REQ = 8
 DRV_A1_MSGLEN_RES = 16
+HB_BITSHIFT       = 30
 
 # Note omxh264enc element which is hardware h264 encoder.
 # Software h264 encoder is called h264enc.
@@ -38,6 +39,7 @@ import serial.tools.list_ports
 
 
 class SRV_vars:
+    connected   = False
     GUI_CONSOLE = False
     TestMode    = False
     DRV_A1_request = chr(50) + chr(50) + chr(0) + chr(0) + chr(0)

@@ -519,22 +519,6 @@
                               </packing>
                             </child>
                             <child>
-                              <object class="GtkCheckButton" id="CheckButton_Display">
-                                <property name="label" translatable="yes">Display</property>
-                                <property name="visible">True</property>
-                                <property name="can_focus">True</property>
-                                <property name="receives_default">False</property>
-                                <property name="focus_on_click">False</property>
-                                <property name="xalign">0</property>
-                                <property name="draw_indicator">True</property>
-                                <signal name="toggled" handler="on_CheckButton_Display_toggled" swapped="no"/>
-                              </object>
-                              <packing>
-                                <property name="left_attach">0</property>
-                                <property name="top_attach">2</property>
-                              </packing>
-                            </child>
-                            <child>
                               <object class="GtkCheckButton" id="CheckButton_Mic">
                                 <property name="label" translatable="yes">Mic.</property>
                                 <property name="visible">True</property>
@@ -597,6 +581,21 @@
                               <packing>
                                 <property name="left_attach">0</property>
                                 <property name="top_attach">0</property>
+                              </packing>
+                            </child>
+                            <child>
+                              <object class="GtkCheckButton" id="CheckButton_Laser">
+                                <property name="label" translatable="yes">Laser</property>
+                                <property name="visible">True</property>
+                                <property name="can_focus">True</property>
+                                <property name="receives_default">False</property>
+                                <property name="xalign">0</property>
+                                <property name="draw_indicator">True</property>
+                                <signal name="toggled" handler="on_CheckButton_Laser_toggled" swapped="no"/>
+                              </object>
+                              <packing>
+                                <property name="left_attach">0</property>
+                                <property name="top_attach">2</property>
                               </packing>
                             </child>
                           </object>
@@ -1198,16 +1197,17 @@
                               </packing>
                             </child>
                             <child>
-                              <object class="GtkCheckButton" id="CheckButton_Laser">
-                                <property name="label" translatable="yes">Laser</property>
+                              <object class="GtkCheckButton" id="CheckButton_Display">
+                                <property name="label" translatable="yes">Display</property>
                                 <property name="can_focus">True</property>
                                 <property name="receives_default">False</property>
+                                <property name="focus_on_click">False</property>
                                 <property name="xalign">0</property>
                                 <property name="draw_indicator">True</property>
-                                <signal name="toggled" handler="on_CheckButton_Laser_toggled" swapped="no"/>
+                                <signal name="toggled" handler="on_CheckButton_Display_toggled" swapped="no"/>
                               </object>
                               <packing>
-                                <property name="left_attach">0</property>
+                                <property name="left_attach">2</property>
                                 <property name="top_attach">4</property>
                               </packing>
                             </child>
@@ -1591,8 +1591,8 @@
               <object class="GtkBox" id="box7">
                 <property name="visible">True</property>
                 <property name="can_focus">False</property>
-                <property name="margin_left">10</property>
-                <property name="margin_right">10</property>
+                <property name="margin_left">13</property>
+                <property name="margin_right">13</property>
                 <property name="margin_top">5</property>
                 <property name="orientation">vertical</property>
                 <child>
@@ -1644,6 +1644,7 @@
                     <child>
                       <object class="GtkComboBoxText" id="ComboBoxText_Vcodec">
                         <property name="visible">True</property>
+                        <property name="sensitive">False</property>
                         <property name="can_focus">False</property>
                         <property name="active">1</property>
                         <property name="active_id">1</property>
@@ -1749,6 +1750,7 @@
                     <child>
                       <object class="GtkComboBoxText" id="ComboBoxText_Acodec">
                         <property name="visible">True</property>
+                        <property name="sensitive">False</property>
                         <property name="can_focus">False</property>
                         <property name="active">0</property>
                         <property name="active_id">0</property>
@@ -2168,7 +2170,7 @@ video signal.</property>
             <property name="receives_default">True</property>
             <property name="halign">end</property>
             <property name="valign">end</property>
-            <property name="margin_right">5</property>
+            <property name="margin_right">10</property>
             <property name="margin_top">5</property>
             <property name="margin_bottom">5</property>
             <property name="use_stock">True</property>
@@ -2295,8 +2297,8 @@ video signal.</property>
                 <property name="width_request">210</property>
                 <property name="visible">True</property>
                 <property name="can_focus">False</property>
-                <property name="margin_left">10</property>
-                <property name="margin_right">10</property>
+                <property name="margin_left">13</property>
+                <property name="margin_right">13</property>
                 <property name="orientation">vertical</property>
                 <child>
                   <object class="GtkLabel" id="label23">
@@ -3368,6 +3370,7 @@ Header</property>
             <property name="receives_default">True</property>
             <property name="halign">end</property>
             <property name="valign">end</property>
+            <property name="margin_right">9</property>
             <property name="margin_top">5</property>
             <property name="margin_bottom">5</property>
             <property name="use_stock">True</property>

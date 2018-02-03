@@ -106,6 +106,7 @@ class ServerThread(threading.Thread):
         resolution = 0
         Stream_Thread = StreamThread(client_IP, Protocol, Video_Codec)
         Stream_Thread.start()
+        SRV_vars.connected = True
         # now keep talking with the client
         while not self.shutdown_flag.is_set():
             # Receiving from client
@@ -168,6 +169,7 @@ class ServerThread(threading.Thread):
 
                     break
 
+        SRV_vars.connected = False
         Stream_Thread.shutdown_flag.set()
 
         return conn
@@ -491,7 +493,7 @@ class StreamThread(threading.Thread):
         req_mode = Gst.State.READY
         self.res_queue.put(req_mode)
 
-        Update = False
+        update = False
         res_switch = 9
         curr_resolution = 0
 
@@ -558,7 +560,7 @@ class StreamThread(threading.Thread):
             if not self.res_queue.empty():
                 curr_state = self.sender_video[SRV_vars.TestMode].get_state(1)[1]
                 if curr_state == req_mode:
-                    Update = True
+                    update = True
                     req_mode = self.res_queue.get()
                 else:
                     res_switch += 1
@@ -586,8 +588,8 @@ class StreamThread(threading.Thread):
                     Console.print('ERROR: resolution' + self.req_resolution.__str__() + ", mode " + req_mode)
                     res_switch = 10
 
-            if Update is True:
-                Update = False
+            if update is True:
+                update = False
                 if curr_state == Gst.State.PAUSED:
                     Console.print("Paused.")
                 elif curr_state == Gst.State.READY:
@@ -623,16 +625,16 @@ class StreamThread(threading.Thread):
 
 
 class DriverThread(threading.Thread):
+
     def __init__(self):
         threading.Thread.__init__(self)
 
         # The shutdown_flag is a threading.Event object that
         # indicates whether the thread should be terminated.
         self.shutdown_flag = threading.Event()
-        # COMM_vars.motor_Power = [50, 50]
 
     def run(self):
-        Console.print('Driver Thread #%s started' % self.ident)
+        Console.print('Driver AT328 Thread #%s started' % self.ident)
 
         if bool(SRV_vars.TestMode) is True:
             self._testrun()
@@ -662,12 +664,13 @@ class DriverThread(threading.Thread):
             if inChar == chr(10):
                 Console.print(inStr)
                 break
-        idx = 75
+        idx = 75        # Timer for reporting parameters
+        HeartBeat       = HB_BITSHIFT
         while not self.shutdown_flag.is_set():
             # SerPort1.flushInput()
             data = chr(255)                                 # 1
             data += SRV_vars.DRV_A1_request                 # 2,3,4,5,6
-            data += chr(0)                                  # 7
+            data += chr(HeartBeat + HB_BITSHIFT * bool(SRV_vars.connected))          # 7
             data += chr(255)                                # 8
 
             NoOfBytes = SerPort1.write(data.encode(Encoding))
@@ -682,8 +685,10 @@ class DriverThread(threading.Thread):
 
                 if resp_data[0] + resp_data[DRV_A1_MSGLEN_RES - 1] == 510:
                     SRV_vars.DRV_A1_response = resp_data.decode(Encoding)
+                    HeartBeat       = resp_data[DRV_A1_MSGLEN_RES - 2]
                 else:
-                    Console.print(">>>BAD CHKSUM", resp_data[0], resp_data[15])
+                    if resp_data.decode(Encoding) != "IVO-A1: DEVICE R":
+                        Console.print(">>>BAD CHKSUM", resp_data[0], resp_data[15], "[HB-", HeartBeat, "]")
                     SerPort1.flushInput()
             else:
                 Console.print(">>>Flush:", NoOfBytes)

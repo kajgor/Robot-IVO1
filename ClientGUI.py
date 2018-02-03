@@ -9,7 +9,7 @@ from gi.repository import Gtk, Gdk, GLib
 from sys import argv
 
 from ClientLib   import ConnectionThread, Console
-from Client_vars import Paths, Debug, CAM0_control, KEY_control, CommunicationFFb
+from Client_vars import Paths, CAM0_control, KEY_control, CommunicationFFb
 from Common_vars import VideoFramerate, AudioBitrate, AudioCodec, VideoCodec, \
     TIMEOUT_GUI, PROTO_NAME, LEFT, RIGHT, X_AXIS, Y_AXIS, MOUSE_MIN, MOUSE_MAX, COMM_vars, COMM_IDLE
 
@@ -27,9 +27,9 @@ class MainWindow(Gtk.Window):
         self.DispAvgVal      = [0, 0]
 
         self.builder         = self.init_gui_builder
-        self.context_id      = self.StatusBar.get_context_id("message")
-        self.context_id1     = self.StatusBar1.get_context_id("message")
-        self.context_id2     = self.StatusBar2.get_context_id("message")
+        self.context_id      = self.StatusBar.get_context_id('message')
+        self.context_id1     = self.StatusBar1.get_context_id('message')
+        self.context_id2     = self.StatusBar2.get_context_id('message')
 
         # Connect signals
         self.builder.connect_signals(self)
@@ -38,17 +38,16 @@ class MainWindow(Gtk.Window):
         SXID = self.DrawingArea_Cam.get_property('window')
         self.Connection_Thread = ConnectionThread(SXID)
 
-        Console.print("Console 3.0 initialized.\n")
+        Console.print('Console 3.0 initialized.\n')
 
         self.Config_Storage = ConfigStorage()
-        if self.get_argv("reset") is False:
+        if self.get_argv('reset') is False:
             self.Config_Storage.load_setup(self.builder)
         else:
-            self.Console.print("Resetting to default configuration.")
+            self.Console.print('Resetting to default configuration.')
 
-        Gtk.main_iteration()
-
-    def get_argv(self, checkval):
+    @staticmethod
+    def get_argv(checkval):
         for x in range(1, len(argv)):
             argtmp = argv[x].split("=")
             if argtmp[0] == checkval:
@@ -64,16 +63,16 @@ class MainWindow(Gtk.Window):
     @property
     def init_gui_builder(self):
         builder = Gtk.Builder()
-        print("Adding GUI file", Paths.GUI_file, end="... ")
+        print('Adding GUI file', Paths.GUI_file, end='... ')
         builder.add_from_file(Paths.GUI_file)
-        print("done.")
+        print('done.')
 
         for obj in builder.get_objects():
             if issubclass(type(obj), Gtk.Buildable):
                 name = Gtk.Buildable.get_name(obj)
                 setattr(self, name, obj)
             else:
-                print("WARNING: can not get name for '%s'" % obj)
+                print('WARNING: can not get name for "%s"' % obj)
 
         self.TextView_Log.override_color(Gtk.StateType.NORMAL, Gdk.RGBA(1, .75, 0, 1))
         self.TextView_Log.override_background_color(Gtk.StateType.NORMAL, Gdk.RGBA(.15, 0.15, 0.15, 1))
@@ -122,7 +121,7 @@ class MainWindow(Gtk.Window):
         # Idle timer for checking the link
         COMM_vars.comm_link_idle += 1
 
-        # Any update tasks wxould go here (moving sprites, advancing animation frames etc.)
+        # Any update tasks would go here (moving sprites, advancing animation frames etc.)
         self.UpdateControlData()
         self.UpdateMonitorData()
         self.Console.display_message(self.TextView_Log)
@@ -181,7 +180,6 @@ class MainWindow(Gtk.Window):
 ###############################################################################
 
     def on_DrawingArea_Control_draw(self, bus, message):
-        # pass
         self.Connection_Thread.draw_arrow(message)
 
     def on_ComboBox_Host_changed(self, widget):
@@ -190,7 +188,6 @@ class MainWindow(Gtk.Window):
             self.Port = int(float(widget.get_model()[widget.get_active()][1]))
         except IndexError:
             return
-        # print("H/P", self.Host, self.Port)
         self.SpinButton_Port.set_value(self.Port)
 
     def on_SpinButton_Port_value_changed(self, widget):
@@ -198,7 +195,6 @@ class MainWindow(Gtk.Window):
 
     def on_CheckButton_LocalTest_toggled(self, widget):
         COMM_vars.TestMode = not(widget.get_active())
-        # self.Connection_Thread.Video_Codec = bool(self.Protocol + self.Connection_Thread.Video_Mode)
         COMM_vars.Vcodec = bool(COMM_vars.Protocol + COMM_vars.TestMode)
         self.SSBar_update()
 
@@ -223,7 +219,7 @@ class MainWindow(Gtk.Window):
                 Host, Port = self.Host, self.Port
 
             success = bool(Host)
-            retmsg = "SSH Connection Error!"
+            retmsg = 'SSH Connection Error!'
             if success is True:
                 success, retmsg = self.Connection_Thread.establish_connection(Host, Port)
 
@@ -237,13 +233,13 @@ class MainWindow(Gtk.Window):
         else:
             COMM_vars.connected = False
             widget.set_label(Gtk.STOCK_CONNECT)
-            self.StatusBar.push(self.context_id, "Disconnected.")
+            self.StatusBar.push(self.context_id, 'Disconnected.')
             self.gui_update_disconnect()
 
     def on_CheckButton_Cam_toggled(self, widget):
         self.camera_on = widget.get_active()
         COMM_vars.resolution = self.resolution * self.camera_on
-        retmsg = "Camera:" + self.camera_on.__str__()
+        retmsg = 'Camera: ' + self.camera_on.__str__()
 
         self.StatusBar.push(self.context_id, retmsg)
 
@@ -284,6 +280,10 @@ class MainWindow(Gtk.Window):
         if self.Connection_Thread.FXvalue == 15:
             self.Menu_CamFx_Item15.set_active(True)
 
+        retmsg = 'FX effect changed [' + self.Connection_Thread.FXvalue.__str__() + ']'
+
+        self.StatusBar.push(self.context_id, retmsg)
+
     def on_ComboBoxResolution_changed(self, widget):
         self.resolution = widget.get_active() + 1
         # Console.print("Change mode to", self.resolution)
@@ -304,6 +304,10 @@ class MainWindow(Gtk.Window):
             self.Menu_CamRes_Item5.set_active(True)
 
         COMM_vars.resolution = self.resolution * self.camera_on
+
+        retmsg = 'Resolution changed [' + COMM_vars.resolution.__str__() + ']'
+
+        self.StatusBar.push(self.context_id, retmsg)
 
     def on_FxValue_changed(self, widget):
         self.Connection_Thread.FXmode   = int(widget.get_name())
@@ -334,7 +338,7 @@ class MainWindow(Gtk.Window):
 
     def on_ComboBoxText_Framerate_changed(self, widget):
         COMM_vars.Framerate = widget.get_active()
-        self.Console.print("Video Framerate:", VideoFramerate[COMM_vars.Framerate])
+        self.Console.print('Video Framerate:', VideoFramerate[COMM_vars.Framerate])
         self.SSBar_update()
 
     def on_ComboBoxText_Rotate_changed(self, widget):
@@ -342,28 +346,38 @@ class MainWindow(Gtk.Window):
 
     def on_ComboBoxText_Abitrate_changed(self, widget):
         COMM_vars.Abitrate = widget.get_active()
-        self.Console.print("Audio Bitrate:", AudioBitrate[COMM_vars.Abitrate])
+        self.Console.print('Audio Bitrate:', AudioBitrate[COMM_vars.Abitrate])
         self.SSBar_update()
 
     def on_CheckButton_Speakers_toggled(self, widget):
         COMM_vars.speakers = widget.get_active()
-        self.Console.print("Speakers:", COMM_vars.speakers)
+        self.Console.print('Speakers:', COMM_vars.speakers)
+        retmsg = 'Speakers: ' + COMM_vars.speakers.__str__()
+        self.StatusBar.push(self.context_id, retmsg)
 
     def on_CheckButton_Display_toggled(self, widget):
         COMM_vars.display = widget.get_active()
-        self.Console.print("Display:", COMM_vars.display)
+        self.Console.print('Display:', COMM_vars.display)
+        retmsg = 'Display: ' + COMM_vars.display.__str__()
+        self.StatusBar.push(self.context_id, retmsg)
 
     def on_CheckButton_Lights_toggled(self, widget):
         COMM_vars.light = widget.get_active()
-        self.Console.print("Light:", COMM_vars.light)
+        self.Console.print('Light:', COMM_vars.light)
+        retmsg = 'Light: ' + COMM_vars.light.__str__()
+        self.StatusBar.push(self.context_id, retmsg)
 
     def on_CheckButton_Mic_toggled(self, widget):
         COMM_vars.mic = widget.get_active()
-        self.Console.print("Mic:", COMM_vars.mic)
+        self.Console.print('Mic:', COMM_vars.mic)
+        retmsg = 'Mic: ' + COMM_vars.mic.__str__()
+        self.StatusBar.push(self.context_id, retmsg)
 
     def on_CheckButton_Laser_toggled(self, widget):
         COMM_vars.laser = widget.get_active()
-        self.Console.print("Laser:", COMM_vars.laser)
+        self.Console.print('Laser:', COMM_vars.laser)
+        retmsg = 'Laser: ' + COMM_vars.laser.__str__()
+        self.StatusBar.push(self.context_id, retmsg)
 
     def on_ToggleButton_Log_toggled(self, widget):
         if widget.get_active() is True:
@@ -424,32 +438,22 @@ class MainWindow(Gtk.Window):
                 self.Menu_CamFx_Item14.set_active(False)
             if widget != self.Menu_CamFx_Item15:
                 self.Menu_CamFx_Item15.set_active(False)
-        # else:
-        #     widget.set_active(False)
 
     def on_Button_AdvOk_clicked(self, widget):
-        # ConfigStorage.save_setup(self.builder)
         self.Window_Advanced.hide()
         return True
 
     def on_Button_AdvCamOk_clicked(self, widget):
-        # ConfigStorage.save_setup(self.builder)
         self.Window_AdvancedCam.hide()
         return True
 
     def on_Button_Preferences_clicked(self, widget):
         self.Window_Advanced.show()
-        # print("TEXT IN COMBOBOX: ", self.combobox_host.get_active_text())
-        # print("NO OF ITEMS:", self.combobox_host.get_model().iter_n_children())
-        # Host_list = Rac_connection.HostList_get(self.combobox_host.get_model(), None)
-        # Rac_connection.config_snapshot(Host_list)
-        # reset_save(Paths.cfg_file)
 
     def on_Button_AdvancedCam_clicked(self, widget):
         self.Window_AdvancedCam.show()
 
     def on_Window_Advanced_delete_event(self, bus, message):
-        # ConfigStorage.save_setup(self.builder)
         self.Window_Advanced.hide()
 
         return True
@@ -474,19 +478,19 @@ class MainWindow(Gtk.Window):
     @staticmethod
     def keybuffer_set(event, value):
         key_name = Gdk.keyval_name(event.keyval)
-        if key_name == "Left" or key_name.replace("A", "a", 1) == "a":
+        if key_name == 'Left' or key_name.replace("A", "a", 1) == "a":
             KEY_control.Left = value
 
-        elif key_name == "Right" or key_name.replace("D", "d", 1) == "d":
+        elif key_name == 'Right' or key_name.replace("D", "d", 1) == "d":
             KEY_control.Right = value
 
-        elif key_name == "Up" or key_name.replace("W", "w", 1) == "w":
+        elif key_name == 'Up' or key_name.replace("W", "w", 1) == "w":
             KEY_control.Up = value
 
-        elif key_name == "Down" or key_name.replace("S", "s", 1) == "s":
+        elif key_name == 'Down' or key_name.replace("S", "s", 1) == "s":
             KEY_control.Down = value
 
-        elif key_name == "space":
+        elif key_name == 'space':
             COMM_vars.speed = 0
             COMM_vars.direction = 0
             KEY_control.Space = value
@@ -555,7 +559,7 @@ class MainWindow(Gtk.Window):
 class ConfigStorage:
 
     def load_setup(self, builder):
-        with open(Paths.ini_file, "rb") as iniFile:
+        with open(Paths.ini_file, 'rb') as iniFile:
             SetupVar = pickle.load(iniFile)
             for v_list, name, value in SetupVar:
                 for obj in builder.get_objects():
@@ -564,7 +568,7 @@ class ConfigStorage:
                             continue
                         # print("LOAD ENTRY!!!", name, value, v_list)
                         if v_list:
-                            if name == "ComboBox_Host":
+                            if name == 'ComboBox_Host':
                                 for Host, Port in v_list:
                                     obj.append(Port, Host)
                                     # print("Host/Port", Host, Port)
@@ -572,7 +576,7 @@ class ConfigStorage:
                         else:
                             self.set_object_value(obj, value)
 
-        print("Configuration loaded.")
+        print('Configuration loaded.')
 
     def save_setup(self, builder):
         SetupVar = []
@@ -586,7 +590,7 @@ class ConfigStorage:
             if value is not None:
                 # print("SAVE ENTRY!!!", name, value)
                 if type(obj) == Gtk.ComboBoxText:
-                    if name == "ComboBox_Host":
+                    if name == 'ComboBox_Host':
                         v_list = []
                         v_list_raw = obj.get_model()
                         for iter_x in range(0, v_list_raw.iter_n_children()):
@@ -600,15 +604,15 @@ class ConfigStorage:
                     SetupVar.append((None, name, value))
                     continue
 
-        with open(Paths.ini_file, "wb") as iniFile:
+        with open(Paths.ini_file, 'wb') as iniFile:
             pickle.dump(SetupVar, iniFile)
-        print("Configuration saved.")
+        print('Configuration saved.')
 
     @staticmethod
     def set_object_value(obj, value):
         if type(obj) == Gtk.CheckButton:
             obj.set_active(not(value))
-            obj.emit("clicked")
+            obj.emit('clicked')
             return
 
         if type(obj) == Gtk.CheckMenuItem:
@@ -617,12 +621,12 @@ class ConfigStorage:
 
         if type(obj) == Gtk.ComboBoxText:
             obj.set_active(value)
-            obj.emit("changed")
+            obj.emit('changed')
             return
 
         if type(obj) == Gtk.SpinButton:
             obj.set_value(value)
-            obj.emit("value-changed")
+            obj.emit('value-changed')
             return
 
         if type(obj) == Gtk.Entry:
@@ -631,7 +635,7 @@ class ConfigStorage:
 
         if type(obj) == Gtk.Scale:
             obj.set_value_pos(value)
-            obj.emit("format-value", 0)
+            obj.emit('format-value', 0)
             return
 
     @staticmethod
@@ -655,6 +659,6 @@ class ConfigStorage:
             return obj.get_value_pos()
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     MainWindow()
     Gtk.main()
