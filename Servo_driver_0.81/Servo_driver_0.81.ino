@@ -78,7 +78,7 @@ History
  unsigned long decmillis;
  boolean Executed   = false;
  boolean CV_read    = false;
- int HeartBeat = 19;
+ int HeartBeat = HB_BITSHIFT;
  int RS_factor = RESOLUTION * SMOOTH_FACTOR;
 
  /********* Init servo *******/
@@ -178,14 +178,14 @@ History
 
  void establishContact()
  {
-    String Text = "DEVICE READY(";
+    String Text = "v";
     Text += VERSION;
-    Text += ")";
-    Serial.println("IVO-A1:" + Text);
+    Text += " DEVICE READY";
+    Serial.println("IVO-A1: " + Text);
     while (!Serial.available()) {
       delay(100);
     }
-    Last_communication_time = millis();
+    Last_communication_time = -1; // unsigned var will get max value 
  }
 
 boolean flushBuffer(int lenght)
@@ -225,16 +225,16 @@ boolean ReadSerialData(int Buf_len)
       CTRL1_Mask              = Comm_buffer[4]; // 5
       CTRL2_Mask              = Comm_buffer[5]; // 6
 
-      boolean lights    = bitRead(CTRL1_Mask,8);
-//        boolean speakers  = bitRead(CTRL1_Mask,7); // driven by rpi
-//        boolean mic       = bitRead(CTRL1_Mask,6); // driven by rpi
-//        boolean disp      = bitRead(CTRL1_Mask,5); // driven by rpi
-      boolean laser     = bitRead(CTRL1_Mask,4);
-      boolean AutoMode  = bitRead(CTRL1_Mask,3);
+      boolean lights    = bitRead(CTRL1_Mask,1);
+//        boolean speakers  = bitRead(CTRL1_Mask,2); // driven by rpi
+//        boolean mic       = bitRead(CTRL1_Mask,3); // driven by rpi
+//        boolean disp      = bitRead(CTRL1_Mask,4); // driven by rpi
+      boolean laser     = bitRead(CTRL1_Mask,5);
+      boolean AutoMode  = bitRead(CTRL1_Mask,6);
       if ( HeartBeat_rcvd == HeartBeat + HB_BITSHIFT ) {
         Last_communication_time = decmillis;
       }
-      digitalWrite(Laser_Pin, !laser);
+      digitalWrite(Laser_Pin, laser);
 //      digitalWrite(Ligths_Pin, lights);
       return true;
     }
@@ -247,6 +247,7 @@ boolean ReadSerialData(int Buf_len)
   else {
     Serial.print("BADSTART_______" + String(StartChar));
     flushBuffer(Buf_len - 8);
+    return false;
   }
 
 }
@@ -282,6 +283,8 @@ double GetDistance()
    pinMode(ProxTrig_Pin, OUTPUT);
    pinMode(ProxEcho_Pin, INPUT);
 
+   pinMode(Laser_Pin, OUTPUT);
+
    CamH.attach(CamH_Pin);
    CamV.attach(CamV_Pin);
 //   CamH.write(60);
@@ -301,22 +304,24 @@ double GetDistance()
     boolean Stall[] = {false,false};
     boolean Debug = false;
     boolean SendCommit = false;
+    decmillis = millis() / 5;
 
     int Buf_len = Serial.available();
     if (Buf_len >= 8) {
       SendCommit = ReadSerialData(Buf_len);
     }
-
-    decmillis = millis() / 5;
-    if ( decmillis - Last_communication_time > 200 ) { // communication breakdown for 1,0 sec.
-      if ( Last_communication_time < decmillis ) {
+    if ( Last_communication_time > decmillis ) {       // in case of counter overlap
+      Last_communication_time = decmillis;
+    }
+    if ( decmillis - Last_communication_time > 100 ) { // communication with client breakdown for 0,5 sec.
         Required_Rpm[RIGHT] = 50;
         Required_Rpm[LEFT] = 50;
         Set_Motor(RIGHT,HIGH,HIGH);
         Set_Motor(LEFT,HIGH,HIGH);
-        establishContact();
-        exit;
-      }
+        if ( SendCommit == false && (decmillis - Last_communication_time > 300) ) {
+          establishContact();
+          exit;
+        }
     }
 
     if ( decmillis % 2 == 0 ) {
@@ -373,7 +378,7 @@ double GetDistance()
 //                              *** generate driver response ***
     if ( SendCommit == true ) {
       HeartBeat += 1;
-      if ( HeartBeat > RESOLUTION - HB_BITSHIFT ) HeartBeat = 20;
+      if ( HeartBeat > RESOLUTION - HB_BITSHIFT ) HeartBeat = HB_BITSHIFT;
       Comm_resp[0] = 255;                             // 1
       Comm_resp[1] = int(Pwr[RIGHT] / SMOOTH_FACTOR); // 2
       Comm_resp[2] = int(Pwr[LEFT] / SMOOTH_FACTOR);  // 3

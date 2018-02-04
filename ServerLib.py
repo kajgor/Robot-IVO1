@@ -687,7 +687,7 @@ class DriverThread(threading.Thread):
                     SRV_vars.DRV_A1_response = resp_data.decode(Encoding)
                     HeartBeat       = resp_data[DRV_A1_MSGLEN_RES - 2]
                 else:
-                    if resp_data.decode(Encoding) != "IVO-A1: DEVICE R":
+                    if resp_data.decode(Encoding).split(":")[0] != "IVO-A1":
                         Console.print(">>>BAD CHKSUM", resp_data[0], resp_data[15], "[HB-", HeartBeat, "]")
                     SerPort1.flushInput()
             else:
