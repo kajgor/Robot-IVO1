@@ -112,12 +112,6 @@ class MainWindow(Gtk.Window):
     ################   MAIN LOOP START ############################################
     ###############################################################################
     def on_timer(self):
-        if COMM_vars.comm_link_idle > COMM_IDLE:
-            self.Spinner_Connected.stop()
-            COMM_vars.comm_link_idle = COMM_IDLE  # Do not need to increase counter anymore
-        else:
-            self.Spinner_Connected.start()
-
         # Idle timer for checking the link
         COMM_vars.comm_link_idle += 1
 
@@ -144,7 +138,12 @@ class MainWindow(Gtk.Window):
             return True
         else:
             self.counter = 0
-            return False
+            if COMM_vars.comm_link_idle >= COMM_IDLE:
+                COMM_vars.comm_link_idle = COMM_IDLE  # Do not need to increase counter anymore
+                return True
+            else:
+                self.Spinner_Connected.stop()
+                return False
 
     def UpdateMonitorData(self):
         self.LabelRpmL.set_text(COMM_vars.motor_RPM[LEFT].__str__())
@@ -158,10 +157,15 @@ class MainWindow(Gtk.Window):
         self.LabelCamPosH.set_text(COMM_vars.camPosition[X_AXIS].__str__())
         self.LabelCamPosV.set_text(COMM_vars.camPosition[Y_AXIS].__str__())
 
+        Voltage = "{:.2f}".format(COMM_vars.voltage).__str__()
+        Current = "{:.2f}".format(COMM_vars.current).__str__()
         self.LabelCoreTemp.set_text("{:.2f}".format(COMM_vars.coreTemp).__str__())
-        self.LabelBattV.set_text("{:.2f}".format(COMM_vars.voltage).__str__())
-        self.LabelPowerA.set_text("{:.2f}".format(COMM_vars.current).__str__())
+        self.LabelBattV.set_text(Voltage)
+        self.LabelPowerA.set_text(Current)
         self.LabelS1Dist.set_text(COMM_vars.distanceS1.__str__())
+
+        self.LevelBar_Voltage.set_tooltip_text(Voltage + "V")
+        self.LevelBar_Current.set_tooltip_text(Current + "A")
 
         return
 
@@ -207,6 +211,7 @@ class MainWindow(Gtk.Window):
         if widget.get_active() is True:
             widget.set_label(Gtk.STOCK_DISCONNECT)
             self.gui_update_connect()
+            self.gui_connect_loop()
 
             if self.CheckButton_SshTunnel.get_active() is True:
                 Host, Port = self.Connection_Thread.open_ssh_tunnel(self.Host, self.Port,
@@ -221,10 +226,10 @@ class MainWindow(Gtk.Window):
             success = bool(Host)
             retmsg = 'SSH Connection Error!'
             if success is True:
+                self.Spinner_Connected.start()
                 success, retmsg = self.Connection_Thread.establish_connection(Host, Port)
 
                 if success is True:
-                    self.gui_connect_loop()
                     self.Connection_Thread.update_server_list(self.ComboBox_Host, self.SpinButton_Port.get_value())
 
             if success is not True:
@@ -235,6 +240,10 @@ class MainWindow(Gtk.Window):
             widget.set_label(Gtk.STOCK_CONNECT)
             self.StatusBar.push(self.context_id, 'Disconnected.')
             self.gui_update_disconnect()
+
+            # while COMM_vars.comm_link_idle < COMM_IDLE:
+            #     sleep(TIMEOUT_GUI / 1000)
+            #     self.on_timer()
 
     def on_CheckButton_Cam_toggled(self, widget):
         self.camera_on = widget.get_active()

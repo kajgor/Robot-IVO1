@@ -14,6 +14,7 @@ else:
 # MIC0_DEVICE = "alsa_input.usb-C-Media_Electronics_Inc._USB_PnP_Sound_Device-00.analog-mono"
 MIC0_DEVICE = "alsa_input.pci-0000_00_05.0.analog-stereo"
 
+
 class arrow(object):
     points = (
         (0, -35),
@@ -23,6 +24,20 @@ class arrow(object):
         (0, -35)
     )
 
+
+class rombe(object):
+    points = (
+        (0, -5),
+        (-5, 0),
+        (0, 5),
+        (5, 0),
+        (0, -5),
+        (0, -3),
+        (-3, 0),
+        (0, 3),
+        (3, 0),
+        (0, -3),
+    )
 
 class KEY_control:
     Shift   = False

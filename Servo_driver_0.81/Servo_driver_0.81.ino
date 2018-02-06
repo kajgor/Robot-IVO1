@@ -190,7 +190,6 @@ History
 
 boolean flushBuffer(int lenght)
 {
-//  int lenght = Serial.available()
   for (int i = 0 ; i <= lenght ; i++) {
     Serial.read();
   }
@@ -210,13 +209,6 @@ boolean ReadSerialData(int Buf_len)
     if ( EndChar == 255 ) {
       int CTRL1_Mask;
       int CTRL2_Mask;
-
-//      counter = 0;
-//      while ( counter < 5 ) {
-//        if ( Comm_buffer[counter] == 252 ) Comm_buffer[counter] = 17;
-//        else if ( Comm_buffer[counter] == 253 ) Comm_buffer[counter] = 19;
-//        counter ++;
-//      }
 
       Required_Rpm[RIGHT]     = Comm_buffer[0]; // 1
       Required_Rpm[LEFT]      = Comm_buffer[1]; // 2
@@ -411,8 +403,7 @@ double GetDistance()
       if (CamHV[HORIZONTAL] != 0) CamH.write(CamHV[HORIZONTAL]);
       if (CamHV[VERTICAL] != 0) CamV.write(CamHV[VERTICAL]);        
     }
-//    Rpm_prev[RIGHT] = Rpm[RIGHT];
-//    Rpm_prev[LEFT] = Rpm[LEFT];
+
     delay(1);
  }
 

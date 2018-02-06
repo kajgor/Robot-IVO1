@@ -85,14 +85,12 @@ class RacStream:
         self.sender_audio_rtimer     = Gst.ElementFactory.make("rtpspeexpay", "rtimer_audio")
 
         if COMM_vars.Protocol == TCP:
+            self.source_video.set_property("host", Host)
+            self.player_audio_source.set_property("host", Host)
+
             self.source_video        = Gst.ElementFactory.make("tcpclientsrc", "source")
             self.player_audio_source = Gst.ElementFactory.make("tcpclientsrc", "source_audio")
             self.sender_audio_sink   = Gst.ElementFactory.make("tcpserversink", "sink_audio")
-
-            self.source_video.set_property("host", Host)
-            self.player_audio_source.set_property("host", Host)
-            self.sender_audio_sink.set_property("sync", False)
-            self.sender_audio_sink.set_property("sync", False)
 
             if VideoMode is False:
                 self.gst_init_test()
@@ -103,7 +101,6 @@ class RacStream:
             self.source_video        = Gst.ElementFactory.make("udpsrc", "source_udp")
             self.player_audio_source = Gst.ElementFactory.make("udpsrc", "source_audio_udp")
             self.sender_audio_sink   = Gst.ElementFactory.make("udpsink", "sink_audio_udp")
-            self.sender_audio_sink.set_property("sync", False)
 
             if VideoMode is False:
                 self.gst_init_test_udp()
@@ -114,6 +111,7 @@ class RacStream:
         self.player_audio_source.set_property("port", Port_MIC0)
         self.sender_audio_sink.set_property("host", Host)
         self.sender_audio_sink.set_property("port", Port_SPK0)
+        self.sender_audio_sink.set_property("sync", False)
 
         caps = Gst.Caps.from_string("application/x-rtp, encoding-name=H264, payload=96")
         self.capsfilter_video.set_property("caps", caps)
@@ -124,7 +122,7 @@ class RacStream:
         caps = Gst.Caps.from_string("application/x-rtp, media=audio, clock-rate=32000, encoding-name=SPEEX, payload=96")
         self.player_audio_capsfilter.set_property("caps", caps)
 
-        self.sink_audio.set_property("sync", False)
+        self.sink_audio.set_property("sync", True)
 
         if not self.sink_video or not self.source_video:
             print("ERROR! GL elements not available.")
@@ -310,42 +308,49 @@ class RacStream:
 class RacDisplay:
     background_control = ImageSurface.create_from_png(Paths.background_file)
 
-    def draw_arrow(self, message):
-        message.set_source_surface(self.background_control, 0, 0)
-        message.paint()
+    def draw_arrow(self, image):
+        image.set_source_surface(self.background_control, 0, 0)
+        image.paint()
 
-        message.set_line_width(1)
-        message.translate(90, 81)
+        image.set_line_width(1)
+        image.translate(90, 81)
 
         if COMM_vars.speed >= 0:
-            message.rotate(COMM_vars.direction / (pi * 5))
+            image.rotate(COMM_vars.direction / (pi * 5))
         else:
-            message.rotate((COMM_vars.direction + MAX_SPEED) / (pi * 5))
+            image.rotate((COMM_vars.direction + MAX_SPEED) / (pi * 5))
 
         # Direction arrow
-        message.set_source_rgb(0.25, 0.25, 0.25)
+        image.set_source_rgb(0.25, 0.25, 0.25)
         for i in range(4):
-            message.line_to(arrow.points[i][0], arrow.points[i][1])
-        message.fill()
-        message.set_source_rgb(0, 0.75, 0.75)
+            image.line_to(arrow.points[i][0], arrow.points[i][1])
+        image.fill()
+        image.set_source_rgb(0, 0.75, 0.75)
         for i in range(5):
-            message.line_to(arrow.points[i][0], arrow.points[i][1])
-        message.stroke()
+            image.line_to(arrow.points[i][0], arrow.points[i][1])
+        image.stroke()
 
         # Speed arrow (REQ)
-        message.set_source_rgb(abs(COMM_vars.speed/MAX_SPEED), 1 - abs(COMM_vars.speed/MAX_SPEED), 0)
-        message.line_to(arrow.points[0][0], arrow.points[0][1] + 60 - abs((COMM_vars.speed / MAX_SPEED) * 50))
+        image.set_source_rgb(abs(COMM_vars.speed / MAX_SPEED), 1 - abs(COMM_vars.speed / MAX_SPEED), 0)
+        image.line_to(arrow.points[0][0], arrow.points[0][1] + 60 - abs((COMM_vars.speed / MAX_SPEED) * 50))
         for i in range(1, 4):
-                message.line_to(arrow.points[i][0], arrow.points[i][1])
-        message.fill()
+                image.line_to(arrow.points[i][0], arrow.points[i][1])
+        image.fill()
 
         # Speed arrow (ACK)
-        message.set_source_rgb(0, 0.75, 0.75)
+        image.set_source_rgb(0, 0.75, 0.75)
         speed_ACK = abs(COMM_vars.motor_ACK[0] + COMM_vars.motor_ACK[1]) * 0.5
-        message.line_to(arrow.points[1][0], arrow.points[1][1])
-        message.line_to(arrow.points[0][0], arrow.points[0][1] + 60 - speed_ACK)
-        message.line_to(arrow.points[3][0], arrow.points[3][1])
-        message.stroke()
+        image.line_to(arrow.points[1][0], arrow.points[1][1])
+        image.line_to(arrow.points[0][0], arrow.points[0][1] + 60 - speed_ACK)
+        image.line_to(arrow.points[3][0], arrow.points[3][1])
+        image.stroke()
+
+        # Camera position
+        image.set_source_rgb(.8, 0.05, 0.8)
+        for i in range(10):
+            image.line_to(rombe.points[i][0] - COMM_vars.camPosition[0] + 100,
+                          rombe.points[i][1] + COMM_vars.camPosition[1] - 70)
+        image.stroke()
 
     def on_message(self, message):
         msgtype = message.type

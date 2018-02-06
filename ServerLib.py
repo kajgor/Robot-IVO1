@@ -104,9 +104,11 @@ class ServerThread(threading.Thread):
     def connection_loop(self, conn, client_IP, Protocol, Video_Codec):
         noData_cnt = 0
         resolution = 0
+        SRV_vars.heartbeat = 10
+
         Stream_Thread = StreamThread(client_IP, Protocol, Video_Codec)
         Stream_Thread.start()
-        SRV_vars.connected = True
+
         # now keep talking with the client
         while not self.shutdown_flag.is_set():
             # Receiving from client
@@ -169,7 +171,8 @@ class ServerThread(threading.Thread):
 
                     break
 
-        SRV_vars.connected = False
+                SRV_vars.heartbeat = 10
+
         Stream_Thread.shutdown_flag.set()
 
         return conn
@@ -320,8 +323,6 @@ class StreamThread(threading.Thread):
                 self.sender_video_sink[self.Source_test].set_property("host", "0.0.0.0")
                 self.sender_video_sink[self.Source_h264].set_property("host", "0.0.0.0")
 
-            self.sender_video_sink[self.Source_test].set_property("sync", False)
-            self.sender_video_sink[self.Source_h264].set_property("sync", False)
             self.gst_init_video_test()
             self.gst_init_cam_tcp()
 
@@ -339,8 +340,8 @@ class StreamThread(threading.Thread):
                                       Gst.ElementFactory.make("udpsink", "video-output")]
             self.sender_video_sink[self.Source_test].set_property("host", client_IP)
             self.sender_video_sink[self.Source_h264].set_property("host", client_IP)
-            self.sender_video_sink[self.Source_test].set_property("sync", True)
-            self.sender_video_sink[self.Source_h264].set_property("sync", True)
+            # self.sender_video_sink[self.Source_test].set_property("sync", True)
+            # self.sender_video_sink[self.Source_h264].set_property("sync", True)
 
             self.gst_init_video_test_udp()
             self.gst_init_cam_udp()
@@ -361,8 +362,8 @@ class StreamThread(threading.Thread):
 
         self.sender_audio_sink[self.Source_test].set_property("host", client_IP)
         self.sender_audio_sink[self.Source_h264].set_property("host", client_IP)
-        self.sender_audio_sink[self.Source_test].set_property("sync", True)
-        self.sender_audio_sink[self.Source_h264].set_property("sync", True)
+        self.sender_audio_sink[self.Source_test].set_property("sync", False)
+        self.sender_audio_sink[self.Source_h264].set_property("sync", False)
         self.sender_audio_source[self.Source_test].set_property("wave", 0)
         self.sender_audio_source[self.Source_h264].set_property("device", MIC0_DEVICE)
 
@@ -374,6 +375,8 @@ class StreamThread(threading.Thread):
 
         self.sender_video_sink[self.Source_test].set_property("port", Port_CAM0)
         self.sender_video_sink[self.Source_h264].set_property("port", Port_CAM0)
+        self.sender_video_sink[self.Source_test].set_property("sync", False)
+        self.sender_video_sink[self.Source_h264].set_property("sync", False)
 
         self.sender_audio_sink[self.Source_test].set_property("port", Port_MIC0)
         self.sender_audio_sink[self.Source_h264].set_property("port", Port_MIC0)
@@ -383,8 +386,8 @@ class StreamThread(threading.Thread):
         self.player_audio_capsfilter[self.Source_test].set_property("caps", caps)
         self.player_audio_capsfilter[self.Source_h264].set_property("caps", caps)
 
-        self.player_audio_sink[self.Source_test].set_property("sync", False)
-        self.player_audio_sink[self.Source_h264].set_property("sync", False)
+        self.player_audio_sink[self.Source_test].set_property("sync", True)
+        self.player_audio_sink[self.Source_h264].set_property("sync", True)
 
     def gst_init_video_test(self):
         ####################################################################
@@ -634,14 +637,14 @@ class DriverThread(threading.Thread):
         self.shutdown_flag = threading.Event()
 
     def run(self):
-        Console.print('Driver AT328 Thread #%s started' % self.ident)
+        Console.print('AT328-1 Thread #%s started' % self.ident)
 
         if bool(SRV_vars.TestMode) is True:
             self._testrun()
         else:
             self._liverun()
 
-        Console.print('Driver Thread #%s stopped' % self.ident)
+        Console.print('AT328-1 Thread #%s stopped' % self.ident)
 
     def _liverun(self):
         SerPort1          = serial.Serial(SRV_vars.Serial_Port)
@@ -670,7 +673,7 @@ class DriverThread(threading.Thread):
             # SerPort1.flushInput()
             data = chr(255)                                 # 1
             data += SRV_vars.DRV_A1_request                 # 2,3,4,5,6
-            data += chr(HeartBeat + HB_BITSHIFT * bool(SRV_vars.connected))          # 7
+            data += chr(HeartBeat + HB_BITSHIFT * bool(SRV_vars.heartbeat))          # 7
             data += chr(255)                                # 8
 
             NoOfBytes = SerPort1.write(data.encode(Encoding))
@@ -700,6 +703,9 @@ class DriverThread(threading.Thread):
                 idx = 0
             else:
                 idx += 1
+
+            if SRV_vars.heartbeat > 0:
+                SRV_vars.heartbeat -= 1
 
 
     def _testrun(self):

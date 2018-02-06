@@ -39,7 +39,7 @@ import serial.tools.list_ports
 
 
 class SRV_vars:
-    connected   = False
+    heartbeat   = 10
     GUI_CONSOLE = False
     TestMode    = False
     DRV_A1_request = chr(50) + chr(50) + chr(0) + chr(0) + chr(0)
