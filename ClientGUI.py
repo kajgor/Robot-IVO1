@@ -25,6 +25,7 @@ class MainWindow(Gtk.Window):
         self.resolution      = 0
         self.camera_on       = True
         self.DispAvgVal      = [0, 0]
+        self.Hosts_row       = None
 
         self.builder         = self.init_gui_builder
         self.context_id      = self.StatusBar.get_context_id('message')
@@ -43,6 +44,24 @@ class MainWindow(Gtk.Window):
         self.Config_Storage = ConfigStorage()
         if self.get_argv('reset') is False:
             self.Config_Storage.load_setup(self.builder)
+            print("self.TreeView_Hosts.get_model()", self.TreeView_Hosts.get_model())
+            if self.TreeView_Hosts.get_model() is None:
+                for i, column in enumerate(["Host", "Port"]):
+                    cell = Gtk.CellRendererText()
+                    if i == 0:
+                        pass
+                    col = Gtk.TreeViewColumn(column, cell, text=i)
+                    self.TreeView_Hosts.append_column(col)
+
+                obj = Gtk.ListStore(str, int)
+                value = ("10.0.1.10", 4550)
+                obj.append((value[0], value[1]))
+                value = ("10.0.1.6", 4550)
+                obj.append((value[0], value[1]))
+                self.TreeView_Hosts.set_model(obj)
+
+            self.ComboBox_Host.set_model(self.TreeView_Hosts.get_model())
+            # self.ComboBox_Host.set_active(1)
         else:
             self.Console.print('Resetting to default configuration.')
 
@@ -187,15 +206,17 @@ class MainWindow(Gtk.Window):
         self.Connection_Thread.draw_arrow(message)
 
     def on_ComboBox_Host_changed(self, widget):
-        self.Host = widget.get_active_text()
+        # self.Host = widget.get_active_text()
         try:
+            self.Host = str(widget.get_model()[widget.get_active()][0])
             self.Port = int(float(widget.get_model()[widget.get_active()][1]))
         except IndexError:
             return
-        self.SpinButton_Port.set_value(self.Port)
+        # self.SpinButton_Port.set_value(self.Port)
 
     def on_SpinButton_Port_value_changed(self, widget):
-        self.Port = widget.get_value_as_int()
+        # self.Port = widget.get_value_as_int()
+        pass
 
     def on_CheckButton_LocalTest_toggled(self, widget):
         COMM_vars.TestMode = not(widget.get_active())
@@ -449,6 +470,9 @@ class MainWindow(Gtk.Window):
                 self.Menu_CamFx_Item15.set_active(False)
 
     def on_Button_AdvOk_clicked(self, widget):
+        self.ComboBox_Host.set_model(self.TreeView_Hosts.get_model())
+        self.Entry_Hosts.set_text('')
+
         self.Window_Advanced.hide()
         return True
 
@@ -464,8 +488,71 @@ class MainWindow(Gtk.Window):
 
     def on_Window_Advanced_delete_event(self, bus, message):
         self.Window_Advanced.hide()
+        return True
+
+    def on_TreeSelection_Hosts_changed(self, selection):
+        # get the model and the iterator that points at the data in the model
+        (model, iter) = selection.get_selected()
+        # set the label to a new value depending on the selection
+        # self.label.set_text("\n %s %s" %
+        #                     (model[iter][0],  model[iter][1]))
+        return True
+
+    def on_TreeView_Hosts_row_activated(self, widget, iter, column):
+        self.Hosts_row = iter
+        model = tuple(widget.get_model()[iter])
+        self.Entry_Hosts.set_text(model[0] + ":" + model[1].__str__())
+
+        self.Entry_Hosts.show()
+        return True
+
+    def on_TreeView_Hosts_cursor_changed(self, widget):
+        self.Entry_Hosts.set_text('')
+        self.Entry_Hosts.hide()
 
         return True
+
+    def on_Button_Hosts_add_clicked(self, widget):
+        obj = self.TreeView_Hosts.get_model()
+        obj.append(("NewEntry", int(self.SpinButton_Port.get_value())))
+        self.TreeView_Hosts.set_model(obj)
+
+        # obj.insert(self.Hosts_row, -1)
+        # self.Hosts_row = obj.get_selection()
+        # obj.set(self.Hosts_row, ("NewEntry", int(self.SpinButton_Port.get_value())))
+        # # acc = obj.get_iter_root()
+        # self.TreeView_Hosts.set_model(obj)
+
+        # self.Entry_Hosts.set_text('')
+        # self.Entry_Hosts.show()
+        return True
+
+    def on_Button_Hosts_delete_clicked(self, widget):
+        selection = self.TreeView_Hosts.get_selection()
+        model, paths = selection.get_selected_rows()
+        # Get the TreeIter instance for each path
+        for path in paths:
+            iter = model.get_iter(path)
+            # Remove the ListStore row referenced by iter
+            model.remove(iter)
+
+        return True
+
+    def on_Entry_Hosts_activate(self, widget):
+        HostPort = widget.get_text().split(":")
+        if len(HostPort) == 2:
+            selection = self.TreeView_Hosts.get_selection()
+            model, iter = selection.get_selected()
+            if iter is None:
+                iter = ""
+
+            model.set(iter, 0, HostPort[0], 1, int(HostPort[1]))
+
+            widget.set_text('')
+            widget.hide()
+            return True
+        else:
+            return False
 
     def SSBar_update(self):
         SStatBar = PROTO_NAME[COMM_vars.Protocol] + ": "
@@ -568,6 +655,7 @@ class MainWindow(Gtk.Window):
 class ConfigStorage:
 
     def load_setup(self, builder):
+        Hosts_List = []
         with open(Paths.ini_file, 'rb') as iniFile:
             SetupVar = pickle.load(iniFile)
             for v_list, name, value in SetupVar:
@@ -575,17 +663,12 @@ class ConfigStorage:
                     if issubclass(type(obj), Gtk.Buildable):
                         if name != Gtk.Buildable.get_name(obj):
                             continue
-                        # print("LOAD ENTRY!!!", name, value, v_list)
-                        if v_list:
-                            if name == 'ComboBox_Host':
-                                for Host, Port in v_list:
-                                    obj.append(Port, Host)
-                                    # print("Host/Port", Host, Port)
-                                obj.set_active(value)
                         else:
                             self.set_object_value(obj, value)
+            # Hosts_List = pickle.load(iniFile)
 
         print('Configuration loaded.')
+        return Hosts_List
 
     def save_setup(self, builder):
         SetupVar = []
@@ -598,23 +681,13 @@ class ConfigStorage:
             value = self.get_object_value(obj)
             if value is not None:
                 # print("SAVE ENTRY!!!", name, value)
-                if type(obj) == Gtk.ComboBoxText:
-                    if name == 'ComboBox_Host':
-                        v_list = []
-                        v_list_raw = obj.get_model()
-                        for iter_x in range(0, v_list_raw.iter_n_children()):
-                            v_list.append(tuple(v_list_raw[iter_x]))
-
-                        SetupVar.append((tuple(v_list), name, value))
-                    else:
-                        SetupVar.append((None, name, value))
-
-                else:
-                    SetupVar.append((None, name, value))
-                    continue
+                SetupVar.append((None, name, value))
+                continue
 
         with open(Paths.ini_file, 'wb') as iniFile:
             pickle.dump(SetupVar, iniFile)
+            # print("Save HostList", Hosts_List)
+            # pickle.dump(Hosts_List, iniFile)
         print('Configuration saved.')
 
     @staticmethod
@@ -647,6 +720,25 @@ class ConfigStorage:
             obj.emit('format-value', 0)
             return
 
+        if type(obj) == Gtk.TreeView:
+            for i, column in enumerate(["Host", "Port"]):
+                # cellrenderer to render the text
+                cell = Gtk.CellRendererText()
+                # the text in the first column should be in boldface
+                if i == 0:
+                    # cell.props.weight_set = True
+                    # cell.props.weight = 12000
+                    pass
+                # the column is created
+                col = Gtk.TreeViewColumn(column, cell, text=i)
+                obj.append_column(col)
+
+            obj_LS = Gtk.ListStore(str, int)
+            for Host, Port in value:
+                obj_LS.append((Host, Port))
+
+            obj.set_model(obj_LS)
+
     @staticmethod
     def get_object_value(obj):
         if type(obj) == Gtk.CheckButton:
@@ -666,6 +758,14 @@ class ConfigStorage:
 
         if type(obj) == Gtk.Scale:
             return obj.get_value_pos()
+
+        if type(obj) == Gtk.TreeView:
+            return_list = []
+            return_list_raw = obj.get_model()
+            for iter_x in range(0, return_list_raw.iter_n_children()):
+                return_list.append(tuple(return_list_raw[iter_x]))
+
+            return return_list
 
 
 if __name__ == '__main__':
