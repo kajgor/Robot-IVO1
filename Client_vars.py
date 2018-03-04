@@ -54,8 +54,11 @@ class KEY_control:
 class CAM0_control:
     Flip     = 0
 
+
 from os import path
 from sys import argv
+
+
 class Paths:
     pathname = path.dirname(argv[0])
     GUI_file = pathname + "/gui_artifacts/Client_GUI.glade"

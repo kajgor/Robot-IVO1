@@ -379,16 +379,17 @@ class RacDisplay:
 class ConnectionThread:
     srv = None
     tunnel = None
-    FXmode = 0
-    FXvalue = 0
+
     Rac_Display = RacDisplay()
-    CtrlQueue = queue.Queue()
+    FXqueue = queue.Queue()
 
     def __init__(self, SXID):
         self.SXID           = SXID
         self.Rac_Stream     = None
         self.Streaming_mode = 0
         self.FXmode_sent    = 0
+        self.FXmode         = 255
+        self.FXvalue        = 0
 
     def draw_arrow(self, message):
         self.Rac_Display.draw_arrow(message)
@@ -438,12 +439,6 @@ class ConnectionThread:
         bus.enable_sync_message_emission()
         bus.connect("message", self.on_cam_message)
         bus.connect("sync-message::element", self.on_cam_sync_message)
-
-        # bus_test = self.Rac_Stream.player_video[True].get_bus()
-        # bus_test.add_signal_watch()
-        # bus_test.enable_sync_message_emission()
-        # bus_test.connect("message", self.on_cam_message)
-        # bus_test.connect("sync-message::element", self.on_cam_sync_message)
 
         start_new_thread(self.connection_thread, (Host, Port))
         time.sleep(0.25)
@@ -574,10 +569,10 @@ class ConnectionThread:
             if COMM_vars.speakers is not speaker_last:
                 speaker_last = self.conect_speakerstream(COMM_vars.speakers)
 
-            if COMM_vars.resolution != resolution_last:
+            if COMM_vars.resolution != resolution_last and self.FXqueue.empty() is True:
                 resolution_last = COMM_vars.resolution
 
-                self.FXmode = 0
+                self.FXmode  = 0
                 self.FXvalue = COMM_vars.resolution
 
                 cam0_restart = bool(COMM_vars.resolution)
@@ -586,9 +581,6 @@ class ConnectionThread:
                 else:
                     Console.print("Pausing Video Stream")
                 self.connect_camstream(False)
-
-            # if self.FXmode < 255:
-            #     print("*** self.FXmode", self.FXmode)
 
             if cam0_restart is True:
                 if COMM_vars.Protocol == TCP:
@@ -603,9 +595,6 @@ class ConnectionThread:
 
             if self.check_connection(None) is True:
                 self.send_and_receive()
-# ToDo:
-                if not self.CtrlQueue.empty():
-                    OuText = self.CtrlQueue.get()
 
         self.Rac_Stream.player_video.set_state(Gst.State.NULL)
         self.Rac_Stream.player_audio.set_state(Gst.State.NULL)
@@ -629,8 +618,22 @@ class ConnectionThread:
 
     def send_and_receive(self):
         if COMM_vars.speed != "HALT":
+
+            if self.FXqueue.empty() is False:
+                if self.FXmode_sent == self.FXmode:
+                    FXmask = self.FXqueue.get()
+                    self.FXmode = int(FXmask[0])
+                    self.FXvalue = int(FXmask[1])
+                # print("FXmode/FXvalue", self.FXmode, self.FXvalue)
+            else:
+                if self.FXmode_sent == self.FXmode:
+                    self.FXmode = 255
+                    self.FXvalue = 0
+
             request  = self.encode_message(self.FXmode, self.FXvalue)
+
             checksum = self.transmit_message(request)
+
             if checksum is None:
                 COMM_vars.connErr += 1
                 if COMM_vars.connErr > RETRY_LIMIT:
@@ -644,12 +647,9 @@ class ConnectionThread:
             resp = self.receive_message(RECMSGLEN)
 
             if resp is not None:
-                if checksum == ord(resp[0]): # ************* MESSAGE CONFIRMED ******************
+                if checksum == ord(resp[0]):    # ************* MESSAGE CONFIRMED ******************
                     self.Streaming_mode = self.decode_message(resp)
                     COMM_vars.motor_ACK = COMM_vars.motor_Power
-                    if self.FXmode == self.FXmode_sent < 255:
-                        self.FXmode = 255
-
                     self.FXmode_sent = self.FXmode
                 else:
                     Console.print("Bad chksum:", checksum, ord(resp[0]))
@@ -761,50 +761,50 @@ class ConnectionThread:
         else:
             return None
 
-    @staticmethod
-    def update_server_list(combobox_host, port):
-        list_iter = combobox_host.get_active_iter()
-        if list_iter is not None:
-            model = combobox_host.get_model()
-            Host, Port = model[list_iter][:2]
-            try:
-                Port = Port[:Port.index('.')]
-            except:
-                Port = Port
-
-            # Console.print("Selected: Port=%s, Host=%s" % (int(Port), Host))
-        else:
-            entry = combobox_host.get_child()
-            combobox_host.prepend(port.__str__(), entry.get_text())
-            combobox_host.set_active(0)
-
-            Console.print("New entry: %s" % entry.get_text())
-            Console.print("New port: %s" % port.__str__())
-
-    def HostList_get(self, model, HostToFind):
-        HostList = []
-        for iter_x in range(0, model.iter_n_children()):
-            if HostToFind is None:
-                HostList.append(model[iter_x][0] + ":" + model[iter_x][1])
-            else:
-                if model[iter_x][0] == HostToFind:
-                    return iter_x
-
-        if HostToFind is None:
-            Console.print("HostList_str: [%d]" % model.iter_n_children(), HostList)
-            return HostList
-        else:
-            return False
-
-    @staticmethod
-    def load_HostList(combobox_host, HostList_str):
-        x = 0
-        for HostName in HostList_str:
-            Host = HostName.split(":")[0]
-            Port = HostName.split(":")[1]
-            # Ssh  = HostName.split(":")[2]
-            combobox_host.insert(x, Port, Host)
-            x += 1
+    # @staticmethod
+    # def update_server_list(combobox_host, port):
+    #     list_iter = combobox_host.get_active_iter()
+    #     if list_iter is not None:
+    #         model = combobox_host.get_model()
+    #         Host, Port = model[list_iter][:2]
+    #         try:
+    #             Port = Port[:Port.index('.')]
+    #         except:
+    #             Port = Port
+    #
+    #         # Console.print("Selected: Port=%s, Host=%s" % (int(Port), Host))
+    #     else:
+    #         entry = combobox_host.get_child()
+    #         combobox_host.prepend(port.__str__(), entry.get_text())
+    #         combobox_host.set_active(0)
+    #
+    #         Console.print("New entry: %s" % entry.get_text())
+    #         Console.print("New port: %s" % port.__str__())
+    #
+    # def HostList_get(self, model, HostToFind):
+    #     HostList = []
+    #     for iter_x in range(0, model.iter_n_children()):
+    #         if HostToFind is None:
+    #             HostList.append(model[iter_x][0] + ":" + model[iter_x][1])
+    #         else:
+    #             if model[iter_x][0] == HostToFind:
+    #                 return iter_x
+    #
+    #     if HostToFind is None:
+    #         Console.print("HostList_str: [%d]" % model.iter_n_children(), HostList)
+    #         return HostList
+    #     else:
+    #         return False
+    #
+    # @staticmethod
+    # def load_HostList(combobox_host, HostList_str):
+    #     x = 0
+    #     for HostName in HostList_str:
+    #         Host = HostName.split(":")[0]
+    #         Port = HostName.split(":")[1]
+    #         # Ssh  = HostName.split(":")[2]
+    #         combobox_host.insert(x, Port, Host)
+    #         x += 1
 
     @staticmethod
     def decode_message(resp):
@@ -847,6 +847,7 @@ class ConnectionThread:
 
         BitrateMask  = 100 * COMM_vars.Abitrate + 10 * COMM_vars.Vbitrate + COMM_vars.Framerate
 
+        # convert 16-bit values to 2 x 8-bit
         FxVal0 = int(FXvalue / 256)
         FxVal1 = FXvalue % 256
 
@@ -863,16 +864,6 @@ class ConnectionThread:
         reqMsgVal.append(0)                                     # 10
 
         requestMsg = ""
-        # Convert chr(17) & chr(19) to chr(252) & chr(253) respectively
-        # as above characters break Arduino serial communication
-        # for i in range(4):
-        #     if reqMsgVal[i] == 17:
-        #         requestMsg += chr(252)
-        #     elif reqMsgVal[i] == 19:
-        #         requestMsg += chr(253)
-        #     else:
-        #         requestMsg += chr(reqMsgVal[i])
-
         for i in range(10):
             requestMsg += chr(reqMsgVal[i])
 

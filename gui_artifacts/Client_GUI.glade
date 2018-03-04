@@ -1392,6 +1392,19 @@
               </packing>
             </child>
             <child>
+              <object class="GtkProgressBar" id="ProgressBar_SsBar">
+                <property name="width_request">50</property>
+                <property name="can_focus">False</property>
+                <property name="valign">center</property>
+                <property name="pulse_step">0.050000000000000003</property>
+              </object>
+              <packing>
+                <property name="expand">False</property>
+                <property name="fill">True</property>
+                <property name="position">1</property>
+              </packing>
+            </child>
+            <child>
               <object class="GtkStatusbar" id="StatusBar1">
                 <property name="width_request">225</property>
                 <property name="visible">True</property>
@@ -1409,7 +1422,7 @@
               <packing>
                 <property name="expand">False</property>
                 <property name="fill">True</property>
-                <property name="position">1</property>
+                <property name="position">2</property>
               </packing>
             </child>
             <child>
@@ -1499,7 +1512,7 @@
               <packing>
                 <property name="expand">False</property>
                 <property name="fill">True</property>
-                <property name="position">2</property>
+                <property name="position">3</property>
               </packing>
             </child>
             <child>
@@ -1522,7 +1535,7 @@
               <packing>
                 <property name="expand">False</property>
                 <property name="fill">True</property>
-                <property name="position">3</property>
+                <property name="position">4</property>
               </packing>
             </child>
             <child>
@@ -1547,7 +1560,7 @@
               <packing>
                 <property name="expand">False</property>
                 <property name="fill">True</property>
-                <property name="position">4</property>
+                <property name="position">5</property>
               </packing>
             </child>
           </object>
