@@ -13,7 +13,7 @@ from cairo import ImageSurface
 from math import pi
 from re import findall
 from _thread import *
-from Common_vars import COMM_vars, TCP, MAX_SPEED, Port_COMM, Port_CAM0, Port_MIC0, Port_SPK0, AudioBitrate,\
+from Common_vars import ConnectionData, TCP, MAX_SPEED, Port_COMM, Port_CAM0, Port_MIC0, Port_SPK0, AudioBitrate,\
     RETRY_LIMIT, CLIMSGLEN, RECMSGLEN, Encoding, LEFT, RIGHT, calc_checksum, X_AXIS, Y_AXIS
 
 from Client_vars import *
@@ -84,7 +84,7 @@ class RacStream:
         self.sender_audio_encoder    = Gst.ElementFactory.make("speexenc", "encoder_audio")
         self.sender_audio_rtimer     = Gst.ElementFactory.make("rtpspeexpay", "rtimer_audio")
 
-        if COMM_vars.Protocol == TCP:
+        if ConnectionData.Protocol == TCP:
             self.source_video.set_property("host", Host)
             self.player_audio_source.set_property("host", Host)
 
@@ -315,10 +315,10 @@ class RacDisplay:
         image.set_line_width(1)
         image.translate(90, 81)
 
-        if COMM_vars.speed >= 0:
-            image.rotate(COMM_vars.direction / (pi * 5))
+        if ConnectionData.speed >= 0:
+            image.rotate(ConnectionData.direction / (pi * 5))
         else:
-            image.rotate((COMM_vars.direction + MAX_SPEED) / (pi * 5))
+            image.rotate((ConnectionData.direction + MAX_SPEED) / (pi * 5))
 
         # Direction arrow
         image.set_source_rgb(0.25, 0.25, 0.25)
@@ -331,15 +331,15 @@ class RacDisplay:
         image.stroke()
 
         # Speed arrow (REQ)
-        image.set_source_rgb(abs(COMM_vars.speed / MAX_SPEED), 1 - abs(COMM_vars.speed / MAX_SPEED), 0)
-        image.line_to(arrow.points[0][0], arrow.points[0][1] + 60 - abs((COMM_vars.speed / MAX_SPEED) * 50))
+        image.set_source_rgb(abs(ConnectionData.speed / MAX_SPEED), 1 - abs(ConnectionData.speed / MAX_SPEED), 0)
+        image.line_to(arrow.points[0][0], arrow.points[0][1] + 60 - abs((ConnectionData.speed / MAX_SPEED) * 50))
         for i in range(1, 4):
                 image.line_to(arrow.points[i][0], arrow.points[i][1])
         image.fill()
 
         # Speed arrow (ACK)
         image.set_source_rgb(0, 0.75, 0.75)
-        speed_ACK = abs(COMM_vars.motor_ACK[0] + COMM_vars.motor_ACK[1]) * 0.5
+        speed_ACK = abs(ConnectionData.motor_ACK[0] + ConnectionData.motor_ACK[1]) * 0.5
         image.line_to(arrow.points[1][0], arrow.points[1][1])
         image.line_to(arrow.points[0][0], arrow.points[0][1] + 60 - speed_ACK)
         image.line_to(arrow.points[3][0], arrow.points[3][1])
@@ -348,8 +348,8 @@ class RacDisplay:
         # Camera position
         image.set_source_rgb(.8, 0.05, 0.8)
         for i in range(10):
-            image.line_to(rombe.points[i][0] - COMM_vars.camPosition[0] + 100,
-                          rombe.points[i][1] + COMM_vars.camPosition[1] - 70)
+            image.line_to(rombe.points[i][0] - ConnectionData.camPosition[0] + 100,
+                          rombe.points[i][1] + ConnectionData.camPosition[1] - 70)
         image.stroke()
 
     def on_message(self, message):
@@ -406,7 +406,7 @@ class ConnectionThread:
 
     def open_ssh_tunnel(self, Host, Port, rsa_file, rsa_password, username, remote_host, compression):
         if compression == 0:  # Auto
-            Compression = not(bool(COMM_vars.TestMode))
+            Compression = not(bool(ConnectionData.TestMode))
         elif compression == 1:
             Compression = True
         else:
@@ -432,7 +432,7 @@ class ConnectionThread:
 
     def establish_connection(self, Host, Port):
         Console.print("Establishing connection with \n %s on port"  % Host, Port)
-        self.Rac_Stream = RacStream(Host, COMM_vars.TestMode)
+        self.Rac_Stream = RacStream(Host, ConnectionData.TestMode)
 
         bus = self.Rac_Stream.player_video.get_bus()
         bus.add_signal_watch()
@@ -444,12 +444,12 @@ class ConnectionThread:
         time.sleep(0.25)
 
         l_iter = 0
-        while COMM_vars.connected is False and l_iter < 10:
+        while ConnectionData.connected is False and l_iter < 10:
             l_iter += 1
             Console.print("Retry:", l_iter)
             time.sleep(0.25)
 
-        if COMM_vars.connected is True:
+        if ConnectionData.connected is True:
             retmsg = "Server connected! " + self.srv.getsockname().__str__()
             # if Debug > 2:
             Console.print(retmsg)
@@ -458,7 +458,7 @@ class ConnectionThread:
             # if Debug > 0:
             Console.print(retmsg)
 
-        return COMM_vars.connected, retmsg
+        return ConnectionData.connected, retmsg
 
     def close_connection(self):
         # if Debug > 1:
@@ -485,7 +485,7 @@ class ConnectionThread:
         except AttributeError:
             self.srv = None
 
-        COMM_vars.connected = False
+        ConnectionData.connected = False
         # if Debug > 1:
         Console.print("Connection closed.")
         # print("Connection closed.")
@@ -521,23 +521,23 @@ class ConnectionThread:
 
         Console.print("CONN:", end="")
 
-        COMM_vars.connected = True
+        ConnectionData.connected = True
         try:
             self.srv.connect(server_address)
         except ConnectionResetError:
-            COMM_vars.connected = False
+            ConnectionData.connected = False
             Console.print("Server not responding.")
         except ConnectionRefusedError:
-            COMM_vars.connected = False
+            ConnectionData.connected = False
             Console.print("Server refused connection.")
         except socket.gaierror:
-            COMM_vars.connected = False
+            ConnectionData.connected = False
             Console.print("Invalid protocol.")
         except OSError:
-            COMM_vars.connected = False
+            ConnectionData.connected = False
             Console.print("No route to host.")
 
-        if COMM_vars.connected is True:
+        if ConnectionData.connected is True:
             Console.print("Link with", self.srv.getpeername(), "established.")
             time.sleep(1)
             IP_addr = socket.gethostbyname(Host)
@@ -546,11 +546,11 @@ class ConnectionThread:
         cam0_restart = False
         resolution_last = None
         AudioBitrate_last = None
-        mic_last = not COMM_vars.mic
-        speaker_last = not COMM_vars.speakers
+        mic_last = not ConnectionData.mic
+        speaker_last = not ConnectionData.speakers
         self.Streaming_mode = 0
 
-        while COMM_vars.connected is True:
+        while ConnectionData.connected is True:
             self.Rac_Stream.video_flip.set_property("method", CAM0_control.Flip)  # => "rotate"
 
             if CommunicationFFb is True:
@@ -558,38 +558,38 @@ class ConnectionThread:
                 self.calculate_MotorPower()     # Set control variables
                 self.mouseInput()               # Set mouse Variables
 
-            if AudioBitrate[COMM_vars.Abitrate] != AudioBitrate_last:
-                AudioBitrate_last = AudioBitrate[COMM_vars.Abitrate]
+            if AudioBitrate[ConnectionData.Abitrate] != AudioBitrate_last:
+                AudioBitrate_last = AudioBitrate[ConnectionData.Abitrate]
                 self.Rac_Stream.sender_audio.set_state(Gst.State.READY)
                 speaker_last = None
 
-            if COMM_vars.mic is not mic_last:
-                mic_last = self.conect_micstream(COMM_vars.mic)
+            if ConnectionData.mic is not mic_last:
+                mic_last = self.conect_micstream(ConnectionData.mic)
 
-            if COMM_vars.speakers is not speaker_last:
-                speaker_last = self.conect_speakerstream(COMM_vars.speakers)
+            if ConnectionData.speakers is not speaker_last:
+                speaker_last = self.conect_speakerstream(ConnectionData.speakers)
 
-            if COMM_vars.resolution != resolution_last and self.FXqueue.empty() is True:
-                resolution_last = COMM_vars.resolution
+            if ConnectionData.resolution != resolution_last and self.FXqueue.empty() is True:
+                resolution_last = ConnectionData.resolution
 
                 self.FXmode  = 0
-                self.FXvalue = COMM_vars.resolution
+                self.FXvalue = ConnectionData.resolution
 
-                cam0_restart = bool(COMM_vars.resolution)
-                if COMM_vars.resolution > 0:
-                    Console.print("Requesting mode", COMM_vars.resolution, end='...')
+                cam0_restart = bool(ConnectionData.resolution)
+                if ConnectionData.resolution > 0:
+                    Console.print("Requesting mode", ConnectionData.resolution, end='...')
                 else:
                     Console.print("Pausing Video Stream")
                 self.connect_camstream(False)
 
             if cam0_restart is True:
-                if COMM_vars.Protocol == TCP:
-                    if COMM_vars.resolution == self.Streaming_mode:
+                if ConnectionData.Protocol == TCP:
+                    if ConnectionData.resolution == self.Streaming_mode:
                         Console.print("OK!")
                         cam0_restart = self.connect_camstream(True)
                 else:  # UDP connection
                     self.connect_camstream(True)
-                    if COMM_vars.resolution == self.Streaming_mode:
+                    if ConnectionData.resolution == self.Streaming_mode:
                         Console.print("OK!")
                         cam0_restart = False
 
@@ -605,7 +605,7 @@ class ConnectionThread:
         exit_thread()
 
     def send_init_string(self, IP_addr):
-        initstr = chr(COMM_vars.Protocol + 48) + chr(COMM_vars.Vcodec + 48) + chr(COMM_vars.TestMode + 48)  # Add 48(ASCII) to show integer in the log.
+        initstr = chr(ConnectionData.Protocol + 48) + chr(ConnectionData.Vcodec + 48) + chr(ConnectionData.TestMode + 48)  # Add 48(ASCII) to show integer in the log.
         ipint_list = map(int, findall('\d+', IP_addr))
         for ipint in ipint_list:
             initstr += chr(ipint)
@@ -617,7 +617,7 @@ class ConnectionThread:
         self.transmit_message(initstr)
 
     def send_and_receive(self):
-        if COMM_vars.speed != "HALT":
+        if ConnectionData.speed != "HALT":
 
             if self.FXqueue.empty() is False:
                 if self.FXmode_sent == self.FXmode:
@@ -635,13 +635,13 @@ class ConnectionThread:
             checksum = self.transmit_message(request)
 
             if checksum is None:
-                COMM_vars.connErr += 1
-                if COMM_vars.connErr > RETRY_LIMIT:
-                    COMM_vars.connErr = 0
-                    COMM_vars.connected = False
+                ConnectionData.connErr += 1
+                if ConnectionData.connErr > RETRY_LIMIT:
+                    ConnectionData.connErr = 0
+                    ConnectionData.connected = False
                 return
             else:
-                COMM_vars.connErr = 0
+                ConnectionData.connErr = 0
 
             time.sleep(RESP_DELAY)
             resp = self.receive_message(RECMSGLEN)
@@ -649,7 +649,7 @@ class ConnectionThread:
             if resp is not None:
                 if checksum == ord(resp[0]):    # ************* MESSAGE CONFIRMED ******************
                     self.Streaming_mode = self.decode_message(resp)
-                    COMM_vars.motor_ACK = COMM_vars.motor_Power
+                    ConnectionData.motor_ACK = ConnectionData.motor_Power
                     self.FXmode_sent = self.FXmode
                 else:
                     Console.print("Bad chksum:", checksum, ord(resp[0]))
@@ -658,7 +658,7 @@ class ConnectionThread:
         else:
 # ToDo:
             self.transmit_message("HALTHALTHALT")
-            COMM_vars.connected = False
+            ConnectionData.connected = False
 
     ###############################################################################
     ################   CONN LOOP END   ############################################
@@ -695,8 +695,8 @@ class ConnectionThread:
 
     def conect_speakerstream(self, Connect):
         if Connect is True:
-            Console.print(" Speaker requested rate:", AudioBitrate[COMM_vars.Abitrate])
-            caps = Gst.Caps.from_string("audio/x-raw, rate=" + AudioBitrate[COMM_vars.Abitrate])
+            Console.print(" Speaker requested rate:", AudioBitrate[ConnectionData.Abitrate])
+            caps = Gst.Caps.from_string("audio/x-raw, rate=" + AudioBitrate[ConnectionData.Abitrate])
             self.Rac_Stream.sender_audio_capsfilter.set_property("caps", caps)
 
             retmsg = self.Rac_Stream.sender_audio.set_state(Gst.State.PLAYING)
@@ -756,7 +756,7 @@ class ConnectionThread:
             Console.print(">>>DataIndexError>>>", len(data), data_end)
 
         if data_end == chr(255):
-            COMM_vars.comm_link_idle = 0
+            ConnectionData.comm_link_idle = 0
             return data
         else:
             return None
@@ -821,18 +821,18 @@ class ConnectionThread:
             else:
                 dataint[xcr] = ord(resp[xcr])
 
-        COMM_vars.motor_PWR[RIGHT] = dataint[1]                                 #2
-        COMM_vars.motor_PWR[LEFT]  = dataint[2]                                 #3
-        COMM_vars.motor_RPM[RIGHT] = dataint[3]                                 #4
-        COMM_vars.motor_RPM[LEFT]  = dataint[4]                                 #5
+        ConnectionData.motor_PWR[RIGHT] = dataint[1]                                 #2
+        ConnectionData.motor_PWR[LEFT]  = dataint[2]                                 #3
+        ConnectionData.motor_RPM[RIGHT] = dataint[3]                                 #4
+        ConnectionData.motor_RPM[LEFT]  = dataint[4]                                 #5
         curr_sensor = 0.0048 * (dataint[5] * 250 + dataint[6])                  #6,7
-        COMM_vars.current          = (2.48 - curr_sensor) * 5
-        COMM_vars.voltage          = 0.0157 * (dataint[7] * 250 + dataint[8]) - 0.95 #8,9
-        COMM_vars.distanceS1       = int((dataint[9] * 250 + dataint[10]) / 58) #10,11
+        ConnectionData.current          = (2.48 - curr_sensor) * 5
+        ConnectionData.voltage          = 0.0157 * (dataint[7] * 250 + dataint[8]) - 0.95 #8,9
+        ConnectionData.distanceS1       = int((dataint[9] * 250 + dataint[10]) / 58) #10,11
 
         CntrlMask1 = ord(resp[11])                                              #12
         CntrlMask2 = ord(resp[12])                                              #13
-        COMM_vars.coreTemp = ord(resp[14]) * 0.5                                #15
+        ConnectionData.coreTemp = ord(resp[14]) * 0.5                                #15
 
         Streaming_mode = CntrlMask2
 
@@ -841,21 +841,21 @@ class ConnectionThread:
     @staticmethod
     def encode_message(FXmode, FXvalue):
         CntrlMask1 = 0
-        for idx, x in enumerate([COMM_vars.AutoMode, COMM_vars.light, COMM_vars.speakers, COMM_vars.mic,
-                                 COMM_vars.display, COMM_vars.laser, 0, 0]):
+        for idx, x in enumerate([ConnectionData.AutoMode, ConnectionData.light, ConnectionData.speakers, ConnectionData.mic,
+                                 ConnectionData.display, ConnectionData.laser, 0, 0]):
             CntrlMask1 |= (x << idx)
 
-        BitrateMask  = 100 * COMM_vars.Abitrate + 10 * COMM_vars.Vbitrate + COMM_vars.Framerate
+        BitrateMask  = 100 * ConnectionData.Abitrate + 10 * ConnectionData.Vbitrate + ConnectionData.Framerate
 
         # convert 16-bit values to 2 x 8-bit
         FxVal0 = int(FXvalue / 256)
         FxVal1 = FXvalue % 256
 
         reqMsgVal = []
-        reqMsgVal.append(COMM_vars.motor_Power[RIGHT] + 50)     # 1
-        reqMsgVal.append(COMM_vars.motor_Power[LEFT] + 50)      # 2
-        reqMsgVal.append(COMM_vars.camPosition[X_AXIS])         # 3
-        reqMsgVal.append(COMM_vars.camPosition[Y_AXIS])         # 4
+        reqMsgVal.append(ConnectionData.motor_Power[RIGHT] + 50)     # 1
+        reqMsgVal.append(ConnectionData.motor_Power[LEFT] + 50)      # 2
+        reqMsgVal.append(ConnectionData.camPosition[X_AXIS])         # 3
+        reqMsgVal.append(ConnectionData.camPosition[Y_AXIS])         # 4
         reqMsgVal.append(CntrlMask1)                            # 5
         reqMsgVal.append(FXmode)                                # 6
         reqMsgVal.append(FxVal0)                                # 7
@@ -876,41 +876,41 @@ class ConnectionThread:
     def get_speed_and_direction():
 
         if KEY_control.Down is True:
-            if COMM_vars.speed > -MAX_SPEED:
-                COMM_vars.speed -= ACCELERATION
+            if ConnectionData.speed > -MAX_SPEED:
+                ConnectionData.speed -= ACCELERATION
 
         if KEY_control.Up is True:
-            if COMM_vars.speed < MAX_SPEED:
-                COMM_vars.speed += ACCELERATION
+            if ConnectionData.speed < MAX_SPEED:
+                ConnectionData.speed += ACCELERATION
 
         if KEY_control.Left is True:
-            if COMM_vars.direction > -MAX_SPEED:
-                COMM_vars.direction -= ACCELERATION
+            if ConnectionData.direction > -MAX_SPEED:
+                ConnectionData.direction -= ACCELERATION
             else:
-                COMM_vars.direction = MAX_SPEED - ACCELERATION
+                ConnectionData.direction = MAX_SPEED - ACCELERATION
 
         if KEY_control.Right is True:
-            if COMM_vars.direction < MAX_SPEED:
-                COMM_vars.direction += ACCELERATION
+            if ConnectionData.direction < MAX_SPEED:
+                ConnectionData.direction += ACCELERATION
             else:
-                COMM_vars.direction = -MAX_SPEED + ACCELERATION
+                ConnectionData.direction = -MAX_SPEED + ACCELERATION
 
-        return COMM_vars.speed, COMM_vars.direction
+        return ConnectionData.speed, ConnectionData.direction
 
     @staticmethod
     def calculate_MotorPower():
-        if -MAX_SPEED/2 < COMM_vars.direction < MAX_SPEED/2:
-            direction = COMM_vars.direction
+        if -MAX_SPEED/2 < ConnectionData.direction < MAX_SPEED/2:
+            direction = ConnectionData.direction
         else:
-            offset = MAX_SPEED * (COMM_vars.direction / abs(COMM_vars.direction))
-            direction = (-COMM_vars.direction + offset)
+            offset = MAX_SPEED * (ConnectionData.direction / abs(ConnectionData.direction))
+            direction = (-ConnectionData.direction + offset)
 
-        COMM_vars.motor_Power = [int(COMM_vars.speed - direction), int(COMM_vars.speed + direction)]
-        return COMM_vars.motor_Power
+        ConnectionData.motor_Power = [int(ConnectionData.speed - direction), int(ConnectionData.speed + direction)]
+        return ConnectionData.motor_Power
 
     @staticmethod
     def mouseInput():
-        return COMM_vars.camPosition
+        return ConnectionData.camPosition
 
 
 class Console:

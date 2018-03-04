@@ -10,8 +10,8 @@ from sys import argv
 
 from ClientLib   import ConnectionThread, Console
 from Client_vars import Paths, CAM0_control, KEY_control, CommunicationFFb
-from Common_vars import VideoFramerate, AudioBitrate, AudioCodec, VideoCodec, \
-    TIMEOUT_GUI, PROTO_NAME, LEFT, RIGHT, X_AXIS, Y_AXIS, MOUSE_MIN, MOUSE_MAX, COMM_vars, COMM_IDLE
+from Common_vars import VideoFramerate, AudioBitrate, AudioCodec, VideoCodec, PrintOnOff, \
+    TIMEOUT_GUI, PROTO_NAME, LEFT, RIGHT, X_AXIS, Y_AXIS, MOUSE_MIN, MOUSE_MAX, ConnectionData, COMM_IDLE
 
 
 # noinspection PyAttributeOutsideInit
@@ -24,9 +24,8 @@ class MainWindow(Gtk.Window):
         self.counter         = 0
         self.resolution      = 0
         self.camera_on       = True
-        self.DispAvgVal      = [0, 0]
-        # self.Hosts_row       = None
         self.SyncOn          = True
+        self.DispAvgVal      = [0, 0]
 
         self.builder         = self.init_gui_builder
         self.context_id      = self.StatusBar.get_context_id('message')
@@ -54,16 +53,18 @@ class MainWindow(Gtk.Window):
                     self.TreeView_Hosts.append_column(col)
 
                 obj = Gtk.ListStore(str, int)
-                value = ("10.0.1.10", 4550)
-                obj.append((value[0], value[1]))
-                value = ("10.0.1.6", 4550)
-                obj.append((value[0], value[1]))
+                # value = ("10.0.1.10", 4550)
+                # obj.append((value[0], value[1]))
+                # value = ("10.0.1.6", 4550)
+                # obj.append((value[0], value[1]))
                 self.TreeView_Hosts.set_model(obj)
 
             self.ComboBox_Host.set_model(self.TreeView_Hosts.get_model())
             self.ComboBox_Host.set_active(0)
+            self.StatusBar.push(self.context_id, '[%s-th configuration load]' % str(self.RunSeqNo))
         else:
             self.Console.print('Resetting to default configuration.')
+            self.StatusBar.push(self.context_id, 'Resetting to default configuration.')
 
     @staticmethod
     def get_argv(checkval):
@@ -128,11 +129,11 @@ class MainWindow(Gtk.Window):
         self.ComboBoxText_Proto.set_sensitive(True)
 
     def SSBar_update(self):
-        SStatBar = PROTO_NAME[COMM_vars.Protocol] + ": "
-        SStatBar += VideoCodec[COMM_vars.Vcodec] + "/"
-        SStatBar += VideoFramerate[COMM_vars.Framerate] + "  "
-        SStatBar += AudioCodec[COMM_vars.Acodec] + "/"
-        SStatBar += AudioBitrate[COMM_vars.Abitrate]
+        SStatBar = PROTO_NAME[ConnectionData.Protocol] + ": "
+        SStatBar += VideoCodec[ConnectionData.Vcodec] + "/"
+        SStatBar += VideoFramerate[ConnectionData.Framerate] + "  "
+        SStatBar += AudioCodec[ConnectionData.Acodec] + "/"
+        SStatBar += AudioBitrate[ConnectionData.Abitrate]
 
         self.StatusBar1.push(self.context_id1, SStatBar)
 
@@ -141,7 +142,7 @@ class MainWindow(Gtk.Window):
     ###############################################################################
     def on_timer(self):
         # Idle timer for checking the link
-        COMM_vars.comm_link_idle += 1
+        ConnectionData.comm_link_idle += 1
 
         # Any update tasks would go here (moving sprites, advancing animation frames etc.)
         self.UpdateControlData()
@@ -151,18 +152,20 @@ class MainWindow(Gtk.Window):
         self.StatusBar2.push(self.context_id2, str(datetime.timedelta(seconds=int(self.counter))))
         self.DrawingArea_Control.queue_draw()
 
-        if COMM_vars.connected is True:
+        if ConnectionData.connected is True:
             self.counter += .05
 
-            qSize = self.Connection_Thread.FXqueue.qsize()
-            if qSize > 1:
-                self.ProgressBar_SsBar.show()
-                self.ProgressBar_SsBar.set_fraction((20-qSize) / 20)
-                self.StatusBar.push(self.context_id, "Sync buffer: ")
-            if qSize == 0 and self.SyncOn:
-                self.SyncOn = False
-                self.StatusBar.push(self.context_id, "[%s] Sync completed!" % str(self.RunSeqNo))
-                self.ProgressBar_SsBar.hide()
+            if self.SyncOn:
+                qSize = self.Connection_Thread.FXqueue.qsize()
+                if qSize is 0:
+                    self.SyncOn = False
+                    self.ProgressBar_SsBar.hide()
+                    self.StatusBar.push(self.context_id, "Sync completed!")
+                    self.StatusBar.show()
+                else:
+                    self.StatusBar.hide()
+                    self.ProgressBar_SsBar.show()
+                    self.ProgressBar_SsBar.set_fraction((20 - qSize) / 20)
 
             if CommunicationFFb is False:
                 ConnectionThread.get_speed_and_direction()  # Keyboard input
@@ -173,32 +176,31 @@ class MainWindow(Gtk.Window):
             self.counter = 0
             if self.ToggleButton_Connect.get_active() is True:
                 self.ToggleButton_Connect.set_active(False)
-                # self.on_ToggleButton_Connect_toggled(self.ToggleButton_Connect)
-            if COMM_vars.comm_link_idle >= COMM_IDLE:
-                COMM_vars.comm_link_idle = COMM_IDLE  # Do not need to increase counter anymore
+            if ConnectionData.comm_link_idle >= COMM_IDLE:
+                ConnectionData.comm_link_idle = COMM_IDLE  # Do not need to increase counter anymore
                 return True
             else:
                 self.Spinner_Connected.stop()
                 return False
 
     def UpdateMonitorData(self):
-        self.LabelRpmL.set_text(COMM_vars.motor_RPM[LEFT].__str__())
-        self.LabelRpmR.set_text(COMM_vars.motor_RPM[RIGHT].__str__())
-        self.LabelPowerL.set_text(COMM_vars.motor_PWR[LEFT].__str__())
-        self.LabelPowerR.set_text(COMM_vars.motor_PWR[RIGHT].__str__())
-        self.LabelRpmReqL.set_text(COMM_vars.motor_Power[LEFT].__str__())
-        self.LabelRpmReqR.set_text(COMM_vars.motor_Power[RIGHT].__str__())
-        self.LabelRpmAckL.set_text(COMM_vars.motor_ACK[LEFT].__str__())
-        self.LabelRpmAckR.set_text(COMM_vars.motor_ACK[RIGHT].__str__())
-        self.LabelCamPosH.set_text(COMM_vars.camPosition[X_AXIS].__str__())
-        self.LabelCamPosV.set_text(COMM_vars.camPosition[Y_AXIS].__str__())
+        self.LabelRpmL.set_text(ConnectionData.motor_RPM[LEFT].__str__())
+        self.LabelRpmR.set_text(ConnectionData.motor_RPM[RIGHT].__str__())
+        self.LabelPowerL.set_text(ConnectionData.motor_PWR[LEFT].__str__())
+        self.LabelPowerR.set_text(ConnectionData.motor_PWR[RIGHT].__str__())
+        self.LabelRpmReqL.set_text(ConnectionData.motor_Power[LEFT].__str__())
+        self.LabelRpmReqR.set_text(ConnectionData.motor_Power[RIGHT].__str__())
+        self.LabelRpmAckL.set_text(ConnectionData.motor_ACK[LEFT].__str__())
+        self.LabelRpmAckR.set_text(ConnectionData.motor_ACK[RIGHT].__str__())
+        self.LabelCamPosH.set_text(ConnectionData.camPosition[X_AXIS].__str__())
+        self.LabelCamPosV.set_text(ConnectionData.camPosition[Y_AXIS].__str__())
 
-        Voltage = "{:.2f}".format(COMM_vars.voltage).__str__()
-        Current = "{:.2f}".format(COMM_vars.current).__str__()
-        self.LabelCoreTemp.set_text("{:.2f}".format(COMM_vars.coreTemp).__str__())
+        Voltage = "{:.2f}".format(ConnectionData.voltage).__str__()
+        Current = "{:.2f}".format(ConnectionData.current).__str__()
+        self.LabelCoreTemp.set_text("{:.2f}".format(ConnectionData.coreTemp).__str__())
         self.LabelBattV.set_text(Voltage)
         self.LabelPowerA.set_text(Current)
-        self.LabelS1Dist.set_text(COMM_vars.distanceS1.__str__())
+        self.LabelS1Dist.set_text(ConnectionData.distanceS1.__str__())
 
         self.LevelBar_Voltage.set_tooltip_text(Voltage + "V")
         self.LevelBar_Current.set_tooltip_text(Current + "A")
@@ -206,12 +208,12 @@ class MainWindow(Gtk.Window):
         return
 
     def UpdateControlData(self):
-        self.DispAvgVal[0] = (self.DispAvgVal[0] * 4 + COMM_vars.voltage) / 5
-        self.DispAvgVal[1] = (self.DispAvgVal[1] * 4 + COMM_vars.current) / 5
+        self.DispAvgVal[0] = (self.DispAvgVal[0] * 4 + ConnectionData.voltage) / 5
+        self.DispAvgVal[1] = (self.DispAvgVal[1] * 4 + ConnectionData.current) / 5
         self.LevelBar_Voltage.set_value(self.DispAvgVal[0])
         self.LevelBar_Current.set_value(self.DispAvgVal[1])
-        self.LeverBar_PowerL.set_value(COMM_vars.motor_PWR[LEFT])
-        self.LeverBar_PowerR.set_value(COMM_vars.motor_PWR[RIGHT])
+        self.LeverBar_PowerL.set_value(ConnectionData.motor_PWR[LEFT])
+        self.LeverBar_PowerR.set_value(ConnectionData.motor_PWR[RIGHT])
 
         return
 
@@ -223,7 +225,6 @@ class MainWindow(Gtk.Window):
         self.Connection_Thread.draw_arrow(message)
 
     def on_ComboBox_Host_changed(self, widget):
-        # self.Host = widget.get_active_text()
         try:
             self.Host = str(widget.get_model()[widget.get_active()][0])
             self.Port = int(float(widget.get_model()[widget.get_active()][1]))
@@ -236,12 +237,12 @@ class MainWindow(Gtk.Window):
         pass
 
     def on_CheckButton_LocalTest_toggled(self, widget):
-        COMM_vars.TestMode = not(widget.get_active())
-        COMM_vars.Vcodec = bool(COMM_vars.Protocol + COMM_vars.TestMode)
+        ConnectionData.TestMode = not(widget.get_active())
+        ConnectionData.Vcodec = bool(ConnectionData.Protocol + ConnectionData.TestMode)
         self.SSBar_update()
 
     def on_ComboBoxText_Proto_changed(self, widget):
-        COMM_vars.Protocol = widget.get_active()
+        ConnectionData.Protocol = widget.get_active()
         self.SSBar_update()
 
     def on_ToggleButton_Connect_toggled(self, widget):
@@ -274,7 +275,7 @@ class MainWindow(Gtk.Window):
                 self.gui_update_disconnect()
             self.StatusBar.push(self.context_id, retmsg)
         else:
-            COMM_vars.connected = False
+            ConnectionData.connected = False
             widget.set_label(Gtk.STOCK_CONNECT)
             self.StatusBar.push(self.context_id, 'Disconnected.')
             self.gui_update_disconnect()
@@ -285,9 +286,9 @@ class MainWindow(Gtk.Window):
 
     def on_CheckButton_Cam_toggled(self, widget):
         self.camera_on = widget.get_active()
-        COMM_vars.resolution = self.resolution * self.camera_on
-        retmsg = 'Camera: ' + self.camera_on.__str__()
-
+        ConnectionData.resolution = self.resolution * self.camera_on
+        retmsg = 'Camera: %s' % PrintOnOff[self.camera_on]
+        Console.print(retmsg)
         self.StatusBar.push(self.context_id, retmsg)
 
     def store_FX_request(self, FXmode, FXvalue):
@@ -348,7 +349,6 @@ class MainWindow(Gtk.Window):
             self.Menu_CamFx_Item15.set_active(True)
 
         retmsg = 'FX effect changed [' + FXvalue.__str__() + ']'
-
         self.StatusBar.push(self.context_id, retmsg)
 
     def on_ComboBoxResolution_changed(self, widget):
@@ -369,10 +369,9 @@ class MainWindow(Gtk.Window):
             self.DrawingArea_Cam.set_size_request(1152, 864)
             self.Menu_CamRes_Item5.set_active(True)
 
-        COMM_vars.resolution = self.resolution * self.camera_on
+        ConnectionData.resolution = self.resolution * self.camera_on
 
-        retmsg = 'Resolution changed [' + COMM_vars.resolution.__str__() + ']'
-
+        retmsg = 'Resolution changed [' + ConnectionData.resolution.__str__() + ']'
         self.StatusBar.push(self.context_id, retmsg)
 
     def on_FxValue_changed(self, widget):
@@ -398,54 +397,54 @@ class MainWindow(Gtk.Window):
             self.store_FX_request(FXmode, int(widget.get_value()) + ADDtmp)
 
     def on_ComboBoxText_Vcodec_changed(self, widget):
-        COMM_vars.Vcodec = widget.get_active()
+        ConnectionData.Vcodec = widget.get_active()
         self.SSBar_update()
 
     def on_ComboBoxText_Acodec_changed(self, widget):
-        COMM_vars.Acodec = widget.get_active()
+        ConnectionData.Acodec = widget.get_active()
         self.SSBar_update()
 
     def on_ComboBoxText_Framerate_changed(self, widget):
-        COMM_vars.Framerate = widget.get_active()
-        self.Console.print('Video Framerate:', VideoFramerate[COMM_vars.Framerate])
+        ConnectionData.Framerate = widget.get_active()
+        self.Console.print('Video Framerate:', VideoFramerate[ConnectionData.Framerate])
         self.SSBar_update()
 
     def on_ComboBoxText_Rotate_changed(self, widget):
         CAM0_control.Flip = widget.get_active()
 
     def on_ComboBoxText_Abitrate_changed(self, widget):
-        COMM_vars.Abitrate = widget.get_active()
-        self.Console.print('Audio Bitrate:', AudioBitrate[COMM_vars.Abitrate])
+        ConnectionData.Abitrate = widget.get_active()
+        self.Console.print('Audio Bitrate:', AudioBitrate[ConnectionData.Abitrate])
         self.SSBar_update()
 
     def on_CheckButton_Speakers_toggled(self, widget):
-        COMM_vars.speakers = widget.get_active()
-        self.Console.print('Speakers:', COMM_vars.speakers)
-        retmsg = 'Speakers: ' + COMM_vars.speakers.__str__()
+        ConnectionData.speakers = widget.get_active()
+        self.Console.print('Speakers:', ConnectionData.speakers)
+        retmsg = 'Speakers: ' + PrintOnOff[ConnectionData.speakers]
         self.StatusBar.push(self.context_id, retmsg)
 
     def on_CheckButton_Display_toggled(self, widget):
-        COMM_vars.display = widget.get_active()
-        self.Console.print('Display:', COMM_vars.display)
-        retmsg = 'Display: ' + COMM_vars.display.__str__()
+        ConnectionData.display = widget.get_active()
+        self.Console.print('Display:', ConnectionData.display)
+        retmsg = 'Display: ' + PrintOnOff[ConnectionData.display]
         self.StatusBar.push(self.context_id, retmsg)
 
     def on_CheckButton_Lights_toggled(self, widget):
-        COMM_vars.light = widget.get_active()
-        self.Console.print('Light:', COMM_vars.light)
-        retmsg = 'Light: ' + COMM_vars.light.__str__()
+        ConnectionData.light = widget.get_active()
+        self.Console.print('Lights:', ConnectionData.light)
+        retmsg = 'Lights: ' + PrintOnOff[ConnectionData.light]
         self.StatusBar.push(self.context_id, retmsg)
 
     def on_CheckButton_Mic_toggled(self, widget):
-        COMM_vars.mic = widget.get_active()
-        self.Console.print('Mic:', COMM_vars.mic)
-        retmsg = 'Mic: ' + COMM_vars.mic.__str__()
+        ConnectionData.mic = widget.get_active()
+        self.Console.print('Microphone:', ConnectionData.mic)
+        retmsg = 'Microphone: ' + PrintOnOff[ConnectionData.mic]
         self.StatusBar.push(self.context_id, retmsg)
 
     def on_CheckButton_Laser_toggled(self, widget):
-        COMM_vars.laser = widget.get_active()
-        self.Console.print('Laser:', COMM_vars.laser)
-        retmsg = 'Laser: ' + COMM_vars.laser.__str__()
+        ConnectionData.laser = widget.get_active()
+        self.Console.print('Laser:', ConnectionData.laser)
+        retmsg = 'Laser: ' + PrintOnOff[ConnectionData.laser]
         self.StatusBar.push(self.context_id, retmsg)
 
     def on_ToggleButton_Log_toggled(self, widget):
@@ -538,7 +537,6 @@ class MainWindow(Gtk.Window):
         return True
 
     def on_TreeView_Hosts_row_activated(self, widget, iter, column):
-        # self.Hosts_row = iter
         model = tuple(widget.get_model()[iter])
         self.Entry_Hosts.set_text(model[0] + ":" + model[1].__str__())
 
@@ -609,8 +607,8 @@ class MainWindow(Gtk.Window):
             KEY_control.Down = value
 
         elif key_name == 'space':
-            COMM_vars.speed = 0
-            COMM_vars.direction = 0
+            ConnectionData.speed = 0
+            ConnectionData.direction = 0
             KEY_control.Space = value
 
         if event.state is True and Gdk.KEY_Shift_L is not KEY_control.Shift:
@@ -643,21 +641,21 @@ class MainWindow(Gtk.Window):
         if KEY_control.MouseBtn[LEFT] is True:
             tmp = (KEY_control.MouseXY[X_AXIS] - mouseX) / 2
             if abs(tmp) >= 1:
-                if COMM_vars.camPosition[X_AXIS] + tmp > MOUSE_MAX[X_AXIS]:
-                    COMM_vars.camPosition[X_AXIS] = MOUSE_MAX[X_AXIS]
-                elif COMM_vars.camPosition[X_AXIS] + tmp < MOUSE_MIN[X_AXIS]:
-                    COMM_vars.camPosition[X_AXIS] = MOUSE_MIN[X_AXIS]
+                if ConnectionData.camPosition[X_AXIS] + tmp > MOUSE_MAX[X_AXIS]:
+                    ConnectionData.camPosition[X_AXIS] = MOUSE_MAX[X_AXIS]
+                elif ConnectionData.camPosition[X_AXIS] + tmp < MOUSE_MIN[X_AXIS]:
+                    ConnectionData.camPosition[X_AXIS] = MOUSE_MIN[X_AXIS]
                 else:
-                    COMM_vars.camPosition[X_AXIS] += int(tmp)
+                    ConnectionData.camPosition[X_AXIS] += int(tmp)
 
             tmp = (mouseY - KEY_control.MouseXY[Y_AXIS]) / 2
             if abs(tmp) >= 1:
-                if COMM_vars.camPosition[Y_AXIS] + tmp > MOUSE_MAX[Y_AXIS]:
-                    COMM_vars.camPosition[Y_AXIS] = MOUSE_MAX[Y_AXIS]
-                elif COMM_vars.camPosition[Y_AXIS] + tmp < MOUSE_MIN[Y_AXIS]:
-                    COMM_vars.camPosition[Y_AXIS] = MOUSE_MIN[Y_AXIS]
+                if ConnectionData.camPosition[Y_AXIS] + tmp > MOUSE_MAX[Y_AXIS]:
+                    ConnectionData.camPosition[Y_AXIS] = MOUSE_MAX[Y_AXIS]
+                elif ConnectionData.camPosition[Y_AXIS] + tmp < MOUSE_MIN[Y_AXIS]:
+                    ConnectionData.camPosition[Y_AXIS] = MOUSE_MIN[Y_AXIS]
                 else:
-                    COMM_vars.camPosition[Y_AXIS] += int(tmp)
+                    ConnectionData.camPosition[Y_AXIS] += int(tmp)
 
             KEY_control.MouseXY = [mouseX, mouseY]
 
@@ -752,10 +750,10 @@ class ConfigStorage:
                 # cellrenderer to render the text
                 cell = Gtk.CellRendererText()
                 # the text in the first column should be in boldface
-                if i == 0:
+                # if i == 0:
                     # cell.props.weight_set = True
                     # cell.props.weight = 12000
-                    pass
+                    # pass
                 # the column is created
                 col = Gtk.TreeViewColumn(column, cell, text=i)
                 obj.append_column(col)

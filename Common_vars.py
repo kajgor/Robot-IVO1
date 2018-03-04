@@ -55,6 +55,7 @@ VideoCodec = ("raw", "h264", "mjpeg", "VP8")
 VideoFramerate = ("30", "25", "15", "5")
 AudioCodec = ("speex", "mp3", "aac")
 AudioBitrate = ("32000", "16000", "8000")
+PrintOnOff = ('off', 'on')
 ###### COLOURS #######
 BLACK = (0, 0, 0)
 WHITE = (255, 255, 255)
@@ -73,7 +74,8 @@ TCP = 0
 UDP = 1
 PROTO_NAME = ["TCP", "UDP"]
 
-class COMM_vars:
+
+class ConnectionData:
     connected   = False
     comm_link_idle = 0
     connErr     = 0
@@ -110,13 +112,18 @@ class COMM_vars:
 
 
 import binascii
+
+
 def calc_checksum(string):
     """
     Calculates checksum for sending commands to the server.
     """
     return binascii.crc32(string) % 256
 
+
 import subprocess
+
+
 def execute_cmd(cmd_string):
     stdout = None
     try:

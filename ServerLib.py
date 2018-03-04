@@ -165,9 +165,9 @@ class ServerThread(threading.Thread):
                     break
                 except UnicodeEncodeError:
                     print(response)
-                    print("temp", COMM_vars.coreTemp)
-                    print("curr", COMM_vars.current)
-                    print("volt", COMM_vars.voltage)
+                    print("temp", ConnectionData.coreTemp)
+                    print("curr", ConnectionData.current)
+                    print("volt", ConnectionData.voltage)
 
                     break
 
@@ -193,12 +193,12 @@ class ServerThread(threading.Thread):
         SRV_vars.CTRL1_Mask = data[5]
         # Force 8bit format to extract switches
         CTRL1_Mask   = format(SRV_vars.CTRL1_Mask + 256, 'b')
-        COMM_vars.light     = bool(int(CTRL1_Mask[7]))
-        COMM_vars.speakers  = bool(int(CTRL1_Mask[6]))
-        COMM_vars.mic       = bool(int(CTRL1_Mask[5]))
-        COMM_vars.display   = bool(int(CTRL1_Mask[4]))
-        COMM_vars.laser     = bool(int(CTRL1_Mask[3]))
-        COMM_vars.AutoMode  = bool(int(CTRL1_Mask[2]))
+        ConnectionData.light     = bool(int(CTRL1_Mask[7]))
+        ConnectionData.speakers  = bool(int(CTRL1_Mask[6]))
+        ConnectionData.mic       = bool(int(CTRL1_Mask[5]))
+        ConnectionData.display   = bool(int(CTRL1_Mask[4]))
+        ConnectionData.laser     = bool(int(CTRL1_Mask[3]))
+        ConnectionData.AutoMode  = bool(int(CTRL1_Mask[2]))
         # COMM_vars.          = bool(int(CTRL1_Mask[1]))
         # COMM_vars.          = bool(int(CTRL1_Mask[0]))
 
@@ -208,9 +208,9 @@ class ServerThread(threading.Thread):
             FXvalue *= 1000
 
         Bitratemask  = str(int(data[9]) + 1000)
-        COMM_vars.Abitrate  = int(Bitratemask[1])
-        COMM_vars.Vbitrate  = int(Bitratemask[2])
-        COMM_vars.Framerate = int(Bitratemask[3])
+        ConnectionData.Abitrate  = int(Bitratemask[1])
+        ConnectionData.Vbitrate  = int(Bitratemask[2])
+        ConnectionData.Framerate = int(Bitratemask[3])
 
         return FXmode, FXvalue
 
@@ -221,7 +221,7 @@ class ServerThread(threading.Thread):
         retstr += chr(data[5])  # CntrlMask1            # 12
         retstr += chr(streaming_mode)         # 13
         retstr += chr(255)                              # 14
-        retstr += chr(COMM_vars.coreTemp)               # 15
+        retstr += chr(ConnectionData.coreTemp)               # 15
         retstr += chr(255)                              # 16
 
         return retstr  # .ljust(RECMSGLEN, chr(255))
@@ -501,49 +501,49 @@ class StreamThread(threading.Thread):
         curr_resolution = 0
 
         req_audio_mode = [Gst.State.READY, Gst.State.PLAYING]
-        curr_mic0 = not COMM_vars.mic
-        curr_speakers = not COMM_vars.speakers
+        curr_mic0 = not ConnectionData.mic
+        curr_speakers = not ConnectionData.speakers
         curr_AudioBitrate = None
         curr_Framerate = None
         self.sender_audio[SRV_vars.TestMode].set_state(req_audio_mode[curr_mic0])
         self.player_audio[SRV_vars.TestMode].set_state(req_audio_mode[curr_speakers])
 
         while not self.shutdown_flag.is_set():
-            if AudioBitrate[COMM_vars.Abitrate] != curr_AudioBitrate:
-                curr_AudioBitrate = AudioBitrate[COMM_vars.Abitrate]
+            if AudioBitrate[ConnectionData.Abitrate] != curr_AudioBitrate:
+                curr_AudioBitrate = AudioBitrate[ConnectionData.Abitrate]
                 self.sender_audio[SRV_vars.TestMode].set_state(Gst.State.READY)
                 curr_mic0 = None
 
-            if curr_mic0 is not COMM_vars.mic:
-                curr_mic0 = COMM_vars.mic
-                if COMM_vars.mic is True:
-                    Console.print(" Mic0 requested rate:", AudioBitrate[COMM_vars.Abitrate])
-                    caps = Gst.Caps.from_string("audio/x-raw, rate=" + AudioBitrate[COMM_vars.Abitrate])
+            if curr_mic0 is not ConnectionData.mic:
+                curr_mic0 = ConnectionData.mic
+                if ConnectionData.mic is True:
+                    Console.print(" Mic0 requested rate:", AudioBitrate[ConnectionData.Abitrate])
+                    caps = Gst.Caps.from_string("audio/x-raw, rate=" + AudioBitrate[ConnectionData.Abitrate])
                     self.sender_audio_capsfilter[self.Source_h264].set_property("caps", caps)
                     self.sender_audio_capsfilter[self.Source_test].set_property("caps", caps)
                 else:
                     Console.print(" Mic0 muted")
 
-                self.sender_audio[SRV_vars.TestMode].set_state(req_audio_mode[COMM_vars.mic])
+                self.sender_audio[SRV_vars.TestMode].set_state(req_audio_mode[ConnectionData.mic])
 
-            if curr_speakers is not COMM_vars.speakers:
-                curr_speakers = COMM_vars.speakers
-                if COMM_vars.speakers is True:
-                    Console.print(" Speakers on", COMM_vars.speakers)
+            if curr_speakers is not ConnectionData.speakers:
+                curr_speakers = ConnectionData.speakers
+                if ConnectionData.speakers is True:
+                    Console.print(" Speakers on", ConnectionData.speakers)
                 else:
-                    Console.print(" Speakers muted", COMM_vars.speakers)
+                    Console.print(" Speakers muted", ConnectionData.speakers)
 # ToDo:
-                self.player_audio[SRV_vars.TestMode].set_state(req_audio_mode[COMM_vars.speakers])
+                self.player_audio[SRV_vars.TestMode].set_state(req_audio_mode[ConnectionData.speakers])
 
-            if curr_Framerate != COMM_vars.Framerate:
-                curr_Framerate = COMM_vars.Framerate
+            if curr_Framerate != ConnectionData.Framerate:
+                curr_Framerate = ConnectionData.Framerate
                 curr_resolution = None
 
             if curr_resolution != self.req_resolution:
                 if self.req_resolution > 0:
                     Console.print("Changing Gstreamer fps/resolution")
                     ### CHANGE RESOLUTION CAPS ###
-                    res_fps = capsstr[self.req_resolution] + FpsModes[COMM_vars.Framerate].__str__() + "/1"
+                    res_fps = capsstr[self.req_resolution] + FpsModes[ConnectionData.Framerate].__str__() + "/1"
                     caps = Gst.Caps.from_string("video/x-" + VideoCodec[self.Video_Codec] + res_fps)
                     self.sender_video_capsfilter[SRV_vars.TestMode].set_property("caps", caps)
 
@@ -585,7 +585,7 @@ class StreamThread(threading.Thread):
                     # Port = self.sender_video_sink[SRV_vars.TestMode].get_property("port")
                     # Console.print("Gst:Port:::", Port)
                     Console.print("Requested streaming in mode " + self.req_resolution.__str__() + "/" +
-                                  FpsModes[COMM_vars.Framerate].__str__() + "... ")
+                                  FpsModes[ConnectionData.Framerate].__str__() + "... ")
                     self.sender_video[SRV_vars.TestMode].set_state(req_mode)
                 else:
                     Console.print('ERROR: resolution' + self.req_resolution.__str__() + ", mode " + req_mode)
@@ -718,19 +718,19 @@ class DriverThread(threading.Thread):
             inc += adx
             if inc > 250 or inc < 30:
                 adx = -adx
-            COMM_vars.current = chr(60 + int(inc / 10)) + chr(int(inc % 100))
+            ConnectionData.current = chr(60 + int(inc / 10)) + chr(int(inc % 100))
 
             # Voltage - report continuously
-            COMM_vars.voltage = chr(130) + chr(35)
+            ConnectionData.voltage = chr(130) + chr(35)
 
             # DistanceS1
-            COMM_vars.distanceS1 = chr(+ 100)
+            ConnectionData.distanceS1 = chr(+ 100)
 
             # Motor Power
-            COMM_vars.motor_PWR = [60, 50]
+            ConnectionData.motor_PWR = [60, 50]
 
             # Mmotor RPM
-            COMM_vars.motor_RPM = [80, 80]
+            ConnectionData.motor_RPM = [80, 80]
 
             # TEMP - report every 3sec
             if idx == 30:
@@ -745,7 +745,7 @@ class DriverThread(threading.Thread):
         Tempstr = re.findall(r"\d+", Tempstr.decode(Encoding))
         Temp = int(Tempstr[0]) * 10 + int(Tempstr[1])
         if Temp <= 1275:
-            COMM_vars.coreTemp = int(Temp / 5)
+            ConnectionData.coreTemp = int(Temp / 5)
 
 
 # Function for handling connections. This will be used to create threads
