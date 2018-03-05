@@ -718,8 +718,8 @@ class ConfigStorage:
     @staticmethod
     def set_object_value(obj, value):
         if type(obj) == Gtk.CheckButton:
-            obj.set_active(not(value))
-            obj.emit('clicked')
+            obj.set_active(value)
+            obj.emit('toggled')
             return
 
         if type(obj) == Gtk.CheckMenuItem:
