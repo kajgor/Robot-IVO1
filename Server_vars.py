@@ -31,7 +31,11 @@ H264_ENC = "x264enc"
 
 # DEVICES
 # MIC0_DEVICE = "alsa_input.usb-C-Media_Electronics_Inc._USB_PnP_Sound_Device-00.analog-mono"
-MIC0_DEVICE = "alsa_input.usb-0d8c_USB_PnP_Sound_Device-00.analog-mono"
+# MIC0_DEVICE = "alsa_input.usb-0d8c_USB_PnP_Sound_Device-00.analog-mono"
+CAM_1_CMD    = "v4l2-ctl --list-devices|grep 'video'|tr -d '\t'"
+DEV_OUT_CMD  = "pactl list short sinks|grep output|cut -f1-2|tr '\t' ':'"
+DEV_INP_CMD  = "pactl list short sources|grep input|cut -f1-2|tr '\t' ':'"
+
 
 Debug = 0
 
@@ -67,10 +71,12 @@ class SRV_vars:
 
     CTRL1_Mask    = 0
 
+
 from os import path
 from sys import argv
 
 
 class Paths:
     pathname = path.dirname(argv[0])
-    GUI_file = pathname + "/gui_artifacts/Server_GUI.glade"
+    GUI_file = pathname + "/gui_artifacts/Server_GUI_v2.glade"
+    ini_file = pathname + "/Server.ini"

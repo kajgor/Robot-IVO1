@@ -161,9 +161,9 @@ class MainWindow(Gtk.Window):
                     self.SyncOn = False
                     self.ProgressBar_SsBar.hide()
                     self.StatusBar.push(self.context_id, "Sync completed!")
-                    self.StatusBar.show()
+                    self.StatusBar1.show()
                 else:
-                    self.StatusBar.hide()
+                    self.StatusBar1.hide()
                     self.ProgressBar_SsBar.show()
                     self.ProgressBar_SsBar.set_fraction((20 - qSize) / 20)
 
@@ -280,10 +280,6 @@ class MainWindow(Gtk.Window):
             self.StatusBar.push(self.context_id, 'Disconnected.')
             self.gui_update_disconnect()
 
-            # while COMM_vars.comm_link_idle < COMM_IDLE:
-            #     sleep(TIMEOUT_GUI / 1000)
-            #     self.on_timer()
-
     def on_CheckButton_Cam_toggled(self, widget):
         self.camera_on = widget.get_active()
         ConnectionData.resolution = self.resolution * self.camera_on
@@ -317,35 +313,35 @@ class MainWindow(Gtk.Window):
 
         if FXvalue == 0:
             self.Menu_CamFx_Item0.set_active(True)
-        if FXvalue == 1:
+        elif FXvalue == 1:
             self.Menu_CamFx_Item1.set_active(True)
-        if FXvalue == 2:
+        elif FXvalue == 2:
             self.Menu_CamFx_Item2.set_active(True)
-        if FXvalue == 3:
+        elif FXvalue == 3:
             self.Menu_CamFx_Item3.set_active(True)
-        if FXvalue == 4:
+        elif FXvalue == 4:
             self.Menu_CamFx_Item4.set_active(True)
-        if FXvalue == 5:
+        elif FXvalue == 5:
             self.Menu_CamFx_Item5.set_active(True)
-        if FXvalue == 6:
+        elif FXvalue == 6:
             self.Menu_CamFx_Item6.set_active(True)
-        if FXvalue == 7:
+        elif FXvalue == 7:
             self.Menu_CamFx_Item7.set_active(True)
-        if FXvalue == 8:
+        elif FXvalue == 8:
             self.Menu_CamFx_Item8.set_active(True)
-        if FXvalue == 9:
+        elif FXvalue == 9:
             self.Menu_CamFx_Item9.set_active(True)
-        if FXvalue == 10:
+        elif FXvalue == 10:
             self.Menu_CamFx_Item10.set_active(True)
-        if FXvalue == 11:
+        elif FXvalue == 11:
             self.Menu_CamFx_Item11.set_active(True)
-        if FXvalue == 12:
+        elif FXvalue == 12:
             self.Menu_CamFx_Item12.set_active(True)
-        if FXvalue == 13:
+        elif FXvalue == 13:
             self.Menu_CamFx_Item13.set_active(True)
-        if FXvalue == 14:
+        elif FXvalue == 14:
             self.Menu_CamFx_Item14.set_active(True)
-        if FXvalue == 15:
+        elif FXvalue == 15:
             self.Menu_CamFx_Item15.set_active(True)
 
         retmsg = 'FX effect changed [' + FXvalue.__str__() + ']'
@@ -356,16 +352,16 @@ class MainWindow(Gtk.Window):
         if self.resolution == 1:
             self.DrawingArea_Cam.set_size_request(640, 480)
             self.Menu_CamRes_Item1.set_active(True)
-        if self.resolution == 2:
+        elif self.resolution == 2:
             self.DrawingArea_Cam.set_size_request(640, 480)
             self.Menu_CamRes_Item2.set_active(True)
-        if self.resolution == 3:
+        elif self.resolution == 3:
             self.DrawingArea_Cam.set_size_request(800, 600)
             self.Menu_CamRes_Item3.set_active(True)
-        if self.resolution == 4:
+        elif self.resolution == 4:
             self.DrawingArea_Cam.set_size_request(1024, 768)
             self.Menu_CamRes_Item4.set_active(True)
-        if self.resolution == 5:
+        elif self.resolution == 5:
             self.DrawingArea_Cam.set_size_request(1152, 864)
             self.Menu_CamRes_Item5.set_active(True)
 
@@ -374,27 +370,17 @@ class MainWindow(Gtk.Window):
         retmsg = 'Resolution changed [' + ConnectionData.resolution.__str__() + ']'
         self.StatusBar.push(self.context_id, retmsg)
 
-    def on_FxValue_changed(self, widget):
+    def on_FxValue_selected(self, widget):
         self.store_FX_request(widget.get_name(), widget.get_active())
 
-    def on_FxValue_spinned(self, widget):
+    def on_FX_value_changed(self, widget):
         FXmode   = int(widget.get_name())
-        if FXmode == 11:
-            MULtmp = 1000
+        if FXmode < 4:  # Avoid negative values to be sent for Brightness, Contrast & Saturation
+            self.store_FX_request(FXmode, int(widget.get_value()) + 100)
+        elif FXmode == 11:
+            self.store_FX_request(FXmode, int(widget.get_value()) / 1000)
         else:
-            MULtmp = 1
-
-        self.store_FX_request(FXmode, int(widget.get_value()) / MULtmp)
-
-    def on_FxValue_scrolled(self, widget, event):
-        if KEY_control.MouseBtn[LEFT] is True:
-            FXmode   = int(widget.get_name())
-            if FXmode < 4:   # Avoid negative values to be sent for Brightness, Contrast & Saturation
-                ADDtmp = 100
-            else:
-                ADDtmp = 0
-
-            self.store_FX_request(FXmode, int(widget.get_value()) + ADDtmp)
+            self.store_FX_request(FXmode, int(widget.get_value()))
 
     def on_ComboBoxText_Vcodec_changed(self, widget):
         ConnectionData.Vcodec = widget.get_active()
@@ -526,6 +512,10 @@ class MainWindow(Gtk.Window):
 
     def on_Window_Advanced_delete_event(self, bus, message):
         self.Window_Advanced.hide()
+        return True
+
+    def on_Window_AdvancedCam_delete_event(self, bus, message):
+        self.Window_AdvancedCam.hide()
         return True
 
     def on_TreeSelection_Hosts_changed(self, selection):

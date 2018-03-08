@@ -52,6 +52,8 @@ class ServerThread(threading.Thread):
         self.srv.listen(5)
         Console.print('Socket now listening on ' + HOST + "[" + Port_COMM.__str__() + "]")
 
+        Cam0, MicIn, SpkOut = load_setup()
+
         conn = addr = None
         try:
             conn, addr = self.srv.accept()
@@ -85,7 +87,7 @@ class ServerThread(threading.Thread):
 
                     SRV_vars.TestMode = Test_Mode
 
-                    conn = self.connection_loop(conn, client_IP, Protocol, Video_Codec)
+                    conn = self.connection_loop(conn, client_IP, Protocol, Video_Codec, Cam0, MicIn, SpkOut)
 
                     # STOP THE ROBOT!
                     SRV_vars.DRV_A1_request = chr(50) + chr(50) + chr(0) + chr(0) + chr(0)
@@ -101,12 +103,12 @@ class ServerThread(threading.Thread):
             else:
                 Console.print("Incomplete message received! Breaking connection.")
 
-    def connection_loop(self, conn, client_IP, Protocol, Video_Codec):
+    def connection_loop(self, conn, client_IP, Protocol, Video_Codec, Cam0, MicIn, SpkOut):
         noData_cnt = 0
         resolution = 0
         SRV_vars.heartbeat = 10
 
-        Stream_Thread = StreamThread(client_IP, Protocol, Video_Codec)
+        Stream_Thread = StreamThread(client_IP, Protocol, Video_Codec, Cam0, MicIn, SpkOut)
         Stream_Thread.start()
 
         # now keep talking with the client
@@ -135,6 +137,20 @@ class ServerThread(threading.Thread):
                         Fxvalue -= 100
                     Console.print(" Entering FX mode", FxModes[Fxmode - 1], Fxvalue)
                     cmd = "v4l2-ctl --set-ctrl=" + FxModes[Fxmode - 1] + "=" + Fxvalue.__str__()
+                    retmsg = execute_cmd(cmd)
+                    if retmsg:
+                        Console.print(retmsg)
+                elif Fxmode < 35:
+                    if Fxmode == 31:
+                        Console.print(" Setting Mic Level to", Fxvalue)
+                        cmd = "pactl set-source-volume " + MicIn.split(":")[1] + " " + str(Fxvalue * 7000)
+                    elif Fxmode == 32:
+                        Console.print(" Setting Spekar volume to", Fxvalue)
+                        cmd = "pactl set-sink-volume " + SpkOut.split(":")[1] + " " + str(Fxvalue * 7000)
+                    else:
+                        Console.print(" WARNING: Invalid mode [%s]" % Fxmode)
+                        cmd = None
+
                     retmsg = execute_cmd(cmd)
                     if retmsg:
                         Console.print(retmsg)
@@ -274,7 +290,7 @@ class StreamThread(threading.Thread):
     Source_test = 0
     Source_h264 = 1
 
-    def __init__(self, client_IP, Protocol, Video_Codec):
+    def __init__(self, client_IP, Protocol, Video_Codec, Cam0, MicIn, SpkOut):
         threading.Thread.__init__(self)
         self.shutdown_flag = threading.Event()
 
@@ -365,7 +381,7 @@ class StreamThread(threading.Thread):
         self.sender_audio_sink[self.Source_test].set_property("sync", False)
         self.sender_audio_sink[self.Source_h264].set_property("sync", False)
         self.sender_audio_source[self.Source_test].set_property("wave", 0)
-        self.sender_audio_source[self.Source_h264].set_property("device", MIC0_DEVICE)
+        self.sender_audio_source[self.Source_h264].set_property("device", MicIn.split(":")[1])
 
         # caps = Gst.Caps.from_string("audio/x-raw, rate=32000")
         # self.capsfilter_audio[self.Source_h264].set_property("caps", caps)
@@ -875,3 +891,11 @@ class ServiceExit(Exception):
     of all running threads and the main program.
     """
 #    pass
+
+
+def load_setup():
+    Cam0 = execute_cmd("cat " + Paths.ini_file + "|grep CAM0|cut -f2").decode(Encoding)
+    MicIn = execute_cmd("cat " + Paths.ini_file + "|grep MIC0|cut -f2").decode(Encoding)
+    SpkOut = execute_cmd("cat " + Paths.ini_file + "|grep SPK0|cut -f2").decode(Encoding)
+
+    return Cam0, MicIn, SpkOut

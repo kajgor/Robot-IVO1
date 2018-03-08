@@ -25,10 +25,16 @@ class GtkTsMain(Gtk.Window):
         self.switch_ServerStart   = builder.get_object(self.Sw_Start[POSITION])
         self.StatusBar_Server     = builder.get_object(self.SB_Server[POSITION])
         self.TextView_Console     = builder.get_object(self.TV_Console[POSITION])
+        self.Window_Setup         = builder.get_object("Window_Setup")
+        self.ComboBoxText_Cam1    = builder.get_object("ComboBoxText_Cam1")
+        self.ComboBoxText_AudioIn = builder.get_object("ComboBoxText_AudioIn")
+        self.ComboBoxText_AudioOut= builder.get_object("ComboBoxText_AudioOut")
 
         self.context_id           = self.StatusBar_Server.get_context_id("message")
         self.TextView_Console.override_color(Gtk.StateType.NORMAL, Gdk.RGBA(1, .75, 0, 1))
         self.TextView_Console.override_background_color(Gtk.StateType.NORMAL, Gdk.RGBA(.15, 0.15, 0.15, 1))
+
+        self.load_devices()
 
         self.show_all()
         self.process_argv()
@@ -41,7 +47,7 @@ class GtkTsMain(Gtk.Window):
         super(GtkTsMain, self).__init__()
         builder = Gtk.Builder()
         builder.add_objects_from_file(Paths.GUI_file, (self.Main_Box[POSITION], self.SB_Server[POSITION],
-                                      self.TV_Console[POSITION], self.Sw_Start[POSITION]))
+                                      self.TV_Console[POSITION], self.Sw_Start[POSITION], "Window_Setup"))
         print("GUI file %s loaded. " % Paths.GUI_file)
 
         self.add(builder.get_object(self.Main_Box[POSITION]))
@@ -61,6 +67,45 @@ class GtkTsMain(Gtk.Window):
                 self.switch_ServerStart.set_active(True)
             else:
                 print("Invalid arument:", argv[x])
+
+    def load_devices(self):
+        Cam0, MicIn, SpkOut = load_setup()
+
+        item = None
+        LsDev1 = Gtk.ListStore(str, int)
+        DEV_LIST = execute_cmd(CAM_1_CMD).decode(Encoding)
+        for idx, DevName in enumerate(DEV_LIST.splitlines()):
+            LsDev1.append((DevName, idx))
+            if DevName == Cam0.split(' ')[1]:
+                item = LsDev1.iter_n_children() - 1
+        self.ComboBoxText_Cam1.set_model(LsDev1)
+        if item is not None:
+            self.ComboBoxText_Cam1.set_active(item)
+
+        item = None
+        LsDev2 = Gtk.ListStore(str, int)
+        DEV_LIST = execute_cmd(DEV_INP_CMD).decode(Encoding)
+        for idx, DevName in enumerate(DEV_LIST.splitlines()):
+            LsDev2.append((DevName, idx))
+            if DevName == MicIn.split(' ')[1]:
+                item = LsDev2.iter_n_children() - 1
+        self.ComboBoxText_AudioIn.set_model(LsDev2)
+        if item is not None:
+            self.ComboBoxText_AudioIn.set_active(item)
+
+        item = None
+        LsDev3 = Gtk.ListStore(str, int)
+        DEV_LIST = execute_cmd(DEV_OUT_CMD).decode(Encoding)
+        for idx, DevName in enumerate(DEV_LIST.splitlines()):
+            LsDev3.append((DevName, idx))
+            if DevName == SpkOut.split(' ')[1]:
+                item = LsDev3.iter_n_children() - 1
+        self.ComboBoxText_AudioOut.set_model(LsDev3)
+        if item is not None:
+            self.ComboBoxText_AudioOut.set_active(item)
+
+    def on_Button_Setup_clicked(self, widget):
+        self.Window_Setup.show()
 
     def on_Switch_ServerStart_activate(self, widget, event):
         if widget.get_active() is True:  # and ClientThread.srv is None:
@@ -83,6 +128,22 @@ class GtkTsMain(Gtk.Window):
             self.StatusBar_Server.push(self.context_id, "Port " + Port_COMM.__str__() + " closed.")
 
         self.show_all()
+
+    def on_Window_Setup_delete_event(self, bus, message):
+        self.save_setup()
+        self.Window_Setup.hide()
+        return True
+
+    def save_setup(self):
+        OutStr = "CAM0\t" + str(self.ComboBoxText_Cam1.get_active_text())
+        CMD = "echo " + OutStr + " > " + Paths.ini_file
+        execute_cmd(CMD)
+        OutStr = "MIC0\t" + str(self.ComboBoxText_AudioIn.get_active_text())
+        CMD = "echo " + OutStr + " >> " + Paths.ini_file
+        execute_cmd(CMD)
+        OutStr = "SPK0\t" + str(self.ComboBoxText_AudioOut.get_active_text())
+        CMD = "echo " + OutStr + " >> " + Paths.ini_file
+        execute_cmd(CMD)
 
     def gtk_main_quit(self, *args):
         if self.switch_ServerStart.get_active() is True:
