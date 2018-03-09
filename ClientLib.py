@@ -1,7 +1,7 @@
 import socket
 import queue
 import time
-import gi
+import gi.repository
 
 gi.require_version('Gst', '1.0')
 gi.require_version('GstVideo', '1.0')
@@ -719,7 +719,6 @@ class ConnectionThread:
         sendstr = str(chr(0) + out_str + chr(10)).encode(Encoding)
         if Debug > 1:
             print("CLISENT[len]: " + len(sendstr).__str__())
-        # print("CLISENT: ", sendstr.__str__())
 
         if self.srv is None:
             Console.print("self.srv is NONE!")

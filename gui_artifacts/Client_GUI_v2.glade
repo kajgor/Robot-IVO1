@@ -2908,6 +2908,7 @@ Exposure</property>
                         <property name="xalign">0</property>
                         <property name="active">True</property>
                         <property name="draw_indicator">True</property>
+                        <signal name="toggled" handler="on_FxValue_selected" swapped="no"/>
                       </object>
                       <packing>
                         <property name="left_attach">1</property>

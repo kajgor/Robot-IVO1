@@ -43,7 +43,7 @@ class MainWindow(Gtk.Window):
 
         self.Config_Storage = ConfigStorage()
         if self.get_argv('reset') is False:
-            self.RunSeqNo = self.Config_Storage.load_setup(self.builder)
+            self.RunSeqNo, self.SyncItemCount = self.Config_Storage.load_setup(self.builder)
             if self.TreeView_Hosts.get_model() is None:
                 for i, column in enumerate(["Host", "Port"]):
                     cell = Gtk.CellRendererText()
@@ -63,6 +63,7 @@ class MainWindow(Gtk.Window):
             self.ComboBox_Host.set_active(0)
             self.StatusBar.push(self.context_id, '[%s-th configuration load]' % str(self.RunSeqNo))
         else:
+            self.SyncItemCount = 0
             self.Console.print('Resetting to default configuration.')
             self.StatusBar.push(self.context_id, 'Resetting to default configuration.')
 
@@ -165,7 +166,8 @@ class MainWindow(Gtk.Window):
                 else:
                     self.StatusBar1.hide()
                     self.ProgressBar_SsBar.show()
-                    self.ProgressBar_SsBar.set_fraction((20 - qSize) / 20)
+                    # print("q/c", qSize, self.SyncItemCount)
+                    self.ProgressBar_SsBar.set_fraction((self.SyncItemCount - qSize) / self.SyncItemCount)
 
             if CommunicationFFb is False:
                 ConnectionThread.get_speed_and_direction()  # Keyboard input
@@ -384,10 +386,12 @@ class MainWindow(Gtk.Window):
 
     def on_ComboBoxText_Vcodec_changed(self, widget):
         ConnectionData.Vcodec = widget.get_active()
+        self.Console.print('Video Codec Changed:', ConnectionData.Vcodec)
         self.SSBar_update()
 
     def on_ComboBoxText_Acodec_changed(self, widget):
         ConnectionData.Acodec = widget.get_active()
+        self.Console.print('Audio Codec Changed:', ConnectionData.Acodec)
         self.SSBar_update()
 
     def on_ComboBoxText_Framerate_changed(self, widget):
@@ -506,9 +510,11 @@ class MainWindow(Gtk.Window):
 
     def on_Button_Preferences_clicked(self, widget):
         self.Window_Advanced.show()
+        return True
 
     def on_Button_AdvancedCam_clicked(self, widget):
         self.Window_AdvancedCam.show()
+        return True
 
     def on_Window_Advanced_delete_event(self, bus, message):
         self.Window_Advanced.hide()
@@ -669,6 +675,7 @@ class ConfigStorage:
         KEY_control_sav = KEY_control.MouseBtn[LEFT]
         KEY_control.MouseBtn[LEFT] = True
 
+        ItemCount = 0
         with open(Paths.ini_file, 'rb') as iniFile:
             SetupVar = pickle.load(iniFile)
             AddInfoVar = pickle.load(iniFile)
@@ -678,13 +685,13 @@ class ConfigStorage:
                         if name != Gtk.Buildable.get_name(obj):
                             continue
                         else:
-                            self.set_object_value(obj, value)
+                            ItemCount += int(self.set_object_value(obj, value))
 
         KEY_control.MouseBtn[LEFT] = KEY_control_sav
         LoadSeqNumber = int(AddInfoVar)
 
         print('Configuration loaded.', LoadSeqNumber)
-        return LoadSeqNumber
+        return LoadSeqNumber, ItemCount - 10
 
     def save_setup(self, builder, RunSeqNo):
         SetupVar = []
@@ -710,30 +717,30 @@ class ConfigStorage:
         if type(obj) == Gtk.CheckButton:
             obj.set_active(value)
             obj.emit('toggled')
-            return
+            return False
 
         if type(obj) == Gtk.CheckMenuItem:
             obj.set_active(value)
-            return
+            return False
 
         if type(obj) == Gtk.ComboBoxText:
             obj.set_active(value)
             obj.emit('changed')
-            return
+            return True
 
         if type(obj) == Gtk.SpinButton:
             obj.set_value(value)
             obj.emit('value-changed')
-            return
-
-        if type(obj) == Gtk.Entry:
-            obj.set_text(value)
-            return
+            return True
 
         if type(obj) == Gtk.Scale:
             obj.set_value_pos(value)
-            obj.emit('format-value', 0)
-            return
+            obj.emit('value-changed')
+            return True
+
+        if type(obj) == Gtk.Entry:
+            obj.set_text(value)
+            return False
 
         if type(obj) == Gtk.TreeView:
             for i, column in enumerate(["Host", "Port"]):
@@ -753,6 +760,10 @@ class ConfigStorage:
                 obj_LS.append((Host, Port))
 
             obj.set_model(obj_LS)
+
+            return False
+
+        return False
 
     @staticmethod
     def get_object_value(obj):

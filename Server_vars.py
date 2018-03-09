@@ -19,6 +19,9 @@ HORIZONTAL = 1
 # Socket retry - make more than 60 as this is the default timeout
 SO_RETRY_LIMIT = 65
 
+# HeartBeat counter
+HB_VALUE = 25
+
 # Arduino driver message len (in/out) and HeartBeat response shift
 DRV_A1_MSGLEN_REQ = 8
 DRV_A1_MSGLEN_RES = 16
@@ -43,7 +46,7 @@ import serial.tools.list_ports
 
 
 class SRV_vars:
-    heartbeat   = 10
+    heartbeat   = HB_VALUE
     GUI_CONSOLE = False
     TestMode    = False
     DRV_A1_request = chr(50) + chr(50) + chr(0) + chr(0) + chr(0)

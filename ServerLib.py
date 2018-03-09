@@ -106,7 +106,7 @@ class ServerThread(threading.Thread):
     def connection_loop(self, conn, client_IP, Protocol, Video_Codec, Cam0, MicIn, SpkOut):
         noData_cnt = 0
         resolution = 0
-        SRV_vars.heartbeat = 10
+        SRV_vars.heartbeat = HB_VALUE
 
         Stream_Thread = StreamThread(client_IP, Protocol, Video_Codec, Cam0, MicIn, SpkOut)
         Stream_Thread.start()
@@ -164,7 +164,6 @@ class ServerThread(threading.Thread):
                     print("Chksum", response[0].__str__())
 
                     if Debug > 2:
-                        pass
                         print("DATA_OUT>>", response.__str__(), len(response))
                         print("DATA_IN>>", data.__str__(), len(data))
 
@@ -187,7 +186,7 @@ class ServerThread(threading.Thread):
 
                     break
 
-                SRV_vars.heartbeat = 10
+                SRV_vars.heartbeat = HB_VALUE
 
         Stream_Thread.shutdown_flag.set()
 
