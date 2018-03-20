@@ -3,7 +3,7 @@
 from time import sleep
 from ServerLib import ThreadManager
 
-Thread_Manager = ThreadManager(False)
+Thread_Manager = ThreadManager(False, False, False)
 Thread_Manager.shutdown_flag = False
 
 Thread_Manager.run()

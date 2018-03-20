@@ -11,7 +11,7 @@ FxModes  = ["brightness", "contrast", "saturation", "red_balance", "blue_balance
             "iso_sensitivity", "iso_sensitivity_auto", "exposure_metering_mode", "scene_mode", "compression_quality"]
 FpsModes = [5, 15, 25, 30]
 
-VERSION = "B3.0"
+VERSION = "B3.1"
 HOST = ''   # Empty name meaning all available interfaces
 VERTICAL = 0
 HORIZONTAL = 1
@@ -81,5 +81,15 @@ from sys import argv
 
 class Paths:
     pathname = path.dirname(argv[0])
-    GUI_file = pathname + "/gui_artifacts/Server_GUI_v2.glade"
-    ini_file = pathname + "/Server.ini"
+    GUI_file = pathname + '/gui_artifacts/Server_GUI_v2.glade'
+    ini_file = pathname + '/Server.ini'
+
+
+class ExeCmd:
+    cmd = list()                                                                        # Init
+    cmd.append('echo "shutdown"')                                                       # 0
+    cmd.append('echo "USB restart"')                                                    # 1
+    cmd.append('')                                                                      # 2
+    cmd.append('')                                                                      # 3
+    cmd.append('')                                                                      # 4
+    cmd.append('')                                                                      # 5

@@ -12,8 +12,10 @@ class GtkTsMain(Gtk.Window):
 
     Main_Box   = ["MainBox_TSRV", "MainBox_TSRH"]
     Sw_Start   = ["Switch_ServerStartV", "Switch_ServerStartH"]
-    SB_Server  = ["StatusBar_TestServerV", "StatusBar_TestServerH"]
+    SB_Server  = ["StatusBarV", "StatusBarH"]
     TV_Console = ["TextView_ConsoleV", "TextView_ConsoleH"]
+    LB_Voltage = ["LevelBar_VoltageV", "LevelBar_VoltageH"]
+    LB_Current = ["LevelBar_CurrentV", "LevelBar_CurrentH"]
 
     def __init__(self, POSITION):
         self.Thread_Manager = None
@@ -25,6 +27,8 @@ class GtkTsMain(Gtk.Window):
         self.switch_ServerStart   = builder.get_object(self.Sw_Start[POSITION])
         self.StatusBar_Server     = builder.get_object(self.SB_Server[POSITION])
         self.TextView_Console     = builder.get_object(self.TV_Console[POSITION])
+        self.Level_Voltage        = builder.get_object(self.LB_Voltage[POSITION])
+        self.Level_Current        = builder.get_object(self.LB_Current[POSITION])
         self.Window_Setup         = builder.get_object("Window_Setup")
         self.ComboBoxText_Cam1    = builder.get_object("ComboBoxText_Cam1")
         self.ComboBoxText_AudioIn = builder.get_object("ComboBoxText_AudioIn")
@@ -40,14 +44,16 @@ class GtkTsMain(Gtk.Window):
         self.process_argv()
 
     def init_Thread(self):
-        self.Thread_Manager = ThreadManager(self.TextView_Console)
+        self.Thread_Manager = ThreadManager(self.TextView_Console, self.Level_Voltage, self.Level_Current,
+                                            self.switch_ServerStart)
         self.Thread_Manager.shutdown_flag = False
 
     def init_GUI(self, POSITION):
         super(GtkTsMain, self).__init__()
         builder = Gtk.Builder()
         builder.add_objects_from_file(Paths.GUI_file, (self.Main_Box[POSITION], self.SB_Server[POSITION],
-                                      self.TV_Console[POSITION], self.Sw_Start[POSITION], "Window_Setup"))
+                                      self.TV_Console[POSITION], self.Sw_Start[POSITION], "Window_Setup",
+                                      self.LB_Voltage[POSITION], self.LB_Current[POSITION], "Adjustement_Port"))
         print("GUI file %s loaded. " % Paths.GUI_file)
 
         self.add(builder.get_object(self.Main_Box[POSITION]))
@@ -73,7 +79,7 @@ class GtkTsMain(Gtk.Window):
 
         item = None
         LsDev1 = Gtk.ListStore(str, int)
-        DEV_LIST = execute_cmd(CAM_1_CMD).decode(Encoding)
+        DEV_LIST, err = execute_cmd(CAM_1_CMD)
         for idx, DevName in enumerate(DEV_LIST.splitlines()):
             LsDev1.append((DevName, idx))
             if DevName == Cam0.split(' ')[1]:
@@ -84,7 +90,7 @@ class GtkTsMain(Gtk.Window):
 
         item = None
         LsDev2 = Gtk.ListStore(str, int)
-        DEV_LIST = execute_cmd(DEV_INP_CMD).decode(Encoding)
+        DEV_LIST, err = execute_cmd(DEV_INP_CMD)
         for idx, DevName in enumerate(DEV_LIST.splitlines()):
             LsDev2.append((DevName, idx))
             if DevName == MicIn.split(' ')[1]:
@@ -95,7 +101,7 @@ class GtkTsMain(Gtk.Window):
 
         item = None
         LsDev3 = Gtk.ListStore(str, int)
-        DEV_LIST = execute_cmd(DEV_OUT_CMD).decode(Encoding)
+        DEV_LIST, err = execute_cmd(DEV_OUT_CMD)
         for idx, DevName in enumerate(DEV_LIST.splitlines()):
             LsDev3.append((DevName, idx))
             if DevName == SpkOut.split(' ')[1]:
@@ -144,12 +150,17 @@ class GtkTsMain(Gtk.Window):
         OutStr = "SPK0\t" + str(self.ComboBoxText_AudioOut.get_active_text())
         CMD = "echo " + OutStr + " >> " + Paths.ini_file
         execute_cmd(CMD)
+        OutStr = "IPP0\t" + str(self.ComboBoxText_AudioOut.get_active_text())
+        CMD = "echo " + OutStr + " >> " + Paths.ini_file
+        execute_cmd(CMD)
 
     def gtk_main_quit(self, *args):
         if self.switch_ServerStart.get_active() is True:
             self.switch_ServerStart.set_active(False)
-            self.Thread_Manager.ProgramExit()
-            time.sleep(1)
+            self.Thread_Manager.ProgramExit(249)
+            while Gtk.events_pending():
+                Gtk.main_iteration()
+            time.sleep(3)
         Gtk.main_quit()
 
 

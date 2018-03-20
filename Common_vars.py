@@ -127,10 +127,34 @@ def calc_checksum(string):
 import subprocess
 
 
+# def execute_cmd(cmd_string):
+#     stdout = None
+#     try:
+#         stdout = subprocess.check_output(cmd_string, shell=True)[:-1]
+#     except subprocess.CalledProcessError:
+#         pass
+#     return stdout
+
+
 def execute_cmd(cmd_string):
-    stdout = None
+    stdout  = None
+    errs    = None
     try:
-        stdout = subprocess.check_output(cmd_string, shell=True)[:-1]
+        proc = subprocess.Popen(cmd_string, shell=True, stdout=subprocess.PIPE)
     except subprocess.CalledProcessError:
-        pass
-    return stdout
+        proc = None
+
+    if proc:
+        if cmd_string[-1] == "&":   # Run process in background
+            stdout = proc.pid
+        else:
+            try:
+                stdout, errs = proc.communicate(timeout=5)
+            except subprocess.TimeoutExpired:
+                proc.kill()
+                stdout, errs = proc.communicate()
+
+            if not(str(stdout).isdigit()):
+                    stdout = stdout.decode(Encoding)[0:-1]  # Do not return NL/CR
+
+    return stdout, errs

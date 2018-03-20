@@ -14,7 +14,7 @@ from math import pi
 from re import findall
 from _thread import *
 from Common_vars import ConnectionData, TCP, MAX_SPEED, Port_COMM, Port_CAM0, Port_MIC0, Port_SPK0, AudioBitrate,\
-    RETRY_LIMIT, CLIMSGLEN, RECMSGLEN, Encoding, LEFT, RIGHT, calc_checksum, X_AXIS, Y_AXIS
+    RETRY_LIMIT, CLIMSGLEN, RECMSGLEN, Encoding, LEFT, RIGHT, calc_checksum, X_AXIS, Y_AXIS, execute_cmd
 
 from Client_vars import *
 
@@ -85,12 +85,12 @@ class RacStream:
         self.sender_audio_rtimer     = Gst.ElementFactory.make("rtpspeexpay", "rtimer_audio")
 
         if ConnectionData.Protocol == TCP:
-            self.source_video.set_property("host", Host)
-            self.player_audio_source.set_property("host", Host)
-
             self.source_video        = Gst.ElementFactory.make("tcpclientsrc", "source")
             self.player_audio_source = Gst.ElementFactory.make("tcpclientsrc", "source_audio")
             self.sender_audio_sink   = Gst.ElementFactory.make("tcpserversink", "sink_audio")
+
+            self.source_video.set_property("host", Host)
+            self.player_audio_source.set_property("host", Host)
 
             if VideoMode is False:
                 self.gst_init_test()
@@ -381,15 +381,14 @@ class ConnectionThread:
     tunnel = None
 
     Rac_Display = RacDisplay()
-    FXqueue = queue.Queue()
+    FxQueue = queue.Queue()
 
     def __init__(self, SXID):
         self.SXID           = SXID
         self.Rac_Stream     = None
         self.Streaming_mode = 0
-        self.FXmode_sent    = 0
-        self.FXmode         = 255
-        self.FXvalue        = 0
+        self.FxMode         = 255
+        self.FxValue        = 0
 
     def draw_arrow(self, message):
         self.Rac_Display.draw_arrow(message)
@@ -406,29 +405,52 @@ class ConnectionThread:
 
     def open_ssh_tunnel(self, Host, Port, rsa_file, rsa_password, username, remote_host, compression):
         if compression == 0:  # Auto
-            Compression = not(bool(ConnectionData.TestMode))
+            compression = not(bool(ConnectionData.TestMode))
         elif compression == 1:
-            Compression = True
+            compression = True
         else:
-            Compression = False
+            compression = False
 
-        Console.print("Tunneling mode started\n [Compression is %s]" % Compression)
+        Console.print("Tunneling mode started\n [Compression is %s]" % compression)
         self.tunnel = SSHTunnelForwarder(
             (Host, Port),  # jump server address
             ssh_username=username,
             ssh_pkey=RSAKey.from_private_key_file(rsa_file, password=rsa_password),
-            remote_bind_addresses=[(remote_host, Port_COMM), (remote_host, Port_CAM0)],  # storage box ip address
-            local_bind_addresses=[('localhost', Port_COMM), ('127.0.0.1', Port_CAM0)],
-            compression=Compression)
+            remote_bind_addresses=[(remote_host, Port_COMM),
+                                   (remote_host, Port_CAM0),
+                                   (remote_host, Port_MIC0),
+                                   (remote_host, Port_SPK0)],  # storage box ip address
+            local_bind_addresses=[('127.0.0.1', Port_COMM),
+                                  ('127.0.0.1', Port_CAM0),
+                                  ('127.0.0.1', Port_MIC0),
+                                  ('127.0.0.1', Port_SPK0)],
+            compression=compression)
 
         try:
             self.tunnel.start()
-            Console.print("SSH tunnels opened on ports:\n   ", self.tunnel.local_bind_ports)
         except:
-            Console.print("SSH Connection Error!!!")
             return None, None
 
+        Console.print("SSH tunnels opened on ports:\n   ", self.tunnel.local_bind_ports)
         return "localhost", Port_COMM
+
+    def open_udp_to_tcp_link(self):
+        res = True
+        ports = list()
+        pids  = list()
+        for port in (Port_CAM0, Port_MIC0, Port_SPK0):
+            cmd = 'socat -T15 udp4-recvfrom:' + str(port) + ',reuseaddr,fork tcp:localhost:' + str(port) + ' &'
+            out, err = execute_cmd(cmd)
+            if out.__str__().isdigit():
+                pids.append(out)
+            else:
+                ports.append(port)
+                res = False
+
+        if res is True:
+            return res, pids
+        else:
+            return res, ports
 
     def establish_connection(self, Host, Port):
         Console.print("Establishing connection with \n %s on port"  % Host, Port)
@@ -485,6 +507,7 @@ class ConnectionThread:
         except AttributeError:
             self.srv = None
 
+        execute_cmd("killall socat")
         ConnectionData.connected = False
         # if Debug > 1:
         Console.print("Connection closed.")
@@ -569,11 +592,11 @@ class ConnectionThread:
             if ConnectionData.speakers is not speaker_last:
                 speaker_last = self.conect_speakerstream(ConnectionData.speakers)
 
-            if ConnectionData.resolution != resolution_last and self.FXqueue.empty() is True:
+            if ConnectionData.resolution != resolution_last and self.FxQueue.empty() is True:
                 resolution_last = ConnectionData.resolution
 
-                self.FXmode  = 0
-                self.FXvalue = ConnectionData.resolution
+                self.FxMode  = 0
+                self.FxValue = ConnectionData.resolution
 
                 cam0_restart = bool(ConnectionData.resolution)
                 if ConnectionData.resolution > 0:
@@ -617,20 +640,9 @@ class ConnectionThread:
         self.transmit_message(initstr)
 
     def send_and_receive(self):
-        if ConnectionData.speed != "HALT":
+        if ConnectionData.speed != "HALT":  # Todo
 
-            if self.FXqueue.empty() is False:
-                if self.FXmode_sent == self.FXmode:
-                    FXmask = self.FXqueue.get()
-                    self.FXmode = int(FXmask[0])
-                    self.FXvalue = int(FXmask[1])
-                # print("FXmode/FXvalue", self.FXmode, self.FXvalue)
-            else:
-                if self.FXmode_sent == self.FXmode:
-                    self.FXmode = 255
-                    self.FXvalue = 0
-
-            request  = self.encode_message(self.FXmode, self.FXvalue)
+            request  = self.encode_message(self.FxMode, self.FxValue)
 
             checksum = self.transmit_message(request)
 
@@ -643,18 +655,27 @@ class ConnectionThread:
             else:
                 ConnectionData.connErr = 0
 
-            time.sleep(RESP_DELAY)
-            resp = self.receive_message(RECMSGLEN)
+            ###### Communication Clock! #####################
+            time.sleep(RESP_DELAY)      # Wait for response #
+            #################################################
 
-            if resp is not None:
-                if checksum == ord(resp[0]):    # ************* MESSAGE CONFIRMED ******************
-                    self.Streaming_mode = self.decode_message(resp)
+            response = self.receive_message(RECMSGLEN)
+
+            if response:
+                if checksum == ord(response[0]):    # ************* MESSAGE CONFIRMED ******************
+                    self.Streaming_mode = self.decode_message(response)
                     ConnectionData.motor_ACK = ConnectionData.motor_Power
-                    self.FXmode_sent = self.FXmode
+                    if self.FxQueue.empty() is False:
+                        FxMask = self.FxQueue.get()
+                        # print("FXmode/FXvalue", self.FXmode, self.FXvalue)
+                    else:
+                        FxMask = (255, 0)
+                    self.FxMode = int(FxMask[0])
+                    self.FxValue = int(FxMask[1])
                 else:
-                    Console.print("Bad chksum:", checksum, ord(resp[0]))
+                    Console.print("Bad chksum:", checksum, ord(response[0]))
                 if Debug > 1:
-                    Console.print("CheckSum Sent/Received:", checksum, ord(resp[0]))
+                    Console.print("CheckSum Sent/Received:", checksum, ord(response[0]))
         else:
 # ToDo:
             self.transmit_message("HALTHALTHALT")
@@ -811,27 +832,28 @@ class ConnectionThread:
         # Motor_PWR - power delivered to motors
         # Motor_RPM - Motor rotations
         # CheckSum = ord(resp[0])
-        dataint = [None,0,0,0,0,0,0,0,0,0,0]
+        dataint = list()
+        dataint.append(None)
         for xcr in range(1, 11):
             if ord(resp[xcr]) == 252:
-                dataint[xcr] = 17
+                dataint.append(17)
             elif ord(resp[xcr]) == 253:
-                dataint[xcr] = 19
+                dataint.append(19)
             else:
-                dataint[xcr] = ord(resp[xcr])
+                dataint.append(ord(resp[xcr]))
 
         ConnectionData.motor_PWR[RIGHT] = dataint[1]                                 #2
         ConnectionData.motor_PWR[LEFT]  = dataint[2]                                 #3
         ConnectionData.motor_RPM[RIGHT] = dataint[3]                                 #4
         ConnectionData.motor_RPM[LEFT]  = dataint[4]                                 #5
-        curr_sensor = 0.0048 * (dataint[5] * 250 + dataint[6])                  #6,7
+        curr_sensor = 0.0048 * (dataint[5] * 250 + dataint[6])                       #6,7
         ConnectionData.current          = (2.48 - curr_sensor) * 5
         ConnectionData.voltage          = 0.0157 * (dataint[7] * 250 + dataint[8]) - 0.95 #8,9
         ConnectionData.distanceS1       = int((dataint[9] * 250 + dataint[10]) / 58) #10,11
 
-        CntrlMask1 = ord(resp[11])                                              #12
-        CntrlMask2 = ord(resp[12])                                              #13
-        ConnectionData.coreTemp = ord(resp[14]) * 0.5                                #15
+        CntrlMask1 = ord(resp[11])                                                  #12
+        CntrlMask2 = ord(resp[12])                                                  #13
+        ConnectionData.coreTemp = ord(resp[14]) * 0.5                               #15
 
         Streaming_mode = CntrlMask2
 
@@ -850,7 +872,7 @@ class ConnectionThread:
         FxVal0 = int(FXvalue / 256)
         FxVal1 = FXvalue % 256
 
-        reqMsgVal = []
+        reqMsgVal = list()
         reqMsgVal.append(ConnectionData.motor_Power[RIGHT] + 50)     # 1
         reqMsgVal.append(ConnectionData.motor_Power[LEFT] + 50)      # 2
         reqMsgVal.append(ConnectionData.camPosition[X_AXIS])         # 3

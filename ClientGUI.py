@@ -10,7 +10,7 @@ from sys import argv
 
 from ClientLib   import ConnectionThread, Console
 from Client_vars import Paths, CAM0_control, KEY_control, CommunicationFFb
-from Common_vars import VideoFramerate, AudioBitrate, AudioCodec, VideoCodec, PrintOnOff, \
+from Common_vars import VideoFramerate, AudioBitrate, AudioCodec, VideoCodec, PrintOnOff,\
     TIMEOUT_GUI, PROTO_NAME, LEFT, RIGHT, X_AXIS, Y_AXIS, MOUSE_MIN, MOUSE_MAX, ConnectionData, COMM_IDLE
 
 
@@ -53,10 +53,6 @@ class MainWindow(Gtk.Window):
                     self.TreeView_Hosts.append_column(col)
 
                 obj = Gtk.ListStore(str, int)
-                # value = ("10.0.1.10", 4550)
-                # obj.append((value[0], value[1]))
-                # value = ("10.0.1.6", 4550)
-                # obj.append((value[0], value[1]))
                 self.TreeView_Hosts.set_model(obj)
 
             self.ComboBox_Host.set_model(self.TreeView_Hosts.get_model())
@@ -128,6 +124,7 @@ class MainWindow(Gtk.Window):
         self.SpinButton_Port.set_sensitive(True)
         self.CheckButton_SshTunnel.set_sensitive(True)
         self.ComboBoxText_Proto.set_sensitive(True)
+        self.Spinner_Connected.stop()
 
     def SSBar_update(self):
         SStatBar = PROTO_NAME[ConnectionData.Protocol] + ": "
@@ -157,7 +154,7 @@ class MainWindow(Gtk.Window):
             self.counter += .05
 
             if self.SyncOn:
-                qSize = self.Connection_Thread.FXqueue.qsize()
+                qSize = self.Connection_Thread.FxQueue.qsize()
                 if qSize is 0:
                     self.SyncOn = False
                     self.ProgressBar_SsBar.hide()
@@ -254,8 +251,9 @@ class MainWindow(Gtk.Window):
             self.gui_update_connect()
             self.gui_connect_loop()
 
+            retmsg = 'SSH Connection Error!'
             if self.CheckButton_SshTunnel.get_active() is True:
-                Host, Port = self.Connection_Thread.open_ssh_tunnel(self.Host, self.Port,
+                Host, Port = self.Connection_Thread.open_ssh_tunnel(self.Host, 22,
                                                                     self.Entry_RsaKey.get_text(),
                                                                     self.Entry_KeyPass.get_text(),
                                                                     self.Entry_User.get_text(),
@@ -265,16 +263,22 @@ class MainWindow(Gtk.Window):
                 Host, Port = self.Host, self.Port
 
             success = bool(Host)
-            retmsg = 'SSH Connection Error!'
             if success is True:
-                self.Spinner_Connected.start()
-                success, retmsg = self.Connection_Thread.establish_connection(Host, Port)
+                if ConnectionData.Protocol == 1 and self.CheckButton_SshTunnel.get_active() is True:  # UDP Protocol
+                    success, retmsg = self.Connection_Thread.open_udp_to_tcp_link()
+                    if not(success):
+                        retmsg = 'Failed Ports:' + str(retmsg)
 
+                if success is True:
+                    self.Spinner_Connected.start()
+                    success, retmsg = self.Connection_Thread.establish_connection(Host, Port)
                 # if success is True:
                 #     self.Connection_Thread.update_server_list(self.ComboBox_Host, self.SpinButton_Port.get_value())
 
             if success is not True:
+                Console.print(retmsg)
                 self.gui_update_disconnect()
+
             self.StatusBar.push(self.context_id, retmsg)
         else:
             ConnectionData.connected = False
@@ -290,23 +294,23 @@ class MainWindow(Gtk.Window):
         self.StatusBar.push(self.context_id, retmsg)
 
     def store_FX_request(self, FXmode, FXvalue):
-        items = self.Connection_Thread.FXqueue.qsize()
+        items = self.Connection_Thread.FxQueue.qsize()
         if items == 0:
-            self.Connection_Thread.FXqueue.put((FXmode, FXvalue))
+            self.Connection_Thread.FxQueue.put((FXmode, FXvalue))
         else:
             item_found = False
             for i in range(items):
-                FXmask = self.Connection_Thread.FXqueue.get()
+                FXmask = self.Connection_Thread.FxQueue.get()
                 qFXmode = FXmask[0]
                 qFXvalue = FXmask[1]
                 if qFXmode == FXmode:
-                    self.Connection_Thread.FXqueue.put((qFXmode, FXvalue))
+                    self.Connection_Thread.FxQueue.put((qFXmode, FXvalue))
                     item_found = True
                 else:
-                    self.Connection_Thread.FXqueue.put((qFXmode, qFXvalue))
+                    self.Connection_Thread.FxQueue.put((qFXmode, qFXvalue))
 
             if item_found is False:
-                self.Connection_Thread.FXqueue.put((FXmode, FXvalue))
+                self.Connection_Thread.FxQueue.put((FXmode, FXvalue))
 
     def on_ComboBoxText_FxEffect_changed(self, widget):
         FXmode   = 8
@@ -497,6 +501,28 @@ class MainWindow(Gtk.Window):
             if widget != self.Menu_CamFx_Item15:
                 self.Menu_CamFx_Item15.set_active(False)
 
+    def on_Menu_CmdExe_Item_activate(self, widget):
+        FXmode = 30
+        FXvalue = int(widget.get_name())
+        if FXvalue == 250:
+            self.Label_dialog_yn.set_text("Do you really want\n\tto reboot RPI?")
+            resp = self.Dialog_YN.run()
+            if resp < 1:
+                return
+        elif FXvalue == 0:
+            self.Label_dialog_yn.set_text("Do you really want\n\tto shutdown the server?")
+            resp = self.Dialog_YN.run()
+            if resp < 1:
+                return
+        elif FXvalue == 1:
+            self.Config_Storage.reload_current_setup(self.builder)
+            self.SyncOn = True
+            return
+        else:
+            return
+
+        self.store_FX_request(FXmode, FXvalue)
+
     def on_Button_AdvOk_clicked(self, widget):
         self.ComboBox_Host.set_model(self.TreeView_Hosts.get_model())
         self.Entry_Hosts.set_text('')
@@ -516,12 +542,13 @@ class MainWindow(Gtk.Window):
         self.Window_AdvancedCam.show()
         return True
 
-    def on_Window_Advanced_delete_event(self, bus, message):
-        self.Window_Advanced.hide()
+    def return_widget_name(self, widget):
+        self.Dialog_YN.emit("response", int(widget.get_name()))
+        self.Dialog_YN.hide()
         return True
 
-    def on_Window_AdvancedCam_delete_event(self, bus, message):
-        self.Window_AdvancedCam.hide()
+    def on_Window_delete_event(self, widget, *message):
+        widget.hide()
         return True
 
     def on_TreeSelection_Hosts_changed(self, selection):
@@ -628,7 +655,7 @@ class MainWindow(Gtk.Window):
 
         if mouse_event.button == Gdk.BUTTON_SECONDARY:
             KEY_control.MouseBtn[RIGHT] = value
-            self.Menu_CamOptions.popup(None, None, None, None, Gdk.BUTTON_SECONDARY, mouse_event.time)
+            self.Menu_MainHub.popup(None, None, None, None, Gdk.BUTTON_SECONDARY, mouse_event.time)
             self.last_MouseButtonR = KEY_control.MouseBtn[RIGHT]
 
     def on_motion_notify(self, widget, mouse_event):
@@ -658,7 +685,7 @@ class MainWindow(Gtk.Window):
         # if KEY_control.MouseBtn[RIGHT] is True:
         #     self.Console.print("KEY_control.MouseXY[right]", KEY_control.MouseXY)
 
-    def gtk_main_quit(self, dialog, widget):
+    def gtk_main_quit(self, widget, message):
         self.Connection_Thread.close_connection()
         self.Config_Storage.save_setup(self.builder, self.RunSeqNo)
 
@@ -669,6 +696,10 @@ class MainWindow(Gtk.Window):
 
 
 class ConfigStorage:
+    def reload_current_setup(self, builder):
+        for obj in builder.get_objects():
+            if issubclass(type(obj), Gtk.Buildable):
+                self.set_object_value(obj)
 
     def load_setup(self, builder):
         # Emulate button press for signal processing
@@ -694,7 +725,7 @@ class ConfigStorage:
         return LoadSeqNumber, ItemCount - 10
 
     def save_setup(self, builder, RunSeqNo):
-        SetupVar = []
+        SetupVar = list()
         AddInfoVar = RunSeqNo + 1
         for obj in builder.get_objects():
             if issubclass(type(obj), Gtk.Buildable):
@@ -713,33 +744,39 @@ class ConfigStorage:
         print('Configuration saved.')
 
     @staticmethod
-    def set_object_value(obj, value):
+    def set_object_value(obj, *value):
         if type(obj) == Gtk.CheckButton:
-            obj.set_active(value)
+            if value:
+                obj.set_active(value[0])
             obj.emit('toggled')
             return False
 
         if type(obj) == Gtk.CheckMenuItem:
-            obj.set_active(value)
+            if value:
+                obj.set_active(value[0])
             return False
 
         if type(obj) == Gtk.ComboBoxText:
-            obj.set_active(value)
+            if value:
+                obj.set_active(value[0])
             obj.emit('changed')
             return True
 
         if type(obj) == Gtk.SpinButton:
-            obj.set_value(value)
+            if value:
+                obj.set_value(value[0])
             obj.emit('value-changed')
             return True
 
         if type(obj) == Gtk.Scale:
-            obj.set_value_pos(value)
+            if value:
+                obj.set_value_pos(value[0])
             obj.emit('value-changed')
             return True
 
         if type(obj) == Gtk.Entry:
-            obj.set_text(value)
+            if value:
+                obj.set_text(value[0])
             return False
 
         if type(obj) == Gtk.TreeView:
@@ -756,8 +793,9 @@ class ConfigStorage:
                 obj.append_column(col)
 
             obj_LS = Gtk.ListStore(str, int)
-            for Host, Port in value:
-                obj_LS.append((Host, Port))
+            if value:
+                for Host, Port in value[0]:
+                    obj_LS.append((Host, Port))
 
             obj.set_model(obj_LS)
 

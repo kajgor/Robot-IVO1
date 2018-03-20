@@ -24,6 +24,7 @@ class ServerThread(threading.Thread):
         # The shutdown_flag is a threading.Event object that
         # indicates whether the thread should be terminated.
         self.shutdown_flag = threading.Event()
+        self.stop_request  = False
 
     def run(self):
         Console.print('Server Thread #%s started' % self.ident)
@@ -36,17 +37,47 @@ class ServerThread(threading.Thread):
                 if success is True:
                     break
                 else:
+                    if self.shutdown_flag.is_set() is True:
+                        break
                     time.sleep(1)
 
             if success is False:
-                self.shutdown_flag.set()
-                Console.print("Bind failed for", SO_RETRY_LIMIT, "times. Resetting socket.")
+                if self.shutdown_flag.is_set() is True:
+                    Console.print("Connection aborted.")
+                else:
+                    Console.print("Bind failed for", SO_RETRY_LIMIT, "times. Resetting socket.")
+                    self.shutdown_flag.set()
                 self.closesrv()
             else:
+                result, out_data = self.open_tcp_to_udp_link()
+                if result is False:
+                    Console.print("Can't open SoCat for ports", str(out_data))
+                else:
+                    Console.print("SoCat links open:", str(out_data))
+
                 self.listen_socket()
 
         # ... Clean shutdown code here ...
+        execute_cmd('killall socat')
         Console.print('Server Thread #%s stopped' % self.ident)
+
+    def open_tcp_to_udp_link(self):
+        res = True
+        ports = list()
+        pids  = list()
+        for port in (Port_CAM0, Port_MIC0, Port_SPK0):
+            cmd = 'socat tcp4-listen:' + str(port) + ',reuseaddr,fork udp:localhost:' + str(port) + ' &'
+            out, err = execute_cmd(cmd)
+            if str(out).isdigit():
+                pids.append(out)
+            else:
+                ports.append(port)
+                res = False
+
+        if res is True:
+            return res, pids
+        else:
+            return res, ports
 
     def listen_socket(self):
         self.srv.listen(5)
@@ -120,7 +151,7 @@ class ServerThread(threading.Thread):
             except TypeError:
                 data_len = False
 
-            if data_len < CLIMSGLEN:
+            if data_len != CLIMSGLEN:
                 noData_cnt += 1
                 if noData_cnt > RETRY_LIMIT:
                     Console.print("NO DATA - closing connection", data_len)
@@ -137,11 +168,20 @@ class ServerThread(threading.Thread):
                         Fxvalue -= 100
                     Console.print(" Entering FX mode", FxModes[Fxmode - 1], Fxvalue)
                     cmd = "v4l2-ctl --set-ctrl=" + FxModes[Fxmode - 1] + "=" + Fxvalue.__str__()
-                    retmsg = execute_cmd(cmd)
+                    retmsg, err = execute_cmd(cmd)
                     if retmsg:
                         Console.print(retmsg)
                 elif Fxmode < 35:
-                    if Fxmode == 31:
+                    cmd = None
+                    if Fxmode == 30:
+                        Console.print(" Executing command", Fxvalue)
+                        # 0    Exit Server
+                        # 250  Exit Server & reboot RPI
+                        # 251  Restart Server
+                        # 252  Restart Server and USB ports
+                        self.stop_request = Fxvalue
+                        cmd = ExeCmd.cmd[Fxvalue]
+                    elif Fxmode == 31:
                         Console.print(" Setting Mic Level to", Fxvalue)
                         cmd = "pactl set-source-volume " + MicIn.split(":")[1] + " " + str(Fxvalue * 7000)
                     elif Fxmode == 32:
@@ -149,11 +189,11 @@ class ServerThread(threading.Thread):
                         cmd = "pactl set-sink-volume " + SpkOut.split(":")[1] + " " + str(Fxvalue * 7000)
                     else:
                         Console.print(" WARNING: Invalid mode [%s]" % Fxmode)
-                        cmd = None
 
-                    retmsg = execute_cmd(cmd)
-                    if retmsg:
-                        Console.print(retmsg)
+                    if cmd:
+                        retmsg, err = execute_cmd(cmd)
+                        if retmsg:
+                            Console.print(retmsg)
 
                 response = self.encode_data(data, Stream_Thread.streaming_mode)
 
@@ -162,11 +202,9 @@ class ServerThread(threading.Thread):
 
                 if Debug > 0:
                     print("Chksum", response[0].__str__())
-
                     if Debug > 2:
                         print("DATA_OUT>>", response.__str__(), len(response))
                         print("DATA_IN>>", data.__str__(), len(data))
-
                 try:
                     conn.sendall(response.encode(Encoding))
                 except BrokenPipeError:
@@ -234,9 +272,9 @@ class ServerThread(threading.Thread):
         retstr = chr(calc_checksum(data))               # 1
         retstr += str(SRV_vars.DRV_A1_response[1:11])   # 2,3,4,5,6,7,8,9,10,11
         retstr += chr(data[5])  # CntrlMask1            # 12
-        retstr += chr(streaming_mode)         # 13
+        retstr += chr(streaming_mode)                   # 13
         retstr += chr(255)                              # 14
-        retstr += chr(ConnectionData.coreTemp)               # 15
+        retstr += chr(ConnectionData.coreTemp)          # 15
         retstr += chr(255)                              # 16
 
         return retstr  # .ljust(RECMSGLEN, chr(255))
@@ -246,13 +284,11 @@ class ServerThread(threading.Thread):
         self.srv = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         Console.print('Socket created')
         srv_address = (HOST, Port_COMM)
-
         try:
             self.srv.bind(srv_address)
 
         except socket.error as msg:
             Console.print('Bind failed. Error Code : ' + msg.__str__())
-            # Console.print('Bind failed. Error Code : ' + str(msg[0]) + ' Message ' + msg[1])
             return False
 
         except OSError as msg:
@@ -703,7 +739,20 @@ class DriverThread(threading.Thread):
 
                 if resp_data[0] + resp_data[DRV_A1_MSGLEN_RES - 1] == 510:
                     SRV_vars.DRV_A1_response = resp_data.decode(Encoding)
-                    HeartBeat       = resp_data[DRV_A1_MSGLEN_RES - 2]
+                    HeartBeat = resp_data[DRV_A1_MSGLEN_RES - 2]
+
+                    dataint = list()
+                    for idx in range(5, 9):
+                        if resp_data[idx] == 252:
+                            dataint.append(17)
+                        elif resp_data[idx] == 253:
+                            dataint.append(19)
+                        else:
+                            dataint.append(resp_data[idx])
+
+                    curr_sensor = 0.0048 * (dataint[0] * 250 + dataint[1])  # 6,7
+                    ConnectionData.current = (2.48 - curr_sensor) * 5
+                    ConnectionData.voltage = 0.0157 * (dataint[2] * 250 + dataint[3]) - 0.95  # 8,9
                 else:
                     if resp_data.decode(Encoding).split(":")[0] != "IVO-A1":
                         Console.print(">>>BAD CHKSUM", resp_data[0], resp_data[15], "[HB-", HeartBeat, "]")
@@ -756,8 +805,8 @@ class DriverThread(threading.Thread):
             idx += 1
 
     def read_CPU_temp(self):
-        Tempstr = execute_cmd("LD_LIBRARY_PATH=/opt/vc/lib && /opt/vc/bin/vcgencmd measure_temp")
-        Tempstr = re.findall(r"\d+", Tempstr.decode(Encoding))
+        Tempstr, err = execute_cmd("LD_LIBRARY_PATH=/opt/vc/lib && /opt/vc/bin/vcgencmd measure_temp")
+        Tempstr = re.findall(r"\d+", Tempstr)
         Temp = int(Tempstr[0]) * 10 + int(Tempstr[1])
         if Temp <= 1275:
             ConnectionData.coreTemp = int(Temp / 5)
@@ -765,7 +814,7 @@ class DriverThread(threading.Thread):
 
 # Function for handling connections. This will be used to create threads
 class ThreadManager():
-    def __init__(self, GUI):
+    def __init__(self, GUI, LB_Voltage, LB_Current, SW_OnOff):
         # threading.Thread.__init__(self)
         # # The shutdown_flag is a threading.Event object that
         # # indicates whether the thread should be terminated.
@@ -776,6 +825,12 @@ class ThreadManager():
         signal.signal(signal.SIGABRT, self.ProgramExit)
 
         self._GUI = GUI
+        self.LbVoltage = LB_Voltage
+        self.LbCurrent = LB_Current
+        self.SwOnOff   = SW_OnOff
+
+        self.DispAvgVal = [0, 0]
+
         if GUI is False:
             SRV_vars.GUI_CONSOLE = False
         else:
@@ -807,18 +862,35 @@ class ThreadManager():
                         self._init_DriverThread()
                         self.Driver_Thread.start()
 
-            if not self.Server_Thread.is_alive():
+            if self.Server_Thread.is_alive():
+                if self.Server_Thread.stop_request is not False:
+                    self.shutdown_flag = True
+                    self.ProgramExit(self.Server_Thread.stop_request)
+            else:
                 try:
                     self.Server_Thread.start()
                 except RuntimeError:
                     self._init_ServerThread()
                     self.Server_Thread.start()
+
+            self.DispAvgVal[0] = (self.DispAvgVal[0] * 4 + ConnectionData.voltage) / 5
+            self.DispAvgVal[1] = (self.DispAvgVal[1] * 4 + ConnectionData.current) / 5
         else:
+            self.DispAvgVal[0] = 0
+            self.DispAvgVal[1] = 0
             if not(self.Server_Thread.shutdown_flag.is_set() and self.Server_Thread.shutdown_flag.is_set()):
                 Console.print("shutting down services...")
                 self._stop()
 
         self.Console.display_message(self._GUI)
+
+        if self._GUI:
+            self.LbVoltage.set_value(self.DispAvgVal[0])
+            self.LbCurrent.set_value(self.DispAvgVal[1])
+            Voltage = "{:.2f}".format(ConnectionData.voltage).__str__()
+            Current = "{:.2f}".format(ConnectionData.current).__str__()
+            self.LbVoltage.set_tooltip_text(Voltage + "V")
+            self.LbCurrent.set_tooltip_text(Current + "A")
 
         return True
 
@@ -841,9 +913,19 @@ class ThreadManager():
         self.Console.display_message(self._GUI)
 
     def ProgramExit(self, *args):
-        Console.print("Exit requested!")
+        if args:
+            ExitCode = args[0]
+        else:
+            ExitCode = 0
+
+        Console.print("Exit requested! [%i]" %ExitCode)
+        self.Console.display_message(self._GUI)
         self._stop()
-        exit(0)
+
+        if ExitCode != 249:
+            time.sleep(1)
+            exit(ExitCode)
+
 
 class Console:
     # if SRV_vars.GUI_CONSOLE is True:
@@ -893,8 +975,8 @@ class ServiceExit(Exception):
 
 
 def load_setup():
-    Cam0 = execute_cmd("cat " + Paths.ini_file + "|grep CAM0|cut -f2").decode(Encoding)
-    MicIn = execute_cmd("cat " + Paths.ini_file + "|grep MIC0|cut -f2").decode(Encoding)
-    SpkOut = execute_cmd("cat " + Paths.ini_file + "|grep SPK0|cut -f2").decode(Encoding)
+    Cam0, err = execute_cmd("cat " + Paths.ini_file + "|grep CAM0|cut -f2")
+    MicIn, err = execute_cmd("cat " + Paths.ini_file + "|grep MIC0|cut -f2")
+    SpkOut, err = execute_cmd("cat " + Paths.ini_file + "|grep SPK0|cut -f2")
 
     return Cam0, MicIn, SpkOut
