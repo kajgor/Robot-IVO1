@@ -89,7 +89,7 @@ class ExeCmd:
     cmd = list()                                                                        # Init
     cmd.append('echo "shutdown"')                                                       # 0
     cmd.append('echo "USB restart"')                                                    # 1
-    cmd.append('')                                                                      # 2
+    cmd.append('echo "Server restart"')                                                 # 2
     cmd.append('')                                                                      # 3
     cmd.append('')                                                                      # 4
     cmd.append('')                                                                      # 5

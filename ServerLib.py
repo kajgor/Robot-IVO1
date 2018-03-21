@@ -180,7 +180,8 @@ class ServerThread(threading.Thread):
                         # 251  Restart Server
                         # 252  Restart Server and USB ports
                         self.stop_request = Fxvalue
-                        cmd = ExeCmd.cmd[Fxvalue]
+                        if Fxvalue >= 250:
+                            cmd = ExeCmd.cmd[Fxvalue - 250]
                     elif Fxmode == 31:
                         Console.print(" Setting Mic Level to", Fxvalue)
                         cmd = "pactl set-source-volume " + MicIn.split(":")[1] + " " + str(Fxvalue * 7000)

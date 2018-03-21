@@ -260,25 +260,7 @@
             <property name="visible">True</property>
             <property name="can_focus">False</property>
             <child>
-              <object class="GtkMenuItem" id="Menu_CmdExe_Item1">
-                <property name="name">250</property>
-                <property name="visible">True</property>
-                <property name="can_focus">False</property>
-                <property name="label" translatable="yes">Reboot RPI</property>
-                <signal name="activate" handler="on_Menu_CmdExe_Item_activate" swapped="no"/>
-              </object>
-            </child>
-            <child>
-              <object class="GtkMenuItem" id="Menu_CmdExe_Item2">
-                <property name="name">252</property>
-                <property name="visible">True</property>
-                <property name="can_focus">False</property>
-                <property name="label" translatable="yes">Reset USB ports</property>
-                <signal name="activate" handler="on_Menu_CmdExe_Item_activate" swapped="no"/>
-              </object>
-            </child>
-            <child>
-              <object class="GtkMenuItem" id="Menu_CmdExe_Item3">
+              <object class="GtkMenuItem" id="Menu_CmdExe_ConfResend">
                 <property name="name">1</property>
                 <property name="visible">True</property>
                 <property name="can_focus">False</property>
@@ -287,13 +269,37 @@
               </object>
             </child>
             <child>
-              <object class="GtkMenuItem" id="Menu_CmdExe_Item4">
+              <object class="GtkMenuItem" id="Menu_CmdExe_Sub_Server">
                 <property name="name">2</property>
                 <property name="visible">True</property>
-                <property name="sensitive">False</property>
                 <property name="can_focus">False</property>
-                <property name="label" translatable="yes">None</property>
+                <property name="tooltip_text" translatable="yes">Commands executed on Server OS</property>
+                <property name="label" translatable="yes">Server Commands</property>
                 <signal name="activate" handler="on_Menu_CmdExe_Item_activate" swapped="no"/>
+                <child type="submenu">
+                  <object class="GtkMenu" id="menu1">
+                    <property name="visible">True</property>
+                    <property name="can_focus">False</property>
+                    <child>
+                      <object class="GtkMenuItem" id="Menu_CmdExe_RebootRpi">
+                        <property name="name">250</property>
+                        <property name="visible">True</property>
+                        <property name="can_focus">False</property>
+                        <property name="label" translatable="yes">Reboot RPI</property>
+                        <signal name="activate" handler="on_Menu_CmdExe_Item_activate" swapped="no"/>
+                      </object>
+                    </child>
+                    <child>
+                      <object class="GtkMenuItem" id="Menu_CmdExe_ResetUsb">
+                        <property name="name">252</property>
+                        <property name="visible">True</property>
+                        <property name="can_focus">False</property>
+                        <property name="label" translatable="yes">Reset USB ports</property>
+                        <signal name="activate" handler="on_Menu_CmdExe_Item_activate" swapped="no"/>
+                      </object>
+                    </child>
+                  </object>
+                </child>
               </object>
             </child>
             <child>

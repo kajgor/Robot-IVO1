@@ -699,7 +699,8 @@ class ConfigStorage:
     def reload_current_setup(self, builder):
         for obj in builder.get_objects():
             if issubclass(type(obj), Gtk.Buildable):
-                self.set_object_value(obj)
+                if type(obj) != Gtk.TreeView:
+                    self.set_object_value(obj)
 
     def load_setup(self, builder):
         # Emulate button press for signal processing
@@ -824,7 +825,7 @@ class ConfigStorage:
             return obj.get_value_pos()
 
         if type(obj) == Gtk.TreeView:
-            return_list = []
+            return_list = list()
             return_list_raw = obj.get_model()
             for iter_x in range(0, return_list_raw.iter_n_children()):
                 return_list.append(tuple(return_list_raw[iter_x]))
