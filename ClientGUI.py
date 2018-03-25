@@ -129,9 +129,9 @@ class MainWindow(Gtk.Window):
     def SSBar_update(self):
         SStatBar = PROTO_NAME[ConnectionData.Protocol] + ": "
         SStatBar += VideoCodec[ConnectionData.Vcodec] + "/"
-        SStatBar += VideoFramerate[ConnectionData.Framerate] + "  "
+        SStatBar += VideoFramerate[ConnectionData.Framerate].__str__() + "  "
         SStatBar += AudioCodec[ConnectionData.Acodec] + "/"
-        SStatBar += AudioBitrate[ConnectionData.Abitrate]
+        SStatBar += AudioBitrate[ConnectionData.Abitrate].__str__()
 
         self.StatusBar1.push(self.context_id1, SStatBar)
 
@@ -220,7 +220,7 @@ class MainWindow(Gtk.Window):
 ################   MAIN LOOP END   ############################################
 ###############################################################################
 
-    def on_DrawingArea_Control_draw(self, bus, message):
+    def on_DrawingArea_Control_draw(self, widget, message):
         self.Connection_Thread.draw_arrow(message)
 
     def on_ComboBox_Host_changed(self, widget):
@@ -832,6 +832,7 @@ class ConfigStorage:
 
             return return_list
 
+        return None
 
 if __name__ == '__main__':
     MainWindow()

@@ -52,11 +52,10 @@ LEFT = 0
 #################################
 # Encoding = 'cp037'
 Encoding = 'latin_1'
-# Encoding = 'utf8'
-VideoCodec = ("raw", "h264", "mjpeg", "VP8")
-VideoFramerate = ("30", "25", "15", "5")
-AudioCodec = ("speex", "mp3", "aac")
-AudioBitrate = ("32000", "16000", "8000")
+VideoCodec = ('raw', 'h264', 'mjpeg', 'VP8')
+AudioCodec = ('speex', 'mp3', 'aac')
+VideoFramerate = [5, 15, 25, 30]
+AudioBitrate = [32000, 16000, 8000]
 PrintOnOff = ('off', 'on')
 ###### COLOURS #######
 BLACK = (0, 0, 0)
@@ -74,7 +73,7 @@ DDBLUE = (0, 0, 30)
 #################################
 TCP = 0
 UDP = 1
-PROTO_NAME = ["TCP", "UDP"]
+PROTO_NAME = ['TCP', 'UDP']
 #################################
 
 
@@ -125,15 +124,6 @@ def calc_checksum(string):
 
 
 import subprocess
-
-
-# def execute_cmd(cmd_string):
-#     stdout = None
-#     try:
-#         stdout = subprocess.check_output(cmd_string, shell=True)[:-1]
-#     except subprocess.CalledProcessError:
-#         pass
-#     return stdout
 
 
 def execute_cmd(cmd_string):

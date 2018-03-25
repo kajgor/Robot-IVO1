@@ -366,6 +366,13 @@ class RacDisplay:
                 Console.print ("ERROR:", debug_s)
             return debug_s[debug_s.__len__() - 1]
 
+        elif msgtype == Gst.MessageType.STATE_CHANGED:
+            # print('STATE_CHANGED')
+            pass
+
+        # elif msgtype == Gst.MessageType.BUFFERING:
+        #     print('BUFFERING')
+
         else:
             return None
 
@@ -717,7 +724,7 @@ class ConnectionThread:
     def conect_speakerstream(self, Connect):
         if Connect is True:
             Console.print(" Speaker requested rate:", AudioBitrate[ConnectionData.Abitrate])
-            caps = Gst.Caps.from_string("audio/x-raw, rate=" + AudioBitrate[ConnectionData.Abitrate])
+            caps = Gst.Caps.from_string("audio/x-raw, rate=" + AudioBitrate[ConnectionData.Abitrate].__str__())
             self.Rac_Stream.sender_audio_capsfilter.set_property("caps", caps)
 
             retmsg = self.Rac_Stream.sender_audio.set_state(Gst.State.PLAYING)

@@ -9,7 +9,6 @@ FxModes  = ["brightness", "contrast", "saturation", "red_balance", "blue_balance
             "h264_i_frame_period", "h264_level", "h264_profile", "auto_exposure", "exposure_time_absolute",
             "exposure_dynamic_framerate", "auto_exposure_bias", "white_balance_auto_preset", "image_stabilization",
             "iso_sensitivity", "iso_sensitivity_auto", "exposure_metering_mode", "scene_mode", "compression_quality"]
-FpsModes = [5, 15, 25, 30]
 
 VERSION = "B3.1"
 HOST = ''   # Empty name meaning all available interfaces

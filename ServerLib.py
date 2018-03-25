@@ -570,7 +570,7 @@ class StreamThread(threading.Thread):
                 curr_mic0 = ConnectionData.mic
                 if ConnectionData.mic is True:
                     Console.print(" Mic0 requested rate:", AudioBitrate[ConnectionData.Abitrate])
-                    caps = Gst.Caps.from_string("audio/x-raw, rate=" + AudioBitrate[ConnectionData.Abitrate])
+                    caps = Gst.Caps.from_string("audio/x-raw, rate=" + AudioBitrate[ConnectionData.Abitrate].__str__())
                     self.sender_audio_capsfilter[self.Source_h264].set_property("caps", caps)
                     self.sender_audio_capsfilter[self.Source_test].set_property("caps", caps)
                 else:
@@ -589,13 +589,13 @@ class StreamThread(threading.Thread):
 
             if curr_Framerate != ConnectionData.Framerate:
                 curr_Framerate = ConnectionData.Framerate
-                curr_resolution = None
+                curr_resolution = None  # force cam reinitialization
 
             if curr_resolution != self.req_resolution:
                 if self.req_resolution > 0:
                     Console.print("Changing Gstreamer fps/resolution")
                     ### CHANGE RESOLUTION CAPS ###
-                    res_fps = capsstr[self.req_resolution] + FpsModes[ConnectionData.Framerate].__str__() + "/1"
+                    res_fps = capsstr[self.req_resolution] + VideoFramerate[ConnectionData.Framerate].__str__() + "/1"
                     caps = Gst.Caps.from_string("video/x-" + VideoCodec[self.Video_Codec] + res_fps)
                     self.sender_video_capsfilter[SRV_vars.TestMode].set_property("caps", caps)
 
@@ -632,12 +632,8 @@ class StreamThread(threading.Thread):
                     Console.print("Preparing Gstreamer", end="...")
                     self.sender_video[SRV_vars.TestMode].set_state(req_mode)
                 elif req_mode == Gst.State.PLAYING:
-                    # Host = self.sender_video_sink[SRV_vars.TestMode].get_property("host")
-                    # Console.print("Gst:Host:::", Host)
-                    # Port = self.sender_video_sink[SRV_vars.TestMode].get_property("port")
-                    # Console.print("Gst:Port:::", Port)
                     Console.print("Requested streaming in mode " + self.req_resolution.__str__() + "/" +
-                                  FpsModes[ConnectionData.Framerate].__str__() + "... ")
+                                  VideoFramerate[ConnectionData.Framerate].__str__() + "... ")
                     self.sender_video[SRV_vars.TestMode].set_state(req_mode)
                 else:
                     Console.print('ERROR: resolution' + self.req_resolution.__str__() + ", mode " + req_mode)
@@ -657,7 +653,7 @@ class StreamThread(threading.Thread):
 
         if curr_resolution > 3:
             Console.print("Switching to low resolution...")
-            res_fps = capsstr[1] + FpsModes[1].__str__() + "/1"
+            res_fps = capsstr[1] + VideoFramerate[1].__str__() + "/1"
             caps = Gst.Caps.from_string("video/x-" + VideoCodec[self.Video_Codec] + res_fps)
             self.sender_video_capsfilter[SRV_vars.TestMode].set_property("caps", caps)
             self.sender_video[SRV_vars.TestMode].set_state(Gst.State.READY)
