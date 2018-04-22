@@ -142,13 +142,18 @@ class MainWindow(Gtk.Window):
         # Idle timer for checking the link
         ConnectionData.comm_link_idle += 1
 
+        # Update Hud & Control widgets
+        if KEY_control.hud is True:
+            self.DrawingArea_Cam.queue_draw()
+
+        self.DrawingArea_Control.queue_draw()
+
         # Any update tasks would go here (moving sprites, advancing animation frames etc.)
         self.UpdateControlData()
         self.UpdateMonitorData()
         self.Console.display_message(self.TextView_Log)
 
         self.StatusBar2.push(self.context_id2, str(datetime.timedelta(seconds=int(self.counter))))
-        self.DrawingArea_Control.queue_draw()
 
         if ConnectionData.connected is True:
             self.counter += .05
@@ -222,6 +227,9 @@ class MainWindow(Gtk.Window):
 
     def on_DrawingArea_Control_draw(self, widget, message):
         self.Connection_Thread.draw_arrow(message)
+
+    def on_DrawingArea_Cam_draw(self, widget, message):
+        self.Connection_Thread.draw_hud(message)
 
     def on_ComboBox_Host_changed(self, widget):
         try:
@@ -633,6 +641,10 @@ class MainWindow(Gtk.Window):
             ConnectionData.speed = 0
             ConnectionData.direction = 0
             KEY_control.Space = value
+
+        elif key_name.replace("H", "h", 1) == "h":
+            if value is False:
+                KEY_control.hud = not KEY_control.hud
 
         if event.state is True and Gdk.KEY_Shift_L is not KEY_control.Shift:
             KEY_control.Shift = Gdk.KEY_Shift_L

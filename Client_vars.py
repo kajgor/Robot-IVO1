@@ -49,6 +49,7 @@ class KEY_control:
     MouseBtn = [False, False]
     MouseXY = [0, 0]
     time    = 0
+    hud     = False
 
 
 class CAM0_control:

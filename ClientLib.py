@@ -57,8 +57,15 @@ class RacStream:
         self.convert_video      = Gst.ElementFactory.make("videoconvert")
         self.rtimer_video       = Gst.ElementFactory.make("rtph264depay", "rtimer")
         self.decoder_video      = Gst.ElementFactory.make("avdec_h264", "avdec")
-        # glimagesink(default)/gtksink/cacasink/autovideosink
+        # glimagesink(default)/gtksink/cacasink/autovideosink/ximagesink(working)
+        self.fpsadj_video       = Gst.ElementFactory.make("videorate")
+        self.fpsadjcaps_video   = Gst.ElementFactory.make("capsfilter", "fpsadj")
         self.sink_video         = Gst.ElementFactory.make("ximagesink", "sink")
+
+# ToDo: Hud sync
+#         caps = Gst.Caps.from_string("video/x-raw, framerate=30/1")
+#         self.fpsadjcaps_video.set_property("caps", caps)
+#         self.fpsadj_video.set_property("max-rate", 30)
 
         #   SET AUDIO RECEIVER
         #    udpsrc port=3333 ! application/x-rtp, media=audio, clock-rate=32000, encoding-name=SPEEX, payload=96 !
@@ -117,7 +124,8 @@ class RacStream:
         self.capsfilter_video.set_property("caps", caps)
 
         # glimagesink(default)/gtksink/cacasink/autovideosink
-        self.sink_video.set_property("sync", False)
+        # self.sink_video.set_property("sync", False)
+        # self.sink_video.set_property("set_clock", "100")
 
         caps = Gst.Caps.from_string("application/x-rtp, media=audio, clock-rate=32000, encoding-name=SPEEX, payload=96")
         self.player_audio_capsfilter.set_property("caps", caps)
@@ -134,11 +142,15 @@ class RacStream:
         self.player_video.add(self.source_video)
         self.player_video.add(self.depayloader_video)
         self.player_video.add(self.convert_video)
+        self.player_video.add(self.fpsadj_video)
+        self.player_video.add(self.fpsadjcaps_video)
         self.player_video.add(self.sink_video)
 
         self.source_video.link(self.depayloader_video)
         self.depayloader_video.link(self.convert_video)
-        self.convert_video.link(self.sink_video)
+        self.convert_video.link(self.fpsadj_video)
+        self.fpsadj_video.link(self.fpsadjcaps_video)
+        self.fpsadjcaps_video.link(self.sink_video)
 
         #    tcpclientsrc host=x.x.x.x port=4552 ! application/x-rtp, media=audio, clock-rate=32000, encoding-name=SPEEX, payload=96 !
         #    rtpspeexdepay ! speexdec ! pulsesink sync=false
@@ -176,6 +188,8 @@ class RacStream:
         self.player_video.add(self.decoder_video)
         self.player_video.add(self.convert_video)
         self.player_video.add(self.video_flip)
+        self.player_video.add(self.fpsadj_video)
+        self.player_video.add(self.fpsadjcaps_video)
         self.player_video.add(self.sink_video)
 
         self.source_video.link(self.depayloader_video)
@@ -183,7 +197,9 @@ class RacStream:
         self.rtimer_video.link(self.decoder_video)
         self.decoder_video.link(self.convert_video)
         self.convert_video.link(self.video_flip)
-        self.video_flip.link(self.sink_video)
+        self.video_flip.link(self.fpsadj_video)
+        self.fpsadj_video.link(self.fpsadjcaps_video)
+        self.fpsadjcaps_video.link(self.sink_video)
 
         #    tcpclientsrc host=x.x.x.x port=4552 ! application/x-rtp, media=audio, clock-rate=32000, encoding-name=SPEEX, payload=96 !
         #    rtpspeexdepay ! speexdec ! pulsesink sync=false
@@ -221,6 +237,8 @@ class RacStream:
         self.player_video.add(self.rtimer_video)
         self.player_video.add(self.decoder_video)
         self.player_video.add(self.convert_video)
+        self.player_video.add(self.fpsadj_video)
+        self.player_video.add(self.fpsadjcaps_video)
         self.player_video.add(self.sink_video)
 
         self.source_video.link(self.capsfilter_video)
@@ -228,7 +246,9 @@ class RacStream:
         self.rtimer_video.link(self.decoder_video)
         # self.capsfilter_video.link(self.decoder_video)
         self.decoder_video.link(self.convert_video)
-        self.convert_video.link(self.sink_video)
+        self.convert_video.link(self.fpsadj_video)
+        self.fpsadj_video.link(self.fpsadjcaps_video)
+        self.fpsadjcaps_video.link(self.sink_video)
 
         #    udpsrc port=3333 ! application/x-rtp, media=audio, clock-rate=32000, encoding-name=SPEEX, payload=96 !
         #    rtpspeexdepay ! speexdec ! pulsesink sync=false
@@ -265,6 +285,8 @@ class RacStream:
         self.player_video.add(self.rtimer_video)
         self.player_video.add(self.decoder_video)
         self.player_video.add(self.convert_video)
+        self.player_video.add(self.fpsadj_video)
+        self.player_video.add(self.fpsadjcaps_video)
         self.player_video.add(self.video_flip)
         self.player_video.add(self.sink_video)
 
@@ -272,7 +294,9 @@ class RacStream:
         self.capsfilter_video.link(self.rtimer_video)
         self.rtimer_video.link(self.decoder_video)
         self.decoder_video.link(self.convert_video)
-        self.convert_video.link(self.video_flip)
+        self.convert_video.link(self.fpsadj_video)
+        self.fpsadj_video.link(self.fpsadjcaps_video)
+        self.fpsadjcaps_video.link(self.video_flip)
         self.video_flip.link(self.sink_video)
 
         #    udpsrc port=3333 ! application/x-rtp, media=audio, clock-rate=32000, encoding-name=SPEEX, payload=96 !
@@ -307,6 +331,55 @@ class RacStream:
 
 class RacDisplay:
     background_control = ImageSurface.create_from_png(Paths.background_file)
+
+    image = None
+
+    def draw_hud(self, image):
+
+        if image is None:
+            image = self.image
+        else:
+            self.image = image
+
+        image.set_line_width(1)
+        image.translate(300, 200)
+
+        if ConnectionData.speed >= 0:
+            image.rotate(ConnectionData.direction / (pi * 5))
+        else:
+            image.rotate((ConnectionData.direction + MAX_SPEED) / (pi * 5))
+
+        # Direction arrow
+        image.set_source_rgb(0.25, 0.25, 0.25)
+        for i in range(4):
+            image.line_to(arrow.points[i][0], arrow.points[i][1])
+        # image.fill()
+        image.set_source_rgb(0, 0.75, 0.75)
+        for i in range(5):
+            image.line_to(arrow.points[i][0], arrow.points[i][1])
+        image.stroke()
+
+        # Speed arrow (REQ)
+        image.set_source_rgb(abs(ConnectionData.speed / MAX_SPEED), 1 - abs(ConnectionData.speed / MAX_SPEED), 0)
+        image.line_to(arrow.points[0][0], arrow.points[0][1] + 60 - abs((ConnectionData.speed / MAX_SPEED) * 50))
+        for i in range(1, 4):
+                image.line_to(arrow.points[i][0], arrow.points[i][1])
+        # image.fill()
+
+        # Speed arrow (ACK)
+        image.set_source_rgb(0, 0.75, 0.75)
+        speed_ACK = abs(ConnectionData.motor_ACK[0] + ConnectionData.motor_ACK[1]) * 0.5
+        image.line_to(arrow.points[1][0], arrow.points[1][1])
+        image.line_to(arrow.points[0][0], arrow.points[0][1] + 60 - speed_ACK)
+        image.line_to(arrow.points[3][0], arrow.points[3][1])
+        image.stroke()
+
+        # Camera position
+        image.set_source_rgb(.8, 0.05, 0.8)
+        for i in range(10):
+            image.line_to(rombe.points[i][0] - ConnectionData.camPosition[0] + 100,
+                          rombe.points[i][1] + ConnectionData.camPosition[1] - 70)
+        image.stroke()
 
     def draw_arrow(self, image):
         image.set_source_surface(self.background_control, 0, 0)
@@ -399,6 +472,12 @@ class ConnectionThread:
 
     def draw_arrow(self, message):
         self.Rac_Display.draw_arrow(message)
+
+    def draw_hud(self, message):
+        # if self.Rac_Stream is not None:
+        #     self.Rac_Stream.player_video.set_state(Gst.State.READY)
+        #     self.Rac_Stream.player_video.set_state(Gst.State.PAUSED)
+        self.Rac_Display.draw_hud(message)
 
     def on_cam_message(self, bus, message):
         retmsg = self.Rac_Display.on_message(message)
@@ -520,10 +599,8 @@ class ConnectionThread:
         Console.print("Connection closed.")
         # print("Connection closed.")
 
-    # @staticmethod
     def check_connection(self, HostIp):
         try:
-            # status = self.srv.getsockname()
             status = self.srv.getpeername()
         except OSError:
             status = (False, False)
