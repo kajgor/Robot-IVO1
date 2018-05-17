@@ -77,38 +77,38 @@ class GtkTsMain(Gtk.Window):
     def load_devices(self):
         Cam0, MicIn, SpkOut = load_setup()
 
-        item = None
-        LsDev1 = Gtk.ListStore(str, int)
-        DEV_LIST, err = execute_cmd(CAM_1_CMD)
-        for idx, DevName in enumerate(DEV_LIST.splitlines()):
-            LsDev1.append((DevName, idx))
-            if DevName == Cam0.split(' ')[1]:
-                item = LsDev1.iter_n_children() - 1
-        self.ComboBoxText_Cam1.set_model(LsDev1)
-        if item is not None:
-            self.ComboBoxText_Cam1.set_active(item)
+        fail = self.set_device(CAM_1_CMD, self.ComboBoxText_Cam1, Cam0)
+        fail += self.set_device(DEV_INP_CMD, self.ComboBoxText_AudioIn, MicIn)
+        fail += self.set_device(DEV_OUT_CMD, self.ComboBoxText_AudioOut, SpkOut)
 
-        item = None
-        LsDev2 = Gtk.ListStore(str, int)
-        DEV_LIST, err = execute_cmd(DEV_INP_CMD)
-        for idx, DevName in enumerate(DEV_LIST.splitlines()):
-            LsDev2.append((DevName, idx))
-            if DevName == MicIn.split(' ')[1]:
-                item = LsDev2.iter_n_children() - 1
-        self.ComboBoxText_AudioIn.set_model(LsDev2)
-        if item is not None:
-            self.ComboBoxText_AudioIn.set_active(item)
+        if fail > 0:
+            Console.print("Warning: Some devices are missing!")
 
-        item = None
-        LsDev3 = Gtk.ListStore(str, int)
-        DEV_LIST, err = execute_cmd(DEV_OUT_CMD)
-        for idx, DevName in enumerate(DEV_LIST.splitlines()):
-            LsDev3.append((DevName, idx))
-            if DevName == SpkOut.split(' ')[1]:
-                item = LsDev3.iter_n_children() - 1
-        self.ComboBoxText_AudioOut.set_model(LsDev3)
-        if item is not None:
-            self.ComboBoxText_AudioOut.set_active(item)
+    def set_device(self, CMD, widget, DevToMatch):
+        active_item = 0
+        if DevToMatch is None:
+            Console.print("Warning: %s device not setup yet!" % Gtk.Buildable.get_name(widget).split('_')[1])
+
+        LsDev = Gtk.ListStore(str, int)
+        detected_devices, err = execute_cmd(CMD)
+
+        if detected_devices > "":
+            for idx, DevName in enumerate(detected_devices.splitlines()):
+                if DevName.find(":") == -1:
+                    Dev = DevName
+                else:
+                    Dev = DevName.split(':')[1]
+
+                if Dev == DevToMatch:
+                    active_item = idx
+                LsDev.append((DevName, idx))
+            widget.set_model(LsDev)
+
+            widget.set_active(active_item)
+
+            return False
+        else:
+            return True
 
     def on_Button_Setup_clicked(self, widget):
         self.Window_Setup.show()
@@ -124,14 +124,14 @@ class GtkTsMain(Gtk.Window):
             self.Thread_ID = GLib.timeout_add(TIMEOUT_GUI, self.Thread_Manager.run)
             ############################################
 
-            self.StatusBar_Server.push(self.context_id, "Port " + Port_COMM.__str__() + " open!")
+            self.StatusBar_Server.push(self.context_id, "Port %i open!" % Port_COMM)
             # self.set_deletable(False)
         else:
             if self.Thread_Manager.shutdown_flag is False:
                 self.Thread_Manager.shutdown_flag = True
 
             # self.set_deletable(True)
-            self.StatusBar_Server.push(self.context_id, "Port " + Port_COMM.__str__() + " closed.")
+            self.StatusBar_Server.push(self.context_id, "Port %i closed." % Port_COMM)
 
         self.show_all()
 
@@ -141,18 +141,25 @@ class GtkTsMain(Gtk.Window):
         return True
 
     def save_setup(self):
-        OutStr = "CAM0\t" + str(self.ComboBoxText_Cam1.get_active_text())
-        CMD = "echo " + OutStr + " > " + Paths.ini_file
+        # OutStr = "CAM0\t" + str(self.ComboBoxText_Cam1.get_active_text())
+        # CMD = "echo " + OutStr + " > " + Paths.ini_file
+        # execute_cmd(CMD)
+        # OutStr = "MIC0\t" + str(self.ComboBoxText_AudioIn.get_active_text())
+        # CMD = "echo " + OutStr + " >> " + Paths.ini_file
+        # execute_cmd(CMD)
+        # OutStr = "SPK0\t" + str(self.ComboBoxText_AudioOut.get_active_text())
+        # CMD = "echo " + OutStr + " >> " + Paths.ini_file
+        # execute_cmd(CMD)
+        # OutStr = "IPP0\t" + str(self.ComboBoxText_AudioOut.get_active_text())
+        # CMD = "echo " + OutStr + " >> " + Paths.ini_file
+        CMD = "echo '' > " + Paths.ini_file
         execute_cmd(CMD)
-        OutStr = "MIC0\t" + str(self.ComboBoxText_AudioIn.get_active_text())
-        CMD = "echo " + OutStr + " >> " + Paths.ini_file
-        execute_cmd(CMD)
-        OutStr = "SPK0\t" + str(self.ComboBoxText_AudioOut.get_active_text())
-        CMD = "echo " + OutStr + " >> " + Paths.ini_file
-        execute_cmd(CMD)
-        OutStr = "IPP0\t" + str(self.ComboBoxText_AudioOut.get_active_text())
-        CMD = "echo " + OutStr + " >> " + Paths.ini_file
-        execute_cmd(CMD)
+        for OutStr in ("CAM0\t" + str(self.ComboBoxText_Cam1.get_active_text()),
+                    "MIC0\t" + str(self.ComboBoxText_AudioIn.get_active_text()),
+                    "SPK0\t" + str(self.ComboBoxText_AudioOut.get_active_text()),
+                    "IPP0\t" + str(self.ComboBoxText_AudioOut.get_active_text())):
+            CMD = "echo " + OutStr + " >> " + Paths.ini_file
+            execute_cmd(CMD)
 
     def gtk_main_quit(self, *args):
         if self.switch_ServerStart.get_active() is True:

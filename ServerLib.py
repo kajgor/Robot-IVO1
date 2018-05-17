@@ -27,7 +27,7 @@ class ServerThread(threading.Thread):
         self.stop_request  = False
 
     def run(self):
-        Console.print('Server Thread #%s started' % self.ident)
+        Console.print('Server Thread #%i started' % self.ident)
 
         while not self.shutdown_flag.is_set():
             success = False
@@ -45,9 +45,9 @@ class ServerThread(threading.Thread):
                 if self.shutdown_flag.is_set() is True:
                     Console.print("Connection aborted.")
                 else:
-                    Console.print("Bind failed for", SO_RETRY_LIMIT, "times. Resetting socket.")
+                    Console.print("Bind failed for %i times. Resetting socket." % SO_RETRY_LIMIT)
                     self.shutdown_flag.set()
-                self.closesrv()
+                self.close_srv()
             else:
                 result, out_data = self.open_tcp_to_udp_link()
                 if result is False:
@@ -58,7 +58,17 @@ class ServerThread(threading.Thread):
                 self.listen_socket()
 
         # ... Clean shutdown code here ...
-        execute_cmd('killall socat')
+        # Kill all processes that block necessary ports
+        # also replace "execute_cmd('killall socat')"
+        for port in (Port_COMM, Port_CAM0, Port_MIC0, Port_SPK0):
+            exe_cmd = 'lsof -F u -i :%i | head -1 | cut -c2-' % port
+            pid, err = execute_cmd(exe_cmd)
+            while pid != "":
+                Console.print('killing port blocker [%s] for ' % pid, port)
+                execute_cmd('kill %s' % pid)
+                time.sleep(1)
+                pid, err = execute_cmd(exe_cmd)
+
         Console.print('Server Thread #%s stopped' % self.ident)
 
     def open_tcp_to_udp_link(self):
@@ -128,7 +138,7 @@ class ServerThread(threading.Thread):
                 if conn:
                     # came out of loop
                     conn.close()
-                    self.closesrv()
+                    self.close_srv()
 
                     Console.print("Connection with %s closed." % str(addr))
             else:
@@ -166,7 +176,7 @@ class ServerThread(threading.Thread):
                 elif Fxmode < 30:
                     if Fxmode < 4:
                         Fxvalue -= 100
-                    Console.print(" Entering FX mode", FxModes[Fxmode - 1], Fxvalue)
+                    Console.print(" Entering FX mode %s, value" % FxModes[Fxmode - 1], Fxvalue)
                     cmd = "v4l2-ctl --set-ctrl=" + FxModes[Fxmode - 1] + "=" + Fxvalue.__str__()
                     retmsg, err = execute_cmd(cmd)
                     if retmsg:
@@ -184,10 +194,10 @@ class ServerThread(threading.Thread):
                             cmd = ExeCmd.cmd[Fxvalue - 250]
                     elif Fxmode == 31:
                         Console.print(" Setting Mic Level to", Fxvalue)
-                        cmd = "pactl set-source-volume " + MicIn.split(":")[1] + " " + str(Fxvalue * 7000)
+                        cmd = "pactl set-source-volume " + MicIn + " " + str(Fxvalue * 7000)
                     elif Fxmode == 32:
                         Console.print(" Setting Spekar volume to", Fxvalue)
-                        cmd = "pactl set-sink-volume " + SpkOut.split(":")[1] + " " + str(Fxvalue * 7000)
+                        cmd = "pactl set-sink-volume " + SpkOut + " " + str(Fxvalue * 7000)
                     else:
                         Console.print(" WARNING: Invalid mode [%s]" % Fxmode)
 
@@ -289,11 +299,11 @@ class ServerThread(threading.Thread):
             self.srv.bind(srv_address)
 
         except socket.error as msg:
-            Console.print('Bind failed. Error Code : ' + msg.__str__())
+            Console.print('Bind failed. Error Code : %s' % msg)
             return False
 
         except OSError as msg:
-            Console.print('Bind failed. Error Code : ' + str(msg[0]) + ' Message ' + msg[1])
+            Console.print('Bind failed. Error Code : %i, Message' % msg[0], msg[1])
             Console.print('Advice: check for python process to kill it!')
             return False
 
@@ -301,7 +311,7 @@ class ServerThread(threading.Thread):
         Console.print('Socket bind complete')
         return True
 
-    def closesrv(self):
+    def close_srv(self):
         if self.srv is None:
             Console.print("Socket is closed!")
         else:
@@ -361,6 +371,9 @@ class StreamThread(threading.Thread):
         self.player_audio_sink       = ([Gst.ElementFactory.make("pulsesink", "sink_audio_test"),
                                          Gst.ElementFactory.make("pulsesink", "sink_audio")])
 
+        self.player_audio_sink[self.Source_test].set_property("device", SpkOut)
+        self.player_audio_sink[self.Source_h264].set_property("device", SpkOut)
+
         if Protocol == TCP:
             self.sender_video_encoder = [Gst.ElementFactory.make("gdppay", "encoder_test"),
                                          Gst.ElementFactory.make("gdppay", "encoder")]
@@ -417,7 +430,7 @@ class StreamThread(threading.Thread):
         self.sender_audio_sink[self.Source_test].set_property("sync", False)
         self.sender_audio_sink[self.Source_h264].set_property("sync", False)
         self.sender_audio_source[self.Source_test].set_property("wave", 0)
-        self.sender_audio_source[self.Source_h264].set_property("device", MicIn.split(":")[1])
+        self.sender_audio_source[self.Source_h264].set_property("device", MicIn)
 
         # caps = Gst.Caps.from_string("audio/x-raw, rate=32000")
         # self.capsfilter_audio[self.Source_h264].set_property("caps", caps)
@@ -779,13 +792,13 @@ class DriverThread(threading.Thread):
             inc += adx
             if inc > 250 or inc < 30:
                 adx = -adx
-            ConnectionData.current = chr(60 + int(inc / 10)) + chr(int(inc % 100))
+            ConnectionData.current = inc / 50
 
             # Voltage - report continuously
-            ConnectionData.voltage = chr(130) + chr(35)
+            ConnectionData.voltage = 12
 
             # DistanceS1
-            ConnectionData.distanceS1 = chr(+ 100)
+            ConnectionData.distanceS1 = 150
 
             # Motor Power
             ConnectionData.motor_PWR = [60, 50]
@@ -895,7 +908,7 @@ class ThreadManager():
         self.Server_Thread.shutdown_flag.set()
 
         if self.Server_Thread.srv is not None:
-            self.Server_Thread.closesrv()
+            self.Server_Thread.close_srv()
 
         if self.Server_Thread.is_alive():
             self.Server_Thread.join()
@@ -972,8 +985,22 @@ class ServiceExit(Exception):
 
 
 def load_setup():
-    Cam0, err = execute_cmd("cat " + Paths.ini_file + "|grep CAM0|cut -f2")
-    MicIn, err = execute_cmd("cat " + Paths.ini_file + "|grep MIC0|cut -f2")
-    SpkOut, err = execute_cmd("cat " + Paths.ini_file + "|grep SPK0|cut -f2")
+    dev, err = execute_cmd("cat " + Paths.ini_file + "|grep CAM0|cut -f2")
+    if dev.find(":") != -1:
+        Cam0 = dev.split(":")[1]
+    else:
+        Cam0 = dev
+
+    dev, err = execute_cmd("cat " + Paths.ini_file + "|grep MIC0|cut -f2")
+    if dev.find(":") != -1:
+        MicIn = dev.split(":")[1]
+    else:
+        MicIn = dev
+
+    dev, err = execute_cmd("cat " + Paths.ini_file + "|grep SPK0|cut -f2")
+    if dev.find(":") != -1:
+        SpkOut = dev.split(":")[1]
+    else:
+        SpkOut = dev
 
     return Cam0, MicIn, SpkOut

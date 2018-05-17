@@ -9,9 +9,10 @@ from gi.repository import Gtk, Gdk, GLib
 from sys import argv
 
 from ClientLib   import ConnectionThread, Console
-from Client_vars import Paths, CAM0_control, KEY_control, CommunicationFFb
-from Common_vars import VideoFramerate, AudioBitrate, AudioCodec, VideoCodec, PrintOnOff,\
-    TIMEOUT_GUI, PROTO_NAME, LEFT, RIGHT, X_AXIS, Y_AXIS, MOUSE_MIN, MOUSE_MAX, ConnectionData, COMM_IDLE
+from Client_vars import Paths, DEVICE_control, KEY_control, CommunicationFFb
+from Common_vars import VideoFramerate, AudioBitrate, AudioCodec, VideoCodec, PrintOnOff, execute_cmd,\
+    TIMEOUT_GUI, PROTO_NAME, LEFT, RIGHT, X_AXIS, Y_AXIS, MOUSE_MIN, MOUSE_MAX, ConnectionData, COMM_IDLE,\
+    CAM_1_CMD, DEV_OUT_CMD, DEV_INP_CMD
 
 
 # noinspection PyAttributeOutsideInit
@@ -62,6 +63,8 @@ class MainWindow(Gtk.Window):
             self.SyncItemCount = 0
             self.Console.print('Resetting to default configuration.')
             self.StatusBar.push(self.context_id, 'Resetting to default configuration.')
+
+        self.load_devices()
 
     @staticmethod
     def get_argv(checkval):
@@ -134,6 +137,39 @@ class MainWindow(Gtk.Window):
         SStatBar += AudioBitrate[ConnectionData.Abitrate].__str__()
 
         self.StatusBar1.push(self.context_id1, SStatBar)
+
+    def load_devices(self):
+        fail = self.set_device(CAM_1_CMD, self.ComboBoxText_Cam1, DEVICE_control.DEV_Cam0)
+        fail += self.set_device(DEV_INP_CMD, self.ComboBoxText_AudioIn, DEVICE_control.DEV_AudioIn)
+        fail += self.set_device(DEV_OUT_CMD, self.ComboBoxText_AudioOut, DEVICE_control.DEV_AudioOut)
+
+        if fail > 0:
+            self.MessageDialog_Warning.show()
+
+    def set_device(self, CMD, widget, DevToMatch):
+        active_item = 0
+        if DevToMatch is None:
+            Console.print("Warning: %s device not setup yet!" % Gtk.Buildable.get_name(widget).split('_')[1])
+
+        LsDev = Gtk.ListStore(str, int)
+        detected_devices, err = execute_cmd(CMD)
+        if detected_devices > "":
+            for idx, DevName in enumerate(detected_devices.splitlines()):
+                if DevName.find(":") == -1:
+                    Dev = DevName
+                else:
+                    Dev = DevName.split(':')[1]
+
+                if Dev == DevToMatch:
+                    active_item = idx
+                LsDev.append((DevName, idx))
+            widget.set_model(LsDev)
+
+            widget.set_active(active_item)
+
+            return False
+        else:
+            return True
 
     ###############################################################################
     ################   MAIN LOOP START ############################################
@@ -412,7 +448,7 @@ class MainWindow(Gtk.Window):
         self.SSBar_update()
 
     def on_ComboBoxText_Rotate_changed(self, widget):
-        CAM0_control.Flip = widget.get_active()
+        DEVICE_control.Cam0_Flip = widget.get_active()
 
     def on_ComboBoxText_Abitrate_changed(self, widget):
         ConnectionData.Abitrate = widget.get_active()
@@ -570,8 +606,8 @@ class MainWindow(Gtk.Window):
     def on_TreeView_Hosts_row_activated(self, widget, iter, column):
         model = tuple(widget.get_model()[iter])
         self.Entry_Hosts.set_text(model[0] + ":" + model[1].__str__())
-
         self.Entry_Hosts.show()
+
         return True
 
     def on_TreeView_Hosts_cursor_changed(self, widget):
@@ -616,14 +652,16 @@ class MainWindow(Gtk.Window):
 
     def on_Window_Console_key_press_event(self, widget, event):
         self.keybuffer_set(event, True)
+
         return True
 
     def on_Window_Console_key_release_event(self, widget, event):
         key_name = self.keybuffer_set(event, False)
+
         return key_name
 
-    @staticmethod
-    def keybuffer_set(event, value):
+    # @staticmethod
+    def keybuffer_set(self, event, value):
         key_name = Gdk.keyval_name(event.keyval)
         if key_name == 'Left' or key_name.replace("A", "a", 1) == "a":
             KEY_control.Left = value
@@ -645,6 +683,10 @@ class MainWindow(Gtk.Window):
         elif key_name.replace("H", "h", 1) == "h":
             if value is False:
                 KEY_control.hud = not KEY_control.hud
+
+        elif key_name.replace("C", "c", 1) == "c":
+            if value is False:
+                self.camera_on = not self.camera_on
 
         if event.state is True and Gdk.KEY_Shift_L is not KEY_control.Shift:
             KEY_control.Shift = Gdk.KEY_Shift_L
@@ -723,13 +765,24 @@ class ConfigStorage:
         with open(Paths.ini_file, 'rb') as iniFile:
             SetupVar = pickle.load(iniFile)
             AddInfoVar = pickle.load(iniFile)
-            for v_list, name, value in SetupVar:
+            for text, name, value in SetupVar:
                 for obj in builder.get_objects():
                     if issubclass(type(obj), Gtk.Buildable):
                         if name != Gtk.Buildable.get_name(obj):
                             continue
                         else:
-                            ItemCount += int(self.set_object_value(obj, value))
+                            if text is None:
+                                ItemCount += int(self.set_object_value(obj, value))
+                            else:
+                                ItemCount += 1
+                                if name == "ComboBoxText_Cam1":
+                                    DEVICE_control.DEV_Cam0 = text
+                                elif name == "ComboBoxText_AudioIn":
+                                    DEVICE_control.DEV_AudioIn = text
+                                elif name == "ComboBoxText_AudioOut":
+                                    DEVICE_control.DEV_AudioOut = text
+                                else:
+                                    text = None
 
         KEY_control.MouseBtn[LEFT] = KEY_control_sav
         LoadSeqNumber = int(AddInfoVar)
@@ -748,7 +801,17 @@ class ConfigStorage:
 
             value = self.get_object_value(obj)
             if value is not None:
-                SetupVar.append((None, name, value))
+                if name == "ComboBoxText_Cam1":
+                    active_text = DEVICE_control.DEV_Cam0
+                elif name == "ComboBoxText_AudioIn":
+                    active_text = DEVICE_control.DEV_AudioIn
+                elif name == "ComboBoxText_AudioOut":
+                    active_text = DEVICE_control.DEV_AudioOut
+                else:
+                    active_text = None
+
+                SetupVar.append((active_text, name, value))
+                # print("obj.get_active_text().split(':')[active_text]", obj.get_active_text().split(':')[active_text])
                 continue
 
         with open(Paths.ini_file, 'wb') as iniFile:

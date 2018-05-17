@@ -75,6 +75,12 @@ TCP = 0
 UDP = 1
 PROTO_NAME = ['TCP', 'UDP']
 #################################
+# DEVICES
+# MIC0_DEVICE = "alsa_input.usb-C-Media_Electronics_Inc._USB_PnP_Sound_Device-00.analog-mono"
+# MIC0_DEVICE = "alsa_input.usb-0d8c_USB_PnP_Sound_Device-00.analog-mono"
+CAM_1_CMD    = "v4l2-ctl --list-devices|grep 'video'|tr -d '\t'"
+DEV_OUT_CMD  = "pactl list short sinks|grep output|cut -f1-2|tr '\t' ':'"
+DEV_INP_CMD  = "pactl list short sources|grep input|cut -f1-2|tr '\t' ':'"
 
 
 class ConnectionData:

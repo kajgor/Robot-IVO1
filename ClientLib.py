@@ -76,15 +76,16 @@ class RacStream:
         # self.convert_audio = ([Gst.ElementFactory.make("audioresample"),
         #                        Gst.ElementFactory.make("audioresample")])
         #
-        self.sink_audio = Gst.ElementFactory.make("pulsesink", "sink_audio")
+        self.sink_audio = Gst.ElementFactory.make("pulsesink", "local_sink_audio")
+        self.sink_audio.set_property("device", DEVICE_control.DEV_AudioOut)
 
         # SET AUDIO SENDER
         if VideoMode is False:
-            self.sender_audio_source = Gst.ElementFactory.make("audiotestsrc", "audio-source")
+            self.sender_audio_source = Gst.ElementFactory.make("audiotestsrc", "local_source_audio")
             self.sender_audio_source.set_property("wave", 0)
         else:
-            self.sender_audio_source = Gst.ElementFactory.make("pulsesrc", "audio-source")
-            self.sender_audio_source.set_property("device", MIC0_DEVICE)
+            self.sender_audio_source = Gst.ElementFactory.make("pulsesrc", "local_source_audio")
+            self.sender_audio_source.set_property("device", DEVICE_control.DEV_AudioIn)
 
         self.sender_audio_capsfilter = Gst.ElementFactory.make("capsfilter", "capsfilter_audio")
         self.sender_audio_resample   = Gst.ElementFactory.make("audioresample", "resample_audio")
@@ -92,9 +93,9 @@ class RacStream:
         self.sender_audio_rtimer     = Gst.ElementFactory.make("rtpspeexpay", "rtimer_audio")
 
         if ConnectionData.Protocol == TCP:
-            self.source_video        = Gst.ElementFactory.make("tcpclientsrc", "source")
-            self.player_audio_source = Gst.ElementFactory.make("tcpclientsrc", "source_audio")
-            self.sender_audio_sink   = Gst.ElementFactory.make("tcpserversink", "sink_audio")
+            self.source_video        = Gst.ElementFactory.make("tcpclientsrc", "remote_source_video")
+            self.player_audio_source = Gst.ElementFactory.make("tcpclientsrc", "remote_source_audio")
+            self.sender_audio_sink   = Gst.ElementFactory.make("tcpserversink", "remote_sink_audio")
 
             self.source_video.set_property("host", Host)
             self.player_audio_source.set_property("host", Host)
@@ -105,9 +106,9 @@ class RacStream:
                 self.gst_init_live()
 
         else:
-            self.source_video        = Gst.ElementFactory.make("udpsrc", "source_udp")
-            self.player_audio_source = Gst.ElementFactory.make("udpsrc", "source_audio_udp")
-            self.sender_audio_sink   = Gst.ElementFactory.make("udpsink", "sink_audio_udp")
+            self.source_video        = Gst.ElementFactory.make("udpsrc", "remote_source_video_udp")
+            self.player_audio_source = Gst.ElementFactory.make("udpsrc", "remote_source_audio_udp")
+            self.sender_audio_sink   = Gst.ElementFactory.make("udpsink", "remote_sink_audio_udp")
 
             if VideoMode is False:
                 self.gst_init_test_udp()
@@ -658,7 +659,7 @@ class ConnectionThread:
         self.Streaming_mode = 0
 
         while ConnectionData.connected is True:
-            self.Rac_Stream.video_flip.set_property("method", CAM0_control.Flip)  # => "rotate"
+            self.Rac_Stream.video_flip.set_property("method", DEVICE_control.Cam0_Flip)  # => "rotate"
 
             if CommunicationFFb is True:
                 self.get_speed_and_direction()  # Keyboard input

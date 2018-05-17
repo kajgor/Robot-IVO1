@@ -12,7 +12,7 @@ else:
 
 # DEVICES
 # MIC0_DEVICE = "alsa_input.usb-C-Media_Electronics_Inc._USB_PnP_Sound_Device-00.analog-mono"
-MIC0_DEVICE = "alsa_input.pci-0000_00_05.0.analog-stereo"
+# MIC0_DEVICE = "alsa_input.pci-0000_00_05.0.analog-stereo"
 
 
 class arrow(object):
@@ -52,8 +52,11 @@ class KEY_control:
     hud     = False
 
 
-class CAM0_control:
-    Flip     = 0
+class DEVICE_control:
+    DEV_Cam0    = None
+    DEV_AudioIn = None
+    DEV_AudioOut = None
+    Cam0_Flip   = 0
 
 
 from os import path
