@@ -150,7 +150,12 @@ def execute_cmd(cmd_string):
                 proc.kill()
                 stdout, errs = proc.communicate()
 
-            if not(str(stdout).isdigit()):
-                    stdout = stdout.decode(Encoding)[0:-1]  # Do not return NL/CR
+            if not(str(stdout).isdigit()):  # Not numeric string
+                    stdout = stdout.decode(Encoding)
+                    if stdout > '':
+                        if stdout[-1] == chr(10):
+                            stdout = stdout[0:-1]  # Do not return CR
+                        elif stdout[-1] == chr(13):
+                            stdout = stdout[0:-1]  # Do not return NL
 
     return stdout, errs

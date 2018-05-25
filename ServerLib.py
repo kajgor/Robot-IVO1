@@ -91,7 +91,7 @@ class ServerThread(threading.Thread):
 
     def listen_socket(self):
         self.srv.listen(5)
-        Console.print('Socket now listening on ' + HOST + "[" + Port_COMM.__str__() + "]")
+        Console.print('Socket now listening on', HOST + "[%i]" % Port_COMM)
 
         Cam0, MicIn, SpkOut = load_setup()
 
@@ -105,7 +105,7 @@ class ServerThread(threading.Thread):
             Console.print("No connection interrupted.")
         else:
             client_IP = addr[0]
-            Console.print('Connected with ' + client_IP + ':' + str(addr[1]))
+            Console.print('Connected with', client_IP + ':%i' % addr[1])
             # Sending message to connected client
             data = self.get_bytes_from_client(conn, CLIMSGLEN)
             if len(data) == 9:
@@ -123,7 +123,7 @@ class ServerThread(threading.Thread):
                     ConnIP += data[5].__str__() + "."
                     ConnIP += data[6].__str__() + "."
                     ConnIP += data[7].__str__()
-                    Console.print("Client: " + client_IP + "[" + PROTO_NAME[Protocol] + "]")
+                    Console.print("Client:", client_IP + "[%s]" % PROTO_NAME[Protocol])
                     Console.print("Video Codec is " + VideoCodec[Video_Codec])
 
                     SRV_vars.TestMode = Test_Mode
@@ -164,7 +164,7 @@ class ServerThread(threading.Thread):
             if data_len != CLIMSGLEN:
                 noData_cnt += 1
                 if noData_cnt > RETRY_LIMIT:
-                    Console.print("NO DATA - closing connection", data_len)
+                    Console.print("NO DATA - closing connection [len = %i]" % data_len)
                     break
             else:
                 noData_cnt = 0
@@ -196,7 +196,7 @@ class ServerThread(threading.Thread):
                         Console.print(" Setting Mic Level to", Fxvalue)
                         cmd = "pactl set-source-volume " + MicIn + " " + str(Fxvalue * 7000)
                     elif Fxmode == 32:
-                        Console.print(" Setting Spekar volume to", Fxvalue)
+                        Console.print(" Setting Speker volume to", Fxvalue)
                         cmd = "pactl set-sink-volume " + SpkOut + " " + str(Fxvalue * 7000)
                     else:
                         Console.print(" WARNING: Invalid mode [%s]" % Fxmode)
@@ -299,11 +299,11 @@ class ServerThread(threading.Thread):
             self.srv.bind(srv_address)
 
         except socket.error as msg:
-            Console.print('Bind failed. Error Code : %s' % msg)
+            Console.print('Bind failed. Error Code: %s' % msg)
             return False
 
         except OSError as msg:
-            Console.print('Bind failed. Error Code : %i, Message' % msg[0], msg[1])
+            Console.print('Bind failed. Error Code: %i, Message' % msg[0], msg[1])
             Console.print('Advice: check for python process to kill it!')
             return False
 
@@ -582,8 +582,8 @@ class StreamThread(threading.Thread):
             if curr_mic0 is not ConnectionData.mic:
                 curr_mic0 = ConnectionData.mic
                 if ConnectionData.mic is True:
-                    Console.print(" Mic0 requested rate:", AudioBitrate[ConnectionData.Abitrate])
-                    caps = Gst.Caps.from_string("audio/x-raw, rate=" + AudioBitrate[ConnectionData.Abitrate].__str__())
+                    Console.print(" Mic0 on [rate %i]" % AudioBitrate[ConnectionData.Abitrate])
+                    caps = Gst.Caps.from_string("audio/x-raw, rate=%i" % AudioBitrate[ConnectionData.Abitrate])
                     self.sender_audio_capsfilter[self.Source_h264].set_property("caps", caps)
                     self.sender_audio_capsfilter[self.Source_test].set_property("caps", caps)
                 else:
@@ -594,9 +594,9 @@ class StreamThread(threading.Thread):
             if curr_speakers is not ConnectionData.speakers:
                 curr_speakers = ConnectionData.speakers
                 if ConnectionData.speakers is True:
-                    Console.print(" Speakers on", ConnectionData.speakers)
+                    Console.print(" Speakers on [rate %i]" % AudioBitrate[ConnectionData.Abitrate])
                 else:
-                    Console.print(" Speakers muted", ConnectionData.speakers)
+                    Console.print(" Speakers muted")
 # ToDo:
                 self.player_audio[SRV_vars.TestMode].set_state(req_audio_mode[ConnectionData.speakers])
 
@@ -719,7 +719,7 @@ class DriverThread(threading.Thread):
         SerPort1.dsrdtr   = SRV_vars.Port_DsrDtr
         SerPort1.rtscts   = SRV_vars.Port_RtsCts
         SerPort1.flush()
-        Console.print("Serial Port", SRV_vars.Serial_Port, "connected.")
+        Console.print("Serial Port %s connected." % SRV_vars.Serial_Port)
 
         inStr = ""
         while True:
@@ -728,45 +728,19 @@ class DriverThread(threading.Thread):
             if inChar == chr(10):
                 Console.print(inStr)
                 break
+
         idx = 75        # Timer for reporting parameters
         HeartBeat       = HB_BITSHIFT
         while not self.shutdown_flag.is_set():
             # SerPort1.flushInput()
-            data = chr(255)                                 # 1
-            data += SRV_vars.DRV_A1_request                 # 2,3,4,5,6
-            data += chr(HeartBeat + HB_BITSHIFT * bool(SRV_vars.heartbeat))          # 7
-            data += chr(255)                                # 8
 
-            NoOfBytes = SerPort1.write(data.encode(Encoding))
+            NoOfBytes = self.write_serial_data(SerPort1, HeartBeat)
 
-            time.sleep(0.04)
             if NoOfBytes == DRV_A1_MSGLEN_REQ:
-                resp_data = SerPort1.read(DRV_A1_MSGLEN_RES)  # Wait and read data
-
-                if len(resp_data) < DRV_A1_MSGLEN_RES:
-                    Console.print(">>>DATA TIMEOUT!", len(resp_data))
+                time.sleep(0.04)
+                HeartBeat = self.read_serial_data(SerPort1)
+                if HeartBeat is False:
                     continue
-
-                if resp_data[0] + resp_data[DRV_A1_MSGLEN_RES - 1] == 510:
-                    SRV_vars.DRV_A1_response = resp_data.decode(Encoding)
-                    HeartBeat = resp_data[DRV_A1_MSGLEN_RES - 2]
-
-                    dataint = list()
-                    for idx in range(5, 9):
-                        if resp_data[idx] == 252:
-                            dataint.append(17)
-                        elif resp_data[idx] == 253:
-                            dataint.append(19)
-                        else:
-                            dataint.append(resp_data[idx])
-
-                    curr_sensor = 0.0048 * (dataint[0] * 250 + dataint[1])  # 6,7
-                    ConnectionData.current = (2.48 - curr_sensor) * 5
-                    ConnectionData.voltage = 0.0157 * (dataint[2] * 250 + dataint[3]) - 0.95  # 8,9
-                else:
-                    if resp_data.decode(Encoding).split(":")[0] != "IVO-A1":
-                        Console.print(">>>BAD CHKSUM", resp_data[0], resp_data[15], "[HB-", HeartBeat, "]")
-                    SerPort1.flushInput()
             else:
                 Console.print(">>>Flush:", NoOfBytes)
                 SerPort1.flushOutput()
@@ -781,6 +755,48 @@ class DriverThread(threading.Thread):
             if SRV_vars.heartbeat > 0:
                 SRV_vars.heartbeat -= 1
 
+    @staticmethod
+    def write_serial_data(SerPort1, HeartBeat):
+        data = chr(255)  # 1
+        data += SRV_vars.DRV_A1_request  # 2,3,4,5,6
+        data += chr(HeartBeat + HB_BITSHIFT * bool(SRV_vars.heartbeat))  # 7
+        data += chr(255)  # 8
+
+        NoOfBytes = SerPort1.write(data.encode(Encoding))
+
+        return NoOfBytes
+
+    @staticmethod
+    def read_serial_data(SerPort1):
+        resp_data = SerPort1.read(DRV_A1_MSGLEN_RES)  # Wait and read data
+
+        HeartBeat = False
+        if len(resp_data) < DRV_A1_MSGLEN_RES:
+            Console.print(">>>DATA TIMEOUT!", len(resp_data))
+        else:
+            # 1st and pre-last char must be 255 (255 + 255 = 510)
+            if resp_data[0] + resp_data[DRV_A1_MSGLEN_RES - 1] == 510:
+                SRV_vars.DRV_A1_response = resp_data.decode(Encoding)
+                HeartBeat = resp_data[DRV_A1_MSGLEN_RES - 2]
+
+                dataint = list()
+                for idx in range(5, 9):
+                    if resp_data[idx] == 252:
+                        dataint.append(17)
+                    elif resp_data[idx] == 253:
+                        dataint.append(19)
+                    else:
+                        dataint.append(resp_data[idx])
+
+                curr_sensor = 0.0048 * (dataint[0] * 250 + dataint[1])  # 6,7
+                ConnectionData.current = (2.48 - curr_sensor) * 5
+                ConnectionData.voltage = 0.0157 * (dataint[2] * 250 + dataint[3]) - 0.95  # 8,9
+            else:
+                if resp_data.decode(Encoding).split(":")[0] != "IVO-A1":
+                    Console.print(">>>BAD CHKSUM", resp_data[0], resp_data[15])
+                SerPort1.flushInput()
+
+        return HeartBeat
 
     def _testrun(self):
         Console.print("Test Port Emulated")
@@ -814,7 +830,8 @@ class DriverThread(threading.Thread):
             time.sleep(.1)
             idx += 1
 
-    def read_CPU_temp(self):
+    @staticmethod
+    def read_CPU_temp():
         Tempstr, err = execute_cmd("LD_LIBRARY_PATH=/opt/vc/lib && /opt/vc/bin/vcgencmd measure_temp")
         Tempstr = re.findall(r"\d+", Tempstr)
         Temp = int(Tempstr[0]) * 10 + int(Tempstr[1])
@@ -847,7 +864,7 @@ class ThreadManager():
             SRV_vars.GUI_CONSOLE = True
 
         self.Console = Console()
-        Console.print("Console " + VERSION + " initialized\n")
+        Console.print("Console %s initialized\n" % VERSION)
 
         if SRV_vars.Serial_Port is None:
             Console.print("No Serial Port found!")
@@ -899,8 +916,8 @@ class ThreadManager():
             self.LbCurrent.set_value(self.DispAvgVal[1])
             Voltage = "{:.2f}".format(ConnectionData.voltage).__str__()
             Current = "{:.2f}".format(ConnectionData.current).__str__()
-            self.LbVoltage.set_tooltip_text(Voltage + "V")
-            self.LbCurrent.set_tooltip_text(Current + "A")
+            self.LbVoltage.set_tooltip_text("%s V" % Voltage)
+            self.LbCurrent.set_tooltip_text("%s A" % Current)
 
         return True
 
@@ -928,7 +945,7 @@ class ThreadManager():
         else:
             ExitCode = 0
 
-        Console.print("Exit requested! [%i]" %ExitCode)
+        Console.print("Exit requested! [%i]" % ExitCode)
         self.Console.display_message(self._GUI)
         self._stop()
 
@@ -985,19 +1002,19 @@ class ServiceExit(Exception):
 
 
 def load_setup():
-    dev, err = execute_cmd("cat " + Paths.ini_file + "|grep CAM0|cut -f2")
+    dev, err = execute_cmd("cat %s |grep CAM0|cut -f2" % Paths.ini_file)
     if dev.find(":") != -1:
         Cam0 = dev.split(":")[1]
     else:
         Cam0 = dev
 
-    dev, err = execute_cmd("cat " + Paths.ini_file + "|grep MIC0|cut -f2")
+    dev, err = execute_cmd("cat %s |grep MIC0|cut -f2" % Paths.ini_file)
     if dev.find(":") != -1:
         MicIn = dev.split(":")[1]
     else:
         MicIn = dev
 
-    dev, err = execute_cmd("cat " + Paths.ini_file + "|grep SPK0|cut -f2")
+    dev, err = execute_cmd("cat %s |grep SPK0|cut -f2" % Paths.ini_file)
     if dev.find(":") != -1:
         SpkOut = dev.split(":")[1]
     else:

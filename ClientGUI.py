@@ -8,8 +8,8 @@ gi.require_version('Gdk', '3.0')
 from gi.repository import Gtk, Gdk, GLib
 from sys import argv
 
-from ClientLib   import ConnectionThread, Console
-from Client_vars import Paths, DEVICE_control, KEY_control, CommunicationFFb
+from ClientLib import ConnectionThread, Console
+from Client_vars import Files, DEVICE_control, KEY_control, CommunicationFFb
 from Common_vars import VideoFramerate, AudioBitrate, AudioCodec, VideoCodec, PrintOnOff, execute_cmd,\
     TIMEOUT_GUI, PROTO_NAME, LEFT, RIGHT, X_AXIS, Y_AXIS, MOUSE_MIN, MOUSE_MAX, ConnectionData, COMM_IDLE,\
     CAM_1_CMD, DEV_OUT_CMD, DEV_INP_CMD
@@ -27,8 +27,8 @@ class MainWindow(Gtk.Window):
         self.camera_on       = True
         self.SyncOn          = True
         self.DispAvgVal      = [0, 0]
-
-        self.builder         = self.init_gui_builder
+        GuiFile, err         = execute_cmd("cat %s" % Files.skn_file)
+        self.builder         = self.init_gui_builder(GuiFile)
         self.context_id      = self.StatusBar.get_context_id('message')
         self.context_id1     = self.StatusBar1.get_context_id('message')
         self.context_id2     = self.StatusBar2.get_context_id('message')
@@ -45,6 +45,8 @@ class MainWindow(Gtk.Window):
         self.Config_Storage = ConfigStorage()
         if self.get_argv('reset') is False:
             self.RunSeqNo, self.SyncItemCount = self.Config_Storage.load_setup(self.builder)
+            self.Entry_SkinFile.set_text(GuiFile)
+
             if self.TreeView_Hosts.get_model() is None:
                 for i, column in enumerate(["Host", "Port"]):
                     cell = Gtk.CellRendererText()
@@ -80,11 +82,11 @@ class MainWindow(Gtk.Window):
             # pass
         return False
 
-    @property
-    def init_gui_builder(self):
+    # @property
+    def init_gui_builder(self, GuiFile):
         builder = Gtk.Builder()
-        print('Adding GUI file', Paths.GUI_file, end='... ')
-        builder.add_from_file(Paths.GUI_file)
+        print('Adding GUI file', GuiFile, end='... ')
+        builder.add_from_file(GuiFile)
         print('done.')
 
         for obj in builder.get_objects():
@@ -139,7 +141,7 @@ class MainWindow(Gtk.Window):
         self.StatusBar1.push(self.context_id1, SStatBar)
 
     def load_devices(self):
-        fail = self.set_device(CAM_1_CMD, self.ComboBoxText_Cam1, DEVICE_control.DEV_Cam0)
+        fail  = self.set_device(CAM_1_CMD, self.ComboBoxText_Cam1, DEVICE_control.DEV_Cam0)
         fail += self.set_device(DEV_INP_CMD, self.ComboBoxText_AudioIn, DEVICE_control.DEV_AudioIn)
         fail += self.set_device(DEV_OUT_CMD, self.ComboBoxText_AudioOut, DEVICE_control.DEV_AudioOut)
 
@@ -242,8 +244,8 @@ class MainWindow(Gtk.Window):
         self.LabelPowerA.set_text(Current)
         self.LabelS1Dist.set_text(ConnectionData.distanceS1.__str__())
 
-        self.LevelBar_Voltage.set_tooltip_text(Voltage + "V")
-        self.LevelBar_Current.set_tooltip_text(Current + "A")
+        self.LevelBar_Voltage.set_tooltip_text("%s V" % Voltage)
+        self.LevelBar_Current.set_tooltip_text("%s A" % Current)
 
         return
 
@@ -394,7 +396,7 @@ class MainWindow(Gtk.Window):
         elif FXvalue == 15:
             self.Menu_CamFx_Item15.set_active(True)
 
-        retmsg = 'FX effect changed [' + FXvalue.__str__() + ']'
+        retmsg = 'FX effect changed [%i]' % FXvalue
         self.StatusBar.push(self.context_id, retmsg)
 
     def on_ComboBoxResolution_changed(self, widget):
@@ -417,7 +419,7 @@ class MainWindow(Gtk.Window):
 
         ConnectionData.resolution = self.resolution * self.camera_on
 
-        retmsg = 'Resolution changed [' + ConnectionData.resolution.__str__() + ']'
+        retmsg = 'Resolution changed [%i]' % ConnectionData.resolution
         self.StatusBar.push(self.context_id, retmsg)
 
     def on_FxValue_selected(self, widget):
@@ -584,6 +586,32 @@ class MainWindow(Gtk.Window):
 
     def on_Button_AdvancedCam_clicked(self, widget):
         self.Window_AdvancedCam.show()
+        return True
+
+    def on_Button_SelectFile_clicked(self, widget):
+        if widget.get_name() == "SelectSkinFile":
+            # self.FileChooserDialog_open.set_action(Gtk.FILE_CHOOSER_ACTION_OPEN)
+            self.FileChooserDialog_open.set_action(0)  # OPEN_FILE
+            # self.FileChooserDialog_open.remove_filter(self.FileFilter_ini)
+            self.FileChooserDialog_open.add_filter(self.FileFilter_glade)
+            if self.FileChooserDialog_open.run() == 1:
+                self.Entry_SkinFile.set_text(self.FileChooserDialog_open.get_filename())
+        else:
+            # self.FileChooserDialog_open.set_action(Gtk.FILE_CHOOSER_ACTION_SELECT_FOLDER)
+            self.FileChooserDialog_open.set_action(2)  # SELECT_FOLDER
+            self.FileChooserDialog_open.remove_filter(self.FileFilter_glade)
+            # self.FileChooserDialog_open.remove_filter(self.FileFilter_ini)
+            if self.FileChooserDialog_open.run() == 1:
+                self.Entry_LogPath.set_text(self.FileChooserDialog_open.get_filename())
+
+        return True
+
+    def on_FileChooserDialog_open_response(self, widget, response):
+        self.FileChooserDialog_open.hide()
+        return response
+
+    def on_Button_FileChooser_clicked(self, widget):  # Gtk.ResponseType.APPLY
+        self.FileChooserDialog_open.emit("response", int(widget.get_name()))
         return True
 
     def return_widget_name(self, widget):
@@ -762,7 +790,7 @@ class ConfigStorage:
         KEY_control.MouseBtn[LEFT] = True
 
         ItemCount = 0
-        with open(Paths.ini_file, 'rb') as iniFile:
+        with open(Files.ini_file, 'rb') as iniFile:
             SetupVar = pickle.load(iniFile)
             AddInfoVar = pickle.load(iniFile)
             for text, name, value in SetupVar:
@@ -807,16 +835,18 @@ class ConfigStorage:
                     active_text = DEVICE_control.DEV_AudioIn
                 elif name == "ComboBoxText_AudioOut":
                     active_text = DEVICE_control.DEV_AudioOut
+                elif name == "Entry_SkinFile":
+                    cmd = "echo %s > " % value + Files.skn_file
+                    execute_cmd(cmd)
                 else:
                     active_text = None
 
                 SetupVar.append((active_text, name, value))
-                # print("obj.get_active_text().split(':')[active_text]", obj.get_active_text().split(':')[active_text])
-                continue
 
-        with open(Paths.ini_file, 'wb') as iniFile:
+        with open(Files.ini_file, 'wb') as iniFile:
             pickle.dump(SetupVar, iniFile)
             pickle.dump(AddInfoVar, iniFile)
+
         print('Configuration saved.')
 
     @staticmethod
@@ -874,7 +904,6 @@ class ConfigStorage:
                     obj_LS.append((Host, Port))
 
             obj.set_model(obj_LS)
-
             return False
 
         return False

@@ -331,7 +331,7 @@ class RacStream:
 
 
 class RacDisplay:
-    background_control = ImageSurface.create_from_png(Paths.background_file)
+    background_control = ImageSurface.create_from_png(Files.background_file)
 
     image = None
 
@@ -933,8 +933,8 @@ class ConnectionThread:
         ConnectionData.motor_RPM[LEFT]  = dataint[4]                                 #5
         curr_sensor = 0.0048 * (dataint[5] * 250 + dataint[6])                       #6,7
         ConnectionData.current          = (2.48 - curr_sensor) * 5
-        ConnectionData.voltage          = 0.0157 * (dataint[7] * 250 + dataint[8]) - 0.95 #8,9
-        ConnectionData.distanceS1       = int((dataint[9] * 250 + dataint[10]) / 58) #10,11
+        ConnectionData.voltage          = 0.0157 * (dataint[7] * 250 + dataint[8]) - 0.95  #8,9
+        ConnectionData.distanceS1       = int((dataint[9] * 250 + dataint[10]) / 58)  #10,11
 
         CntrlMask1 = ord(resp[11])                                                  #12
         CntrlMask2 = ord(resp[12])                                                  #13

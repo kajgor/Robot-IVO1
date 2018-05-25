@@ -232,7 +232,7 @@ connection with
                 <property name="orientation">vertical</property>
                 <property name="value">10</property>
                 <property name="min_value">10</property>
-                <property name="max_value">11.699999999999999</property>
+                <property name="max_value">11.5</property>
               </object>
               <packing>
                 <property name="expand">False</property>
@@ -430,7 +430,7 @@ connection with
             <property name="margin_bottom">5</property>
             <property name="value">10</property>
             <property name="min_value">10</property>
-            <property name="max_value">11.699999999999999</property>
+            <property name="max_value">11.5</property>
           </object>
           <packing>
             <property name="expand">False</property>

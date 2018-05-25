@@ -63,8 +63,9 @@ from os import path
 from sys import argv
 
 
-class Paths:
+class Files:
     pathname = path.dirname(argv[0])
-    GUI_file = pathname + "/gui_artifacts/Client_GUI_v2.glade"
+    skn_file = pathname + "/skinfile.gui"
     ini_file = pathname + "/ClientGUI.ini"
     background_file = pathname + "/gui_artifacts/images/HUD_small.png"
+    # GUI_file = pathname + "/gui_artifacts/Client_GUI_v3.glade"
