@@ -29,11 +29,11 @@
 # 31 - Speaker Volume           #
 # 32 - Mic. Level               #
 #################################
-Port_COMM = 4550
-Port_CAM0 = Port_COMM + 1
-Port_MIC0 = Port_COMM + 2
-Port_DSP0 = Port_COMM + 4
-Port_SPK0 = Port_COMM + 5
+# Port_COMM = 4550
+# Port_CAM0 = Port_COMM + 1
+# Port_MIC0 = Port_COMM + 2
+# Port_DSP0 = Port_COMM + 4
+# Port_SPK0 = Port_COMM + 5
 #################################
 RECMSGLEN = 16
 CLIMSGLEN = 12

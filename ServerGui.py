@@ -33,6 +33,11 @@ class GtkTsMain(Gtk.Window):
         self.ComboBoxText_Cam1    = builder.get_object("ComboBoxText_Cam1")
         self.ComboBoxText_AudioIn = builder.get_object("ComboBoxText_AudioIn")
         self.ComboBoxText_AudioOut= builder.get_object("ComboBoxText_AudioOut")
+        self.SpinButton_Port      = builder.get_object("SpinButton_Port")
+
+        tmp, tmp, tmp, self.Port_COMM = load_setup()
+        if self.Port_COMM:
+            self.SpinButton_Port.set_value(self.Port_COMM)
 
         self.context_id           = self.StatusBar_Server.get_context_id("message")
         self.TextView_Console.override_color(Gtk.StateType.NORMAL, Gdk.RGBA(1, .75, 0, 1))
@@ -44,7 +49,7 @@ class GtkTsMain(Gtk.Window):
         self.process_argv()
 
     def init_Thread(self):
-        self.Thread_Manager = ThreadManager(self.TextView_Console, self.Level_Voltage, self.Level_Current,
+        self.Thread_Manager = ThreadManager(self.TextView_Console, self.Port_COMM, self.Level_Voltage, self.Level_Current,
                                             self.switch_ServerStart)
         self.Thread_Manager.shutdown_flag = False
 
@@ -75,7 +80,7 @@ class GtkTsMain(Gtk.Window):
                 print("Invalid arument:", argv[x])
 
     def load_devices(self):
-        Cam0, MicIn, SpkOut = load_setup()
+        Cam0, MicIn, SpkOut, Port_Comm = load_setup()
 
         fail = self.set_device(CAM_1_CMD, self.ComboBoxText_Cam1, Cam0)
         fail += self.set_device(DEV_INP_CMD, self.ComboBoxText_AudioIn, MicIn)
@@ -110,11 +115,9 @@ class GtkTsMain(Gtk.Window):
         else:
             return True
 
-    def on_Button_Setup_clicked(self, widget):
-        self.Window_Setup.show()
-
     def on_Switch_ServerStart_activate(self, widget, event):
         if widget.get_active() is True:  # and ClientThread.srv is None:
+            self.Port_COMM = self.SpinButton_Port.get_value_as_int()
             if self.Thread_ID is not None:
                 GLib.source_remove(self.Thread_ID)
 
@@ -124,40 +127,33 @@ class GtkTsMain(Gtk.Window):
             self.Thread_ID = GLib.timeout_add(TIMEOUT_GUI, self.Thread_Manager.run)
             ############################################
 
-            self.StatusBar_Server.push(self.context_id, "Port %i open!" % Port_COMM)
+            self.StatusBar_Server.push(self.context_id, "Port %i open!" % self.Port_COMM)
             # self.set_deletable(False)
         else:
             if self.Thread_Manager.shutdown_flag is False:
                 self.Thread_Manager.shutdown_flag = True
 
             # self.set_deletable(True)
-            self.StatusBar_Server.push(self.context_id, "Port %i closed." % Port_COMM)
+            self.StatusBar_Server.push(self.context_id, "Port %i closed." % self.Port_COMM)
 
         self.show_all()
 
-    def on_Window_Setup_delete_event(self, bus, message):
+    def on_Button_Setup_clicked(self, widget):
+        self.Window_Setup.show()
+
+    def on_Window_Setup_delete_event(self, widget, *message):
         self.save_setup()
         self.Window_Setup.hide()
         return True
 
     def save_setup(self):
-        # OutStr = "CAM0\t" + str(self.ComboBoxText_Cam1.get_active_text())
-        # CMD = "echo " + OutStr + " > " + Paths.ini_file
-        # execute_cmd(CMD)
-        # OutStr = "MIC0\t" + str(self.ComboBoxText_AudioIn.get_active_text())
-        # CMD = "echo " + OutStr + " >> " + Paths.ini_file
-        # execute_cmd(CMD)
-        # OutStr = "SPK0\t" + str(self.ComboBoxText_AudioOut.get_active_text())
-        # CMD = "echo " + OutStr + " >> " + Paths.ini_file
-        # execute_cmd(CMD)
-        # OutStr = "IPP0\t" + str(self.ComboBoxText_AudioOut.get_active_text())
-        # CMD = "echo " + OutStr + " >> " + Paths.ini_file
-        CMD = "echo '' > " + Paths.ini_file
+        CMD = "echo -n > " + Paths.ini_file
         execute_cmd(CMD)
         for OutStr in ("CAM0\t" + str(self.ComboBoxText_Cam1.get_active_text()),
                     "MIC0\t" + str(self.ComboBoxText_AudioIn.get_active_text()),
                     "SPK0\t" + str(self.ComboBoxText_AudioOut.get_active_text()),
-                    "IPP0\t" + str(self.ComboBoxText_AudioOut.get_active_text())):
+                    "IPP0\t" + str(self.ComboBoxText_AudioOut.get_active_text()),
+                    "PORT\t" + str(self.SpinButton_Port.get_value_as_int())):
             CMD = "echo " + OutStr + " >> " + Paths.ini_file
             execute_cmd(CMD)
 

@@ -27,7 +27,9 @@ class MainWindow(Gtk.Window):
         self.camera_on       = True
         self.SyncOn          = True
         self.DispAvgVal      = [0, 0]
-        GuiFile, err         = execute_cmd("cat %s" % Files.skn_file)
+
+        cmd = 'tail -3 %s | grep -aF \.glade | grep -v ^#####' % Files.ini_file
+        GuiFile, err         = execute_cmd(cmd)
         self.builder         = self.init_gui_builder(GuiFile)
         self.context_id      = self.StatusBar.get_context_id('message')
         self.context_id1     = self.StatusBar1.get_context_id('message')
@@ -297,35 +299,35 @@ class MainWindow(Gtk.Window):
             self.gui_update_connect()
             self.gui_connect_loop()
 
-            retmsg = 'SSH Connection Error!'
-            if self.CheckButton_SshTunnel.get_active() is True:
-                Host, Port = self.Connection_Thread.open_ssh_tunnel(self.Host, 22,
-                                                                    self.Entry_RsaKey.get_text(),
-                                                                    self.Entry_KeyPass.get_text(),
-                                                                    self.Entry_User.get_text(),
-                                                                    self.Entry_RemoteHost.get_text(),
-                                                                    self.ComboBoxText_Ssh_Compression.get_active())
-            else:
-                Host, Port = self.Host, self.Port
+            # retmsg = 'SSH Connection Error!'
+            # if self.CheckButton_SshTunnel.get_active() is True:
+            #     Host, Port = self.Connection_Thread.open_ssh_tunnel(self.Host, 22,
+            #                                                         self.Entry_RsaKey.get_text(),
+            #                                                         self.Entry_KeyPass.get_text(),
+            #                                                         self.Entry_User.get_text(),
+            #                                                         self.Entry_RemoteHost.get_text(),
+            #                                                         self.ComboBoxText_Ssh_Compression.get_active())
+            # else:
+            # Host, Port = self.Host, self.Port
 
-            success = bool(Host)
+            success = bool(self.Host)
+            # if success is True:
+                # if ConnectionData.Protocol == 1:  # UDP Protocol
+                #     success, retmsg = self.Connection_Thread.open_udp_to_tcp_link()
+                #     if not(success):
+                #         retmsg = 'Failed Ports:' + str(retmsg)
+
             if success is True:
-                if ConnectionData.Protocol == 1 and self.CheckButton_SshTunnel.get_active() is True:  # UDP Protocol
-                    success, retmsg = self.Connection_Thread.open_udp_to_tcp_link()
-                    if not(success):
-                        retmsg = 'Failed Ports:' + str(retmsg)
-
-                if success is True:
-                    self.Spinner_Connected.start()
-                    success, retmsg = self.Connection_Thread.establish_connection(Host, Port)
+                self.Spinner_Connected.start()
+                success, retmsg = self.Connection_Thread.establish_connection(self.Host, self.Port)
                 # if success is True:
                 #     self.Connection_Thread.update_server_list(self.ComboBox_Host, self.SpinButton_Port.get_value())
 
-            if success is not True:
-                Console.print(retmsg)
-                self.gui_update_disconnect()
+                if success is not True:
+                    Console.print(retmsg)
+                    self.gui_update_disconnect()
 
-            self.StatusBar.push(self.context_id, retmsg)
+                    self.StatusBar.push(self.context_id, retmsg)
         else:
             ConnectionData.connected = False
             widget.set_label(Gtk.STOCK_CONNECT)
@@ -346,9 +348,7 @@ class MainWindow(Gtk.Window):
         else:
             item_found = False
             for i in range(items):
-                FXmask = self.Connection_Thread.FxQueue.get()
-                qFXmode = FXmask[0]
-                qFXvalue = FXmask[1]
+                qFXmode, qFXvalue = self.Connection_Thread.FxQueue.get()
                 if qFXmode == FXmode:
                     self.Connection_Thread.FxQueue.put((qFXmode, FXvalue))
                     item_found = True
@@ -715,6 +715,32 @@ class MainWindow(Gtk.Window):
         elif key_name.replace("C", "c", 1) == "c":
             if value is False:
                 self.camera_on = not self.camera_on
+                if self.CheckButton_Cam.get_active() is True:
+                    self.CheckButton_Cam.set_active(False)
+                else:
+                    self.CheckButton_Cam.set_active(True)
+
+        elif key_name.replace("M", "m", 1) == "m":
+            if value is False:
+                if self.CheckButton_Mic.get_active() is True:
+                    self.CheckButton_Mic.set_active(False)
+                else:
+                    self.CheckButton_Mic.set_active(True)
+
+        elif key_name.replace("O", "o", 1) == "o":
+            if value is False:
+                if self.CheckButton_Speakers.get_active() is True:
+                    self.CheckButton_Speakers.set_active(False)
+                else:
+                    self.CheckButton_Speakers.set_active(True)
+
+        elif key_name.replace("L", "l", 1) == "l":
+            if value is False:
+                if self.CheckButton_Laser.get_active() is True:
+                    self.CheckButton_Laser.set_active(False)
+                else:
+                    self.CheckButton_Laser.set_active(True)
+                # self.CheckButton_Laser.emit("toggled")
 
         if event.state is True and Gdk.KEY_Shift_L is not KEY_control.Shift:
             KEY_control.Shift = Gdk.KEY_Shift_L
@@ -819,6 +845,7 @@ class ConfigStorage:
         return LoadSeqNumber, ItemCount - 10
 
     def save_setup(self, builder, RunSeqNo):
+        SkinFile = "gui_artifacts/Client_GUI_v3.glade"  # default skin
         SetupVar = list()
         AddInfoVar = RunSeqNo + 1
         for obj in builder.get_objects():
@@ -836,8 +863,8 @@ class ConfigStorage:
                 elif name == "ComboBoxText_AudioOut":
                     active_text = DEVICE_control.DEV_AudioOut
                 elif name == "Entry_SkinFile":
-                    cmd = "echo %s > " % value + Files.skn_file
-                    execute_cmd(cmd)
+                    SkinFile = value
+                    continue
                 else:
                     active_text = None
 
@@ -846,6 +873,7 @@ class ConfigStorage:
         with open(Files.ini_file, 'wb') as iniFile:
             pickle.dump(SetupVar, iniFile)
             pickle.dump(AddInfoVar, iniFile)
+            pickle.dump("\n##### Skin File #####\n%s\n#####################" % SkinFile, iniFile)
 
         print('Configuration saved.')
 

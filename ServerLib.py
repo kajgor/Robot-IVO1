@@ -18,13 +18,14 @@ Gst.init(None)
 class ServerThread(threading.Thread):
     srv = None
 
-    def __init__(self):
+    def __init__(self, Port_COMM):
         threading.Thread.__init__(self)
 
         # The shutdown_flag is a threading.Event object that
         # indicates whether the thread should be terminated.
         self.shutdown_flag = threading.Event()
         self.stop_request  = False
+        self.Port_COMM = Port_COMM
 
     def run(self):
         Console.print('Server Thread #%i started' % self.ident)
@@ -49,18 +50,18 @@ class ServerThread(threading.Thread):
                     self.shutdown_flag.set()
                 self.close_srv()
             else:
-                result, out_data = self.open_tcp_to_udp_link()
-                if result is False:
-                    Console.print("Can't open SoCat for ports", str(out_data))
-                else:
-                    Console.print("SoCat links open:", str(out_data))
+                # result, out_data = self.open_tcp_to_udp_link()
+                # if result is False:
+                #     Console.print("Can't open SoCat for ports", str(out_data))
+                # else:
+                #     Console.print("SoCat links open:", str(out_data))
 
                 self.listen_socket()
 
         # ... Clean shutdown code here ...
         # Kill all processes that block necessary ports
         # also replace "execute_cmd('killall socat')"
-        for port in (Port_COMM, Port_CAM0, Port_MIC0, Port_SPK0):
+        for port in range(self.Port_COMM, self.Port_COMM + 5):
             exe_cmd = 'lsof -F u -i :%i | head -1 | cut -c2-' % port
             pid, err = execute_cmd(exe_cmd)
             while pid != "":
@@ -71,29 +72,27 @@ class ServerThread(threading.Thread):
 
         Console.print('Server Thread #%s stopped' % self.ident)
 
-    def open_tcp_to_udp_link(self):
-        res = True
-        ports = list()
-        pids  = list()
-        for port in (Port_CAM0, Port_MIC0, Port_SPK0):
-            cmd = 'socat tcp4-listen:' + str(port) + ',reuseaddr,fork udp:localhost:' + str(port) + ' &'
-            out, err = execute_cmd(cmd)
-            if str(out).isdigit():
-                pids.append(out)
-            else:
-                ports.append(port)
-                res = False
-
-        if res is True:
-            return res, pids
-        else:
-            return res, ports
+    # def open_tcp_to_udp_link(self):
+    #     res = True
+    #     ports = list()
+    #     pids  = list()
+    #     for port in (Port_CAM0, Port_MIC0, Port_SPK0):
+    #         cmd = 'socat tcp4-listen:' + str(port) + ',reuseaddr,fork udp:localhost:' + str(port) + ' &'
+    #         out, err = execute_cmd(cmd)
+    #         if str(out).isdigit():
+    #             pids.append(out)
+    #         else:
+    #             ports.append(port)
+    #             res = False
+    #
+    #     if res is True:
+    #         return res, pids
+    #     else:
+    #         return res, ports
 
     def listen_socket(self):
         self.srv.listen(5)
-        Console.print('Socket now listening on', HOST + "[%i]" % Port_COMM)
-
-        Cam0, MicIn, SpkOut = load_setup()
+        Console.print('Socket now listening on', HOST + "[%i]" % self.Port_COMM)
 
         conn = addr = None
         try:
@@ -128,7 +127,7 @@ class ServerThread(threading.Thread):
 
                     SRV_vars.TestMode = Test_Mode
 
-                    conn = self.connection_loop(conn, client_IP, Protocol, Video_Codec, Cam0, MicIn, SpkOut)
+                    conn = self.connection_loop(conn, client_IP, Protocol, Video_Codec)
 
                     # STOP THE ROBOT!
                     SRV_vars.DRV_A1_request = chr(50) + chr(50) + chr(0) + chr(0) + chr(0)
@@ -144,12 +143,14 @@ class ServerThread(threading.Thread):
             else:
                 Console.print("Incomplete message received! Breaking connection.")
 
-    def connection_loop(self, conn, client_IP, Protocol, Video_Codec, Cam0, MicIn, SpkOut):
+    def connection_loop(self, conn, client_IP, Protocol, Video_Codec):
         noData_cnt = 0
         resolution = 0
         SRV_vars.heartbeat = HB_VALUE
 
-        Stream_Thread = StreamThread(client_IP, Protocol, Video_Codec, Cam0, MicIn, SpkOut)
+        Cam0, MicIn, SpkOut, Port_COMM = load_setup()
+
+        Stream_Thread = StreamThread(client_IP, Protocol, Video_Codec, Cam0, MicIn, SpkOut, Port_COMM)
         Stream_Thread.start()
 
         # now keep talking with the client
@@ -294,7 +295,7 @@ class ServerThread(threading.Thread):
         # Create Socket
         self.srv = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         Console.print('Socket created')
-        srv_address = (HOST, Port_COMM)
+        srv_address = (HOST, self.Port_COMM)
         try:
             self.srv.bind(srv_address)
 
@@ -336,7 +337,13 @@ class StreamThread(threading.Thread):
     Source_test = 0
     Source_h264 = 1
 
-    def __init__(self, client_IP, Protocol, Video_Codec, Cam0, MicIn, SpkOut):
+    def __init__(self, client_IP, Protocol, Video_Codec, Cam0, MicIn, SpkOut, Port_COMM):
+
+        Port_CAM0 = Port_COMM + 1
+        Port_MIC0 = Port_COMM + 2
+        Port_DSP0 = Port_COMM + 4
+        Port_SPK0 = Port_COMM + 5
+
         threading.Thread.__init__(self)
         self.shutdown_flag = threading.Event()
 
@@ -597,7 +604,7 @@ class StreamThread(threading.Thread):
                     Console.print(" Speakers on [rate %i]" % AudioBitrate[ConnectionData.Abitrate])
                 else:
                     Console.print(" Speakers muted")
-# ToDo:
+
                 self.player_audio[SRV_vars.TestMode].set_state(req_audio_mode[ConnectionData.speakers])
 
             if curr_Framerate != ConnectionData.Framerate:
@@ -841,7 +848,7 @@ class DriverThread(threading.Thread):
 
 # Function for handling connections. This will be used to create threads
 class ThreadManager():
-    def __init__(self, GUI, LB_Voltage, LB_Current, SW_OnOff):
+    def __init__(self, GUI, Port_COMM, LB_Voltage, LB_Current, SW_OnOff):
         # threading.Thread.__init__(self)
         # # The shutdown_flag is a threading.Event object that
         # # indicates whether the thread should be terminated.
@@ -855,6 +862,7 @@ class ThreadManager():
         self.LbVoltage = LB_Voltage
         self.LbCurrent = LB_Current
         self.SwOnOff   = SW_OnOff
+        self.Port_COMM = Port_COMM
 
         self.DispAvgVal = [0, 0]
 
@@ -874,7 +882,7 @@ class ThreadManager():
         self._init_ServerThread()
 
     def _init_ServerThread(self):
-        self.Server_Thread = ServerThread()
+        self.Server_Thread = ServerThread(self.Port_COMM)
 
     def _init_DriverThread(self):
         self.Driver_Thread = DriverThread()
@@ -1002,22 +1010,28 @@ class ServiceExit(Exception):
 
 
 def load_setup():
-    dev, err = execute_cmd("cat %s |grep CAM0|cut -f2" % Paths.ini_file)
+    dev, err = execute_cmd("cat %s |grep CAM0|cut -d' ' -f2" % Paths.ini_file)
     if dev.find(":") != -1:
         Cam0 = dev.split(":")[1]
     else:
         Cam0 = dev
 
-    dev, err = execute_cmd("cat %s |grep MIC0|cut -f2" % Paths.ini_file)
+    dev, err = execute_cmd("cat %s |grep MIC0|cut -d' ' -f2" % Paths.ini_file)
     if dev.find(":") != -1:
         MicIn = dev.split(":")[1]
     else:
         MicIn = dev
 
-    dev, err = execute_cmd("cat %s |grep SPK0|cut -f2" % Paths.ini_file)
+    dev, err = execute_cmd("cat %s |grep SPK0|cut -d' ' -f2" % Paths.ini_file)
     if dev.find(":") != -1:
         SpkOut = dev.split(":")[1]
     else:
         SpkOut = dev
 
-    return Cam0, MicIn, SpkOut
+    dev, err = execute_cmd("cat %s |grep PORT|cut -d' ' -f2" % Paths.ini_file)
+    if dev.find(":") != -1:
+        Port_COMM = dev.split(":")[1]
+    else:
+        Port_COMM = dev
+
+    return Cam0, MicIn, SpkOut, int(Port_COMM)

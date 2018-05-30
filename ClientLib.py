@@ -7,13 +7,13 @@ gi.require_version('Gst', '1.0')
 gi.require_version('GstVideo', '1.0')
 from gi.repository import Gst, GstVideo, GdkPixbuf
 
-from sshtunnel import SSHTunnelForwarder
-from paramiko import RSAKey
+# from sshtunnel import SSHTunnelForwarder
+# from paramiko import RSAKey
 from cairo import ImageSurface
 from math import pi
 from re import findall
 from _thread import *
-from Common_vars import ConnectionData, TCP, MAX_SPEED, Port_COMM, Port_CAM0, Port_MIC0, Port_SPK0, AudioBitrate,\
+from Common_vars import ConnectionData, TCP, MAX_SPEED, AudioBitrate,\
     RETRY_LIMIT, CLIMSGLEN, RECMSGLEN, Encoding, LEFT, RIGHT, calc_checksum, X_AXIS, Y_AXIS, execute_cmd
 
 from Client_vars import *
@@ -45,7 +45,12 @@ class RacStream:
     # CLI LIVE UDP:
     # Source>Capsfilter>Rtimer>Decoder>Convert>VideoFlip>Sink
 
-    def __init__(self, Host, VideoMode):
+    def __init__(self, Host, Port_COMM, VideoMode):
+        Port_CAM0 = Port_COMM + 1
+        Port_MIC0 = Port_COMM + 2
+        Port_DSP0 = Port_COMM + 4
+        Port_SPK0 = Port_COMM + 5
+
         self.player_video       = Gst.Pipeline.new("player")
         self.player_audio       = Gst.Pipeline.new("player_audio")
         self.sender_audio       = Gst.Pipeline.new("sender_audio")
@@ -490,58 +495,58 @@ class ConnectionThread:
     def on_cam_sync_message(self, bus, message):
         self.Rac_Display.on_sync_message(message, self.SXID)
 
-    def open_ssh_tunnel(self, Host, Port, rsa_file, rsa_password, username, remote_host, compression):
-        if compression == 0:  # Auto
-            compression = not(bool(ConnectionData.TestMode))
-        elif compression == 1:
-            compression = True
-        else:
-            compression = False
-
-        Console.print("Tunneling mode started\n [Compression is %s]" % compression)
-        self.tunnel = SSHTunnelForwarder(
-            (Host, Port),  # jump server address
-            ssh_username=username,
-            ssh_pkey=RSAKey.from_private_key_file(rsa_file, password=rsa_password),
-            remote_bind_addresses=[(remote_host, Port_COMM),
-                                   (remote_host, Port_CAM0),
-                                   (remote_host, Port_MIC0),
-                                   (remote_host, Port_SPK0)],  # storage box ip address
-            local_bind_addresses=[('127.0.0.1', Port_COMM),
-                                  ('127.0.0.1', Port_CAM0),
-                                  ('127.0.0.1', Port_MIC0),
-                                  ('127.0.0.1', Port_SPK0)],
-            compression=compression)
-
-        try:
-            self.tunnel.start()
-        except:
-            return None, None
-
-        Console.print("SSH tunnels opened on ports:\n   ", self.tunnel.local_bind_ports)
-        return "localhost", Port_COMM
-
-    def open_udp_to_tcp_link(self):
-        res = True
-        ports = list()
-        pids  = list()
-        for port in (Port_CAM0, Port_MIC0, Port_SPK0):
-            cmd = 'socat -T15 udp4-recvfrom:' + str(port) + ',reuseaddr,fork tcp:localhost:' + str(port) + ' &'
-            out, err = execute_cmd(cmd)
-            if out.__str__().isdigit():
-                pids.append(out)
-            else:
-                ports.append(port)
-                res = False
-
-        if res is True:
-            return res, pids
-        else:
-            return res, ports
+    # def open_ssh_tunnel(self, Host, Port, rsa_file, rsa_password, username, remote_host, compression):
+    #     if compression == 0:  # Auto
+    #         compression = not(bool(ConnectionData.TestMode))
+    #     elif compression == 1:
+    #         compression = True
+    #     else:
+    #         compression = False
+    #
+    #     Console.print("Tunneling mode started\n [Compression is %s]" % compression)
+    #     self.tunnel = SSHTunnelForwarder(
+    #         (Host, Port),  # jump server address
+    #         ssh_username=username,
+    #         ssh_pkey=RSAKey.from_private_key_file(rsa_file, password=rsa_password),
+    #         remote_bind_addresses=[(remote_host, Port_COMM),
+    #                                (remote_host, Port_CAM0),
+    #                                (remote_host, Port_MIC0),
+    #                                (remote_host, Port_SPK0)],  # storage box ip address
+    #         local_bind_addresses=[('127.0.0.1', Port_COMM),
+    #                               ('127.0.0.1', Port_CAM0),
+    #                               ('127.0.0.1', Port_MIC0),
+    #                               ('127.0.0.1', Port_SPK0)],
+    #         compression=compression)
+    #
+    #     try:
+    #         self.tunnel.start()
+    #     except:
+    #         return None, None
+    #
+    #     Console.print("SSH tunnels opened on ports:\n   ", self.tunnel.local_bind_ports)
+    #     return "localhost", Port_COMM
+    #
+    # def open_udp_to_tcp_link(self):
+    #     res = True
+    #     ports = list()
+    #     pids  = list()
+    #     for port in (Port_CAM0, Port_MIC0, Port_SPK0):
+    #         cmd = 'socat -T15 udp4-recvfrom:' + str(port) + ',reuseaddr,fork tcp:localhost:' + str(port) + ' &'
+    #         out, err = execute_cmd(cmd)
+    #         if out.__str__().isdigit():
+    #             pids.append(out)
+    #         else:
+    #             ports.append(port)
+    #             res = False
+    #
+    #     if res is True:
+    #         return res, pids
+    #     else:
+    #         return res, ports
 
     def establish_connection(self, Host, Port):
         Console.print("Establishing connection with \n %s on port"  % Host, Port)
-        self.Rac_Stream = RacStream(Host, ConnectionData.TestMode)
+        self.Rac_Stream = RacStream(Host, Port, ConnectionData.TestMode)
 
         bus = self.Rac_Stream.player_video.get_bus()
         bus.add_signal_watch()
@@ -594,7 +599,7 @@ class ConnectionThread:
         except AttributeError:
             self.srv = None
 
-        execute_cmd("killall socat")
+        # execute_cmd("killall socat")
         ConnectionData.connected = False
         # if Debug > 1:
         Console.print("Connection closed.")
