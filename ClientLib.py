@@ -30,20 +30,20 @@ class RacStream:
     # Source>Depayloader>Convert>Sink
 
     # SRV LIVE TCP:
-    # Source>Capsfilter>Parser>Rtimer>Encoder>Sink
+    # Source>Capsfilter>Parser>RtPay>Encoder>Sink
     # CLI LIVE TCP:
-    # Source>Depayloader>Rtimer>Decoder>Convert>VideoFlip>Sink
+    # Source>Depayloader>RtDePay>Decoder>Convert>VideoFlip>Sink
 
     # UDP
     # SRV TEST UDP:
-    # Source>Capsfilter>Encoder>Rtimer>Sink
+    # Source>Capsfilter>Encoder>RtPay>Sink
     # CLI TEST UDP:
-    # Source>Capsfilter>Rtimer>Decoder>Convert>Sink
+    # Source>Capsfilter>RtDePay>Decoder>Convert>Sink
 
     # SRV LIVE UDP:
-    # Source>Capsfilter>Encoder>Rtimer>Sink
+    # Source>Capsfilter>Encoder>RtPay>Sink
     # CLI LIVE UDP:
-    # Source>Capsfilter>Rtimer>Decoder>Convert>VideoFlip>Sink
+    # Source>Capsfilter>RtDePay>Decoder>Convert>VideoFlip>Sink
 
     def __init__(self, Host, Port_COMM, VideoMode):
         Port_CAM0 = Port_COMM + 1
@@ -51,21 +51,27 @@ class RacStream:
         Port_DSP0 = Port_COMM + 4
         Port_SPK0 = Port_COMM + 5
 
-        self.player_video       = Gst.Pipeline.new("player")
+        self.player_video       = Gst.Pipeline.new("player_video")
         self.player_audio       = Gst.Pipeline.new("player_audio")
+        self.sender_video       = Gst.Pipeline.new("sender_video")
         self.sender_audio       = Gst.Pipeline.new("sender_audio")
 
-        #   SET VIDEO
-        self.video_flip         = Gst.ElementFactory.make("videoflip", "flip")
-        self.capsfilter_video   = Gst.ElementFactory.make("capsfilter", "capsfilter")
-        self.depayloader_video  = Gst.ElementFactory.make("gdpdepay", "depayloader")
-        self.convert_video      = Gst.ElementFactory.make("videoconvert")
-        self.rtimer_video       = Gst.ElementFactory.make("rtph264depay", "rtimer")
-        self.decoder_video      = Gst.ElementFactory.make("avdec_h264", "avdec")
+        #   SET VIDEO (PLAYER)
+        self.player_video_flip         = Gst.ElementFactory.make("videoflip", "flip")
+        self.player_video_capsfilter   = Gst.ElementFactory.make("capsfilter", "capsfilter")
+        self.player_video_depayloader  = Gst.ElementFactory.make("gdpdepay", "depayloader")
+        self.player_video_convert      = Gst.ElementFactory.make("videoconvert")
+        self.player_video_rtimer       = Gst.ElementFactory.make("rtph264depay", "rtimer")
+        self.player_video_decoder      = Gst.ElementFactory.make("avdec_h264", "avdec")
         # glimagesink(default)/gtksink/cacasink/autovideosink/ximagesink(working)
-        self.fpsadj_video       = Gst.ElementFactory.make("videorate")
-        self.fpsadjcaps_video   = Gst.ElementFactory.make("capsfilter", "fpsadj")
-        self.sink_video         = Gst.ElementFactory.make("ximagesink", "sink")
+        self.player_video_fpsadj       = Gst.ElementFactory.make("videorate")
+        self.player_video_fpsadjcaps   = Gst.ElementFactory.make("capsfilter", "fpsadj")
+        self.player_video_sink         = Gst.ElementFactory.make("ximagesink", "sink")
+
+        #   SET VIDEO (SENDER)
+        self.sender_video_capsfilter = Gst.ElementFactory.make("capsfilter", "capsfilter")
+        self.sender_video_source = Gst.ElementFactory.make("v4l2src", "video-source")
+        self.sender_video_rtimer = Gst.ElementFactory.make("rtph264pay", "rtimer_udp")
 
 # ToDo: Hud sync
 #         caps = Gst.Caps.from_string("video/x-raw, framerate=30/1")
@@ -98,11 +104,20 @@ class RacStream:
         self.sender_audio_rtimer     = Gst.ElementFactory.make("rtpspeexpay", "rtimer_audio")
 
         if ConnectionData.Protocol == TCP:
-            self.source_video        = Gst.ElementFactory.make("tcpclientsrc", "remote_source_video")
+            self.player_video_source        = Gst.ElementFactory.make("tcpclientsrc", "remote_source_video")
             self.player_audio_source = Gst.ElementFactory.make("tcpclientsrc", "remote_source_audio")
             self.sender_audio_sink   = Gst.ElementFactory.make("tcpserversink", "remote_sink_audio")
 
-            self.source_video.set_property("host", Host)
+            self.sender_video_encoder = Gst.ElementFactory.make("gdppay", "encoder")
+            self.sender_video_sink   = Gst.ElementFactory.make("tcpserversink", "video-output")
+
+# ToDo:
+            if Host:
+                self.sender_video_sink.set_property("host", Host)
+            else:
+                self.sender_video_sink.set_property("host", "0.0.0.0")
+
+            self.player_video_source.set_property("host", Host)
             self.player_audio_source.set_property("host", Host)
 
             if VideoMode is False:
@@ -111,23 +126,31 @@ class RacStream:
                 self.gst_init_live()
 
         else:
-            self.source_video        = Gst.ElementFactory.make("udpsrc", "remote_source_video_udp")
-            self.player_audio_source = Gst.ElementFactory.make("udpsrc", "remote_source_audio_udp")
-            self.sender_audio_sink   = Gst.ElementFactory.make("udpsink", "remote_sink_audio_udp")
+            self.player_video_source  = Gst.ElementFactory.make("udpsrc", "remote_source_video_udp")
+            self.player_audio_source  = Gst.ElementFactory.make("udpsrc", "remote_source_audio_udp")
+            self.sender_audio_sink    = Gst.ElementFactory.make("udpsink", "remote_sink_audio_udp")
+            self.sender_video_encoder = Gst.ElementFactory.make("h264parse", "encoder_udp")
+            self.sender_video_sink    = Gst.ElementFactory.make("udpsink", "video-output")
+
+            self.sender_video_sink.set_property("host", Host)
+            self.sender_video_encoder.set_property("tune", "zerolatency")
 
             if VideoMode is False:
                 self.gst_init_test_udp()
             else:
                 self.gst_init_live_udp()
+                self.gst_init_cam_udp()
 
-        self.source_video.set_property("port", Port_CAM0)
+        self.sender_video_sink.set_property("port", Port_DSP0)
+        self.sender_video_sink.set_property("sync", False)
+        self.player_video_source.set_property("port", Port_CAM0)
         self.player_audio_source.set_property("port", Port_MIC0)
         self.sender_audio_sink.set_property("host", Host)
         self.sender_audio_sink.set_property("port", Port_SPK0)
         self.sender_audio_sink.set_property("sync", False)
 
         caps = Gst.Caps.from_string("application/x-rtp, encoding-name=H264, payload=96")
-        self.capsfilter_video.set_property("caps", caps)
+        self.player_video_capsfilter.set_property("caps", caps)
 
         # glimagesink(default)/gtksink/cacasink/autovideosink
         # self.sink_video.set_property("sync", False)
@@ -138,25 +161,42 @@ class RacStream:
 
         self.sink_audio.set_property("sync", True)
 
-        if not self.sink_video or not self.source_video:
+        if not self.player_video_sink or not self.player_video_source:
             print("ERROR! GL elements not available.")
             exit()
+
+    def gst_init_cam_udp(self):
+        ####################################################################
+        ### Build video pipeline as following:
+        ###   Source[cam] > Caps > Encoder > RtPay > Sink[udp]
+        ####################################################################
+
+        self.sender_video.add(self.sender_video_source)
+        self.sender_video.add(self.sender_video_capsfilter)
+        self.sender_video.add(self.sender_video_encoder)
+        self.sender_video.add(self.sender_video_rtimer)
+        self.sender_video.add(self.sender_video_sink)
+
+        self.sender_video_source.link(self.sender_video_capsfilter)
+        self.sender_video_capsfilter.link(self.sender_video_encoder)
+        self.sender_video_encoder.link(self.sender_video_rtimer)
+        self.sender_video_rtimer.link(self.sender_video_sink)
 
     def gst_init_test(self):
         # receive raw test image generated by gstreamer server
         # --- Gstreamer setup begin ---
-        self.player_video.add(self.source_video)
-        self.player_video.add(self.depayloader_video)
-        self.player_video.add(self.convert_video)
-        self.player_video.add(self.fpsadj_video)
-        self.player_video.add(self.fpsadjcaps_video)
-        self.player_video.add(self.sink_video)
+        self.player_video.add(self.player_video_source)
+        self.player_video.add(self.player_video_depayloader)
+        self.player_video.add(self.player_video_convert)
+        self.player_video.add(self.player_video_fpsadj)
+        self.player_video.add(self.player_video_fpsadjcaps)
+        self.player_video.add(self.player_video_sink)
 
-        self.source_video.link(self.depayloader_video)
-        self.depayloader_video.link(self.convert_video)
-        self.convert_video.link(self.fpsadj_video)
-        self.fpsadj_video.link(self.fpsadjcaps_video)
-        self.fpsadjcaps_video.link(self.sink_video)
+        self.player_video_source.link(self.player_video_depayloader)
+        self.player_video_depayloader.link(self.player_video_convert)
+        self.player_video_convert.link(self.player_video_fpsadj)
+        self.player_video_fpsadj.link(self.player_video_fpsadjcaps)
+        self.player_video_fpsadjcaps.link(self.player_video_sink)
 
         #    tcpclientsrc host=x.x.x.x port=4552 ! application/x-rtp, media=audio, clock-rate=32000, encoding-name=SPEEX, payload=96 !
         #    rtpspeexdepay ! speexdec ! pulsesink sync=false
@@ -188,24 +228,24 @@ class RacStream:
 
     def gst_init_live(self):
         # --- Gstreamer setup begin ---
-        self.player_video.add(self.source_video)
-        self.player_video.add(self.depayloader_video)
-        self.player_video.add(self.rtimer_video)
-        self.player_video.add(self.decoder_video)
-        self.player_video.add(self.convert_video)
-        self.player_video.add(self.video_flip)
-        self.player_video.add(self.fpsadj_video)
-        self.player_video.add(self.fpsadjcaps_video)
-        self.player_video.add(self.sink_video)
+        self.player_video.add(self.player_video_source)
+        self.player_video.add(self.player_video_depayloader)
+        self.player_video.add(self.player_video_rtimer)
+        self.player_video.add(self.player_video_decoder)
+        self.player_video.add(self.player_video_convert)
+        self.player_video.add(self.player_video_flip)
+        self.player_video.add(self.player_video_fpsadj)
+        self.player_video.add(self.player_video_fpsadjcaps)
+        self.player_video.add(self.player_video_sink)
 
-        self.source_video.link(self.depayloader_video)
-        self.depayloader_video.link(self.rtimer_video)
-        self.rtimer_video.link(self.decoder_video)
-        self.decoder_video.link(self.convert_video)
-        self.convert_video.link(self.video_flip)
-        self.video_flip.link(self.fpsadj_video)
-        self.fpsadj_video.link(self.fpsadjcaps_video)
-        self.fpsadjcaps_video.link(self.sink_video)
+        self.player_video_source.link(self.player_video_depayloader)
+        self.player_video_depayloader.link(self.player_video_rtimer)
+        self.player_video_rtimer.link(self.player_video_decoder)
+        self.player_video_decoder.link(self.player_video_convert)
+        self.player_video_convert.link(self.player_video_flip)
+        self.player_video_flip.link(self.player_video_fpsadj)
+        self.player_video_fpsadj.link(self.player_video_fpsadjcaps)
+        self.player_video_fpsadjcaps.link(self.player_video_sink)
 
         #    tcpclientsrc host=x.x.x.x port=4552 ! application/x-rtp, media=audio, clock-rate=32000, encoding-name=SPEEX, payload=96 !
         #    rtpspeexdepay ! speexdec ! pulsesink sync=false
@@ -238,23 +278,23 @@ class RacStream:
     def gst_init_test_udp(self):
         # receive raw test image generated by gstreamer server
         # --- Gstreamer setup begin ---
-        self.player_video.add(self.source_video)
-        self.player_video.add(self.capsfilter_video)
-        self.player_video.add(self.rtimer_video)
-        self.player_video.add(self.decoder_video)
-        self.player_video.add(self.convert_video)
-        self.player_video.add(self.fpsadj_video)
-        self.player_video.add(self.fpsadjcaps_video)
-        self.player_video.add(self.sink_video)
+        self.player_video.add(self.player_video_source)
+        self.player_video.add(self.player_video_capsfilter)
+        self.player_video.add(self.player_video_rtimer)
+        self.player_video.add(self.player_video_decoder)
+        self.player_video.add(self.player_video_convert)
+        self.player_video.add(self.player_video_fpsadj)
+        self.player_video.add(self.player_video_fpsadjcaps)
+        self.player_video.add(self.player_video_sink)
 
-        self.source_video.link(self.capsfilter_video)
-        self.capsfilter_video.link(self.rtimer_video)
-        self.rtimer_video.link(self.decoder_video)
+        self.player_video_source.link(self.player_video_capsfilter)
+        self.player_video_capsfilter.link(self.player_video_rtimer)
+        self.player_video_rtimer.link(self.player_video_decoder)
         # self.capsfilter_video.link(self.decoder_video)
-        self.decoder_video.link(self.convert_video)
-        self.convert_video.link(self.fpsadj_video)
-        self.fpsadj_video.link(self.fpsadjcaps_video)
-        self.fpsadjcaps_video.link(self.sink_video)
+        self.player_video_decoder.link(self.player_video_convert)
+        self.player_video_convert.link(self.player_video_fpsadj)
+        self.player_video_fpsadj.link(self.player_video_fpsadjcaps)
+        self.player_video_fpsadjcaps.link(self.player_video_sink)
 
         #    udpsrc port=3333 ! application/x-rtp, media=audio, clock-rate=32000, encoding-name=SPEEX, payload=96 !
         #    rtpspeexdepay ! speexdec ! pulsesink sync=false
@@ -286,24 +326,24 @@ class RacStream:
 
     def gst_init_live_udp(self):
         # --- Gstreamer setup begin ---
-        self.player_video.add(self.source_video)
-        self.player_video.add(self.capsfilter_video)
-        self.player_video.add(self.rtimer_video)
-        self.player_video.add(self.decoder_video)
-        self.player_video.add(self.convert_video)
-        self.player_video.add(self.fpsadj_video)
-        self.player_video.add(self.fpsadjcaps_video)
-        self.player_video.add(self.video_flip)
-        self.player_video.add(self.sink_video)
+        self.player_video.add(self.player_video_source)
+        self.player_video.add(self.player_video_capsfilter)
+        self.player_video.add(self.player_video_rtimer)
+        self.player_video.add(self.player_video_decoder)
+        self.player_video.add(self.player_video_convert)
+        self.player_video.add(self.player_video_fpsadj)
+        self.player_video.add(self.player_video_fpsadjcaps)
+        self.player_video.add(self.player_video_flip)
+        self.player_video.add(self.player_video_sink)
 
-        self.source_video.link(self.capsfilter_video)
-        self.capsfilter_video.link(self.rtimer_video)
-        self.rtimer_video.link(self.decoder_video)
-        self.decoder_video.link(self.convert_video)
-        self.convert_video.link(self.fpsadj_video)
-        self.fpsadj_video.link(self.fpsadjcaps_video)
-        self.fpsadjcaps_video.link(self.video_flip)
-        self.video_flip.link(self.sink_video)
+        self.player_video_source.link(self.player_video_capsfilter)
+        self.player_video_capsfilter.link(self.player_video_rtimer)
+        self.player_video_rtimer.link(self.player_video_decoder)
+        self.player_video_decoder.link(self.player_video_convert)
+        self.player_video_convert.link(self.player_video_fpsadj)
+        self.player_video_fpsadj.link(self.player_video_fpsadjcaps)
+        self.player_video_fpsadjcaps.link(self.player_video_flip)
+        self.player_video_flip.link(self.player_video_sink)
 
         #    udpsrc port=3333 ! application/x-rtp, media=audio, clock-rate=32000, encoding-name=SPEEX, payload=96 !
         #    rtpspeexdepay ! speexdec ! pulsesink sync=false
