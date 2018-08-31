@@ -351,8 +351,27 @@ class StreamThread(threading.Thread):
 
         self.Video_Codec = Video_Codec
 
-        self.sender_video            = [Gst.Pipeline.new("player_video_test"),
+# Define pipelines:
+        self.player_video            = [Gst.Pipeline.new("player_video_test"),
                                         Gst.Pipeline.new("player_video")]
+        self.sender_video            = [Gst.Pipeline.new("sender_video_test"),
+                                        Gst.Pipeline.new("sender_video")]
+        self.player_audio            = [Gst.Pipeline.new("player_audio_test"),
+                                        Gst.Pipeline.new("player_audio")]
+        self.sender_audio            = [Gst.Pipeline.new("sender_audio_test"),
+                                        Gst.Pipeline.new("sender_audio")]
+# Define elements:
+        self.player_video_flip         = Gst.ElementFactory.make("videoflip", "flip")
+        self.player_video_capsfilter   = Gst.ElementFactory.make("capsfilter", "capsfilter")
+        self.player_video_depayloader  = Gst.ElementFactory.make("gdpdepay", "depayloader")
+        self.player_video_convert      = Gst.ElementFactory.make("videoconvert")
+        self.player_video_rtimer       = Gst.ElementFactory.make("rtph264depay", "rtimer")
+        self.player_video_decoder      = Gst.ElementFactory.make("avdec_h264", "avdec")
+        # glimagesink(default)/gtksink/cacasink/autovideosink/ximagesink(working)
+        self.player_video_fpsadj       = Gst.ElementFactory.make("videorate")
+        self.player_video_fpsadjcaps   = Gst.ElementFactory.make("capsfilter", "fpsadj")
+        self.player_video_sink         = Gst.ElementFactory.make("ximagesink", "sink")
+
         self.sender_video_capsfilter = [Gst.ElementFactory.make("capsfilter", "capsfilter_test"),
                                         Gst.ElementFactory.make("capsfilter", "capsfilter")]
         self.sender_video_source     = [Gst.ElementFactory.make("videotestsrc", "video-source_test"),
@@ -360,15 +379,6 @@ class StreamThread(threading.Thread):
         self.sender_video_rtimer     = [Gst.ElementFactory.make("rtph264pay", "rtimer_test_udp"),
                                         Gst.ElementFactory.make("rtph264pay", "rtimer_udp")]
 
-        self.sender_audio            = [Gst.Pipeline.new("player_audio_test"),
-                                        Gst.Pipeline.new("player_audio")]
-        self.sender_audio_source     = [Gst.ElementFactory.make("audiotestsrc", "audio-source_test"),
-                                        Gst.ElementFactory.make("pulsesrc", "audio-source")]
-        self.sender_audio_capsfilter = [Gst.ElementFactory.make("capsfilter", "capsfilter_audio_test"),
-                                        Gst.ElementFactory.make("capsfilter", "capsfilter_audio")]
-
-        self.player_audio            = ([Gst.Pipeline.new("player_audio_test"),
-                                         Gst.Pipeline.new("player_audio")])
         self.player_audio_capsfilter = ([Gst.ElementFactory.make("capsfilter", "capsfilter_audio_test"),
                                          Gst.ElementFactory.make("capsfilter", "capsfilter_audio")])
         self.player_audio_depayloader= ([Gst.ElementFactory.make("rtpspeexdepay", "depayloader_audio_test"),
@@ -377,6 +387,11 @@ class StreamThread(threading.Thread):
                                          Gst.ElementFactory.make("speexdec", "decoder_audio")])
         self.player_audio_sink       = ([Gst.ElementFactory.make("pulsesink", "sink_audio_test"),
                                          Gst.ElementFactory.make("pulsesink", "sink_audio")])
+
+        self.sender_audio_source     = [Gst.ElementFactory.make("audiotestsrc", "audio-source_test"),
+                                        Gst.ElementFactory.make("pulsesrc", "audio-source")]
+        self.sender_audio_capsfilter = [Gst.ElementFactory.make("capsfilter", "capsfilter_audio_test"),
+                                        Gst.ElementFactory.make("capsfilter", "capsfilter_audio")]
 
         self.player_audio_sink[self.Source_test].set_property("device", SpkOut)
         self.player_audio_sink[self.Source_h264].set_property("device", SpkOut)
@@ -480,7 +495,7 @@ class StreamThread(threading.Thread):
     def gst_init_video_test_udp(self):
         ####################################################################
         ### Build test video pipelineas following:
-        ###   Source[cam] > Caps > Encoder > Sink[tcp]
+        ###   Source[cam] > Caps > Encoder > RtPay > Sink[tcp]
         ####################################################################
         self.sender_video_source[self.Source_test].set_property("pattern", "smpte")
 
@@ -520,8 +535,8 @@ class StreamThread(threading.Thread):
 
     def gst_init_cam_udp(self):
         ####################################################################
-        ### Build video pipelineas following:
-        ###   Source[cam] > Caps > Parser > Codec_Opt > Encoder > Sink[tcp]
+        ### Build video pipeline as following:
+        ###   Source[cam] > Caps > Encoder > RtPay > Sink[udp]
         ####################################################################
 
         self.sender_video[self.Source_h264].add(self.sender_video_source[self.Source_h264])
@@ -609,14 +624,19 @@ class StreamThread(threading.Thread):
 
             if curr_Framerate != ConnectionData.Framerate:
                 curr_Framerate = ConnectionData.Framerate
-                curr_resolution = None  # force cam reinitialization
+                # curr_resolution = None  # force cam reinitialization
+                # Console.print(" Setting fps to %s/s..." % VideoFramerate[ConnectionData.Framerate])
+                cmd = "v4l2-ctl -p %s" % VideoFramerate[ConnectionData.Framerate]
+                retmsg, err = execute_cmd(cmd)
+                if retmsg:
+                    Console.print(retmsg)
 
             if curr_resolution != self.req_resolution:
                 if self.req_resolution > 0:
-                    Console.print("Changing Gstreamer fps/resolution")
+                    Console.print("Changing Gstreamer resolution")
                     ### CHANGE RESOLUTION CAPS ###
-                    res_fps = capsstr[self.req_resolution] + VideoFramerate[ConnectionData.Framerate].__str__() + "/1"
-                    caps = Gst.Caps.from_string("video/x-" + VideoCodec[self.Video_Codec] + res_fps)
+                    # res_fps = capsstr[self.req_resolution] + VideoFramerate[ConnectionData.Framerate].__str__() + "/1"
+                    caps = Gst.Caps.from_string("video/x-%s" % VideoCodec[self.Video_Codec] + capsstr[self.req_resolution])
                     self.sender_video_capsfilter[SRV_vars.TestMode].set_property("caps", caps)
 
                     if self.Video_Codec > 0:
@@ -673,8 +693,8 @@ class StreamThread(threading.Thread):
 
         if curr_resolution > 3:
             Console.print("Switching to low resolution...")
-            res_fps = capsstr[1] + VideoFramerate[1].__str__() + "/1"
-            caps = Gst.Caps.from_string("video/x-" + VideoCodec[self.Video_Codec] + res_fps)
+            # res_fps = capsstr[1] + VideoFramerate[1].__str__() + "/1"
+            caps = Gst.Caps.from_string("video/x-%s" % VideoCodec[self.Video_Codec] + capsstr[1])
             self.sender_video_capsfilter[SRV_vars.TestMode].set_property("caps", caps)
             self.sender_video[SRV_vars.TestMode].set_state(Gst.State.READY)
             time.sleep(1)
