@@ -1,4 +1,4 @@
-#!/usr/bin/env python3.5
+#!/usr/bin/env python3.6
 # -*- coding: CP1252 -*-
 from time import sleep
 from ServerLib import ThreadManager

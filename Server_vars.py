@@ -1,9 +1,10 @@
-capsstr = [None, None, None, None, None, None]
-capsstr[1] = ", width=320, height=240, framerate="
-capsstr[2] = ", width=640, height=480, framerate="
-capsstr[3] = ", width=800, height=600, framerate="
-capsstr[4] = ", width=1024, height=768, framerate="
-capsstr[5] = ", width=1152, height=864, framerate="
+capsstr = [None]
+capsstr.append(", width=320, height=240, framerate=")
+capsstr.append(", width=640, height=480, framerate=")
+capsstr.append(", width=800, height=600, framerate=")
+capsstr.append(", width=1024, height=768, framerate=")
+capsstr.append(", width=1280, height=960, framerate=")
+# capsstr.append(", width=1152, height=864, framerate=")
 FxModes  = ["brightness", "contrast", "saturation", "red_balance", "blue_balance", "power_line_frequency", "sharpness",
             "color_effects", "color_effects_cbcr", "video_bitrate_mode", "video_bitrate", "repeat_sequence_header",
             "h264_i_frame_period", "h264_level", "h264_profile", "auto_exposure", "exposure_time_absolute",
