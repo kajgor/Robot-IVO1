@@ -116,16 +116,14 @@ class ServerThread(threading.Thread):
                     Protocol = UDP
 
                 if Protocol is not None:
-                    Video_Codec = int(data[2]) - 48
-                    Test_Mode  = int(data[3]) - 48  # Substract 48 ASCII to decode the mode
-                    ConnIP  = data[4].__str__() + "."
-                    ConnIP += data[5].__str__() + "."
-                    ConnIP += data[6].__str__() + "."
-                    ConnIP += data[7].__str__()
+                    Video_Codec         = int(data[2]) - 48
+                    SRV_vars.TestMode   = int(data[3]) - 48  # Substract 48 ASCII to decode the mode
+                    ConnIP              =  data[4].__str__() + "."
+                    ConnIP              += data[5].__str__() + "."
+                    ConnIP              += data[6].__str__() + "."
+                    ConnIP              += data[7].__str__()
                     Console.print("Client:", client_IP + "[%s]" % PROTO_NAME[Protocol])
                     Console.print("Video Codec is " + VideoCodec[Video_Codec])
-
-                    SRV_vars.TestMode = Test_Mode
 
                     conn = self.connection_loop(conn, client_IP, Protocol, Video_Codec)
 
@@ -178,10 +176,11 @@ class ServerThread(threading.Thread):
                     if Fxmode < 4:
                         Fxvalue -= 100
                     Console.print(" Entering FX mode %s, value" % FxModes[Fxmode - 1], Fxvalue)
-                    cmd = "v4l2-ctl --set-ctrl=" + FxModes[Fxmode - 1] + "=" + Fxvalue.__str__()
-                    retmsg, err = execute_cmd(cmd)
-                    if retmsg:
-                        Console.print(retmsg)
+                    v4lparse(Cam0, FxModes[Fxmode - 1] + "=" + Fxvalue.__str__())
+                    # cmd = "v4l2-ctl --set-ctrl=" + FxModes[Fxmode - 1] + "=" + Fxvalue.__str__()
+                    # retmsg, err = execute_cmd(cmd)
+                    # if retmsg:
+                    #     Console.print(retmsg)
                 elif Fxmode < 35:
                     cmd = None
                     if Fxmode == 30:
@@ -351,109 +350,95 @@ class StreamThread(threading.Thread):
 
         self.Video_Codec = Video_Codec
 
-        self.sender_video            = [Gst.Pipeline.new("player_video_test"),
-                                        Gst.Pipeline.new("player_video")]
+        # Define pipelines:
+        self.player_video            =  Gst.Pipeline.new("player_video")
+        self.sender_video            = [Gst.Pipeline.new("sender_video_test"),
+                                        Gst.Pipeline.new("sender_video")]
+        self.player_audio            = [Gst.Pipeline.new("player_audio_test"),
+                                        Gst.Pipeline.new("player_audio")]
+        self.sender_audio            = [Gst.Pipeline.new("sender_audio_test"),
+                                        Gst.Pipeline.new("sender_audio")]
+        # Define elements:
+        # pulsesrc device=2 ! audio/x-raw,rate=32000 ! audioresample ! speexenc ! audioresample ! speexenc !
+        #          rtpspeexpay ! udpsink host=x.x.x.x port=xxxx sync=false
+        # glimagesink(default)/gtksink/cacasink/autovideosink/ximagesink(working)
+        # caps = Gst.Caps.from_string("audio/x-raw, rate=32000")
+        # self.capsfilter_audio[self.Source_h264].set_property("caps", caps)
+        # self.capsfilter_audio[self.Source_test].set_property("caps", caps)
+        # self.player_video_flip       = Gst.ElementFactory.make("videoflip", "flip")
+        self.player_video_capsfilter = Gst.ElementFactory.make("capsfilter", "capsfilter")
+        # self.player_video_gdpdepay   = Gst.ElementFactory.make("gdpdepay", "depayloader")
+        self.player_video_rtphdepay  = Gst.ElementFactory.make("rtph264depay", "rtimer")
+        self.player_video_decoder    = Gst.ElementFactory.make("avdec_h264", "avdec")
+        self.player_video_convert    = Gst.ElementFactory.make("videoconvert")
+        # self.player_video_videorate  = Gst.ElementFactory.make("videorate")
+        # self.player_video_fpsadjcaps = Gst.ElementFactory.make("capsfilter", "fpsadj")
+        # self.player_video_sink       = Gst.ElementFactory.make("ximagesink", "sink")
+        self.player_video_sink       = Gst.ElementFactory.make("gtksink", "sink")
+
         self.sender_video_capsfilter = [Gst.ElementFactory.make("capsfilter", "capsfilter_test"),
                                         Gst.ElementFactory.make("capsfilter", "capsfilter")]
         self.sender_video_source     = [Gst.ElementFactory.make("videotestsrc", "video-source_test"),
                                         Gst.ElementFactory.make("v4l2src", "video-source")]
         self.sender_video_rtimer     = [Gst.ElementFactory.make("rtph264pay", "rtimer_test_udp"),
                                         Gst.ElementFactory.make("rtph264pay", "rtimer_udp")]
-
-        self.sender_audio            = [Gst.Pipeline.new("player_audio_test"),
-                                        Gst.Pipeline.new("player_audio")]
+        self.player_audio_capsfilter = [Gst.ElementFactory.make("capsfilter", "capsfilter_audio_test"),
+                                        Gst.ElementFactory.make("capsfilter", "capsfilter_audio")]
+        self.player_audio_depayloader= [Gst.ElementFactory.make("rtpspeexdepay", "depayloader_audio_test"),
+                                        Gst.ElementFactory.make("rtpspeexdepay", "depayloader_audio")]
+        self.player_audio_decoder    = [Gst.ElementFactory.make("speexdec", "decoder_audio_test"),
+                                        Gst.ElementFactory.make("speexdec", "decoder_audio")]
+        self.player_audio_sink       = [Gst.ElementFactory.make("pulsesink", "sink_audio_test"),
+                                        Gst.ElementFactory.make("pulsesink", "sink_audio")]
         self.sender_audio_source     = [Gst.ElementFactory.make("audiotestsrc", "audio-source_test"),
                                         Gst.ElementFactory.make("pulsesrc", "audio-source")]
         self.sender_audio_capsfilter = [Gst.ElementFactory.make("capsfilter", "capsfilter_audio_test"),
                                         Gst.ElementFactory.make("capsfilter", "capsfilter_audio")]
-
-        self.player_audio            = ([Gst.Pipeline.new("player_audio_test"),
-                                         Gst.Pipeline.new("player_audio")])
-        self.player_audio_capsfilter = ([Gst.ElementFactory.make("capsfilter", "capsfilter_audio_test"),
-                                         Gst.ElementFactory.make("capsfilter", "capsfilter_audio")])
-        self.player_audio_depayloader= ([Gst.ElementFactory.make("rtpspeexdepay", "depayloader_audio_test"),
-                                         Gst.ElementFactory.make("rtpspeexdepay", "depayloader_audio")])
-        self.player_audio_decoder    = ([Gst.ElementFactory.make("speexdec", "decoder_audio_test"),
-                                         Gst.ElementFactory.make("speexdec", "decoder_audio")])
-        self.player_audio_sink       = ([Gst.ElementFactory.make("pulsesink", "sink_audio_test"),
-                                         Gst.ElementFactory.make("pulsesink", "sink_audio")])
-
-        self.player_audio_sink[self.Source_test].set_property("device", SpkOut)
-        self.player_audio_sink[self.Source_h264].set_property("device", SpkOut)
-
+        self.sender_audio_resample   = [Gst.ElementFactory.make("audioresample", "resample_audio_test"),
+                                        Gst.ElementFactory.make("audioresample", "resample_audio")]
+        self.sender_audio_encoder    = [Gst.ElementFactory.make("speexenc", "encoder_audio_test"),
+                                        Gst.ElementFactory.make("speexenc", "encoder_audio")]
+        self.sender_audio_rtimer     = [Gst.ElementFactory.make("rtpspeexpay", "rtimer_audio_test"),
+                                        Gst.ElementFactory.make("rtpspeexpay", "rtimer_audio")]
         if Protocol == TCP:
+            self.player_video_source  =  Gst.ElementFactory.make("tcpclientsrc", "remote_source_video")
             self.sender_video_encoder = [Gst.ElementFactory.make("gdppay", "encoder_test"),
                                          Gst.ElementFactory.make("gdppay", "encoder")]
-
-            self.sender_video_sink = [Gst.ElementFactory.make("tcpserversink", "video-output_test"),
-                                      Gst.ElementFactory.make("tcpserversink", "video-output")]
-
-            if HOST:
-                self.sender_video_sink[self.Source_test].set_property("host", HOST)
-                self.sender_video_sink[self.Source_h264].set_property("host", HOST)
-            else:
-                self.sender_video_sink[self.Source_test].set_property("host", "0.0.0.0")
-                self.sender_video_sink[self.Source_h264].set_property("host", "0.0.0.0")
-
-            self.gst_init_video_test()
-            self.gst_init_cam_tcp()
-
-            self.sender_audio_sink = [Gst.ElementFactory.make("tcpserversink", "sink_audio_test"),
-                                      Gst.ElementFactory.make("tcpserversink", "sink_audio")]
-
-            self.player_audio_source = ([Gst.ElementFactory.make("tcpclientsrc", "source_audio_test"),
-                                         Gst.ElementFactory.make("tcpclientsrc", "source_audio")])
-
+            self.sender_video_sink    = [Gst.ElementFactory.make("tcpserversink", "video-output_test"),
+                                         Gst.ElementFactory.make("tcpserversink", "video-output")]
+            self.player_audio_source  = [Gst.ElementFactory.make("tcpclientsrc", "source_audio_test"),
+                                         Gst.ElementFactory.make("tcpclientsrc", "source_audio")]
+            self.sender_audio_sink    = [Gst.ElementFactory.make("tcpserversink", "sink_audio_test"),
+                                         Gst.ElementFactory.make("tcpserversink", "sink_audio")]
         else:
+            self.player_video_source  =  Gst.ElementFactory.make("udpsrc", "remote_source_video_udp")
+            self.sender_audio_sink    = [Gst.ElementFactory.make("udpsink", "sink_audio_test"),
+                                         Gst.ElementFactory.make("udpsink", "sink_audio")]
+            self.player_audio_source  = [Gst.ElementFactory.make("udpsrc", "source_audio_test_udp"),
+                                         Gst.ElementFactory.make("udpsrc", "source_audio_udp")]
             self.sender_video_encoder = [Gst.ElementFactory.make(H264_ENC, "encoder_test_udp"),
                                          Gst.ElementFactory.make("h264parse", "encoder_udp")]
-            self.sender_video_encoder[self.Source_test].set_property("tune", "zerolatency")
-            self.sender_video_sink = [Gst.ElementFactory.make("udpsink", "video-output_test"),
-                                      Gst.ElementFactory.make("udpsink", "video-output")]
-            self.sender_video_sink[self.Source_test].set_property("host", client_IP)
-            self.sender_video_sink[self.Source_h264].set_property("host", client_IP)
-            # self.sender_video_sink[self.Source_test].set_property("sync", True)
-            # self.sender_video_sink[self.Source_h264].set_property("sync", True)
+            self.sender_video_sink    = [Gst.ElementFactory.make("udpsink", "video-output_test"),
+                                         Gst.ElementFactory.make("udpsink", "video-output")]
 
-            self.gst_init_video_test_udp()
-            self.gst_init_cam_udp()
+        # Set element properties
+        self.player_video_source.set_property("port", Port_DSP0)
+        caps = Gst.Caps.from_string("application/x-rtp, encoding-name=H264, payload=96")
+        self.player_video_capsfilter.set_property("caps", caps)
 
-            self.sender_audio_sink = [Gst.ElementFactory.make("udpsink", "sink_audio_test"),
-                                      Gst.ElementFactory.make("udpsink", "sink_audio")]
-            self.player_audio_source = ([Gst.ElementFactory.make("udpsrc", "source_audio_test_udp"),
-                                         Gst.ElementFactory.make("udpsrc", "source_audio_udp")])
-
-        # pulsesrc device=2 ! audio/x-raw,rate=32000 ! audioresample ! speexenc ! audioresample ! speexenc !
-        #          rtpspeexpay ! udpsink host=x.x.x.x port=xxxx sync=false
-        self.sender_audio_resample = [Gst.ElementFactory.make("audioresample", "resample_audio_test"),
-                                      Gst.ElementFactory.make("audioresample", "resample_audio")]
-        self.sender_audio_encoder  = [Gst.ElementFactory.make("speexenc", "encoder_audio_test"),
-                                      Gst.ElementFactory.make("speexenc", "encoder_audio")]
-        self.sender_audio_rtimer = [Gst.ElementFactory.make("rtpspeexpay", "rtimer_audio_test"),
-                                    Gst.ElementFactory.make("rtpspeexpay", "rtimer_audio")]
-
-        self.sender_audio_sink[self.Source_test].set_property("host", client_IP)
-        self.sender_audio_sink[self.Source_h264].set_property("host", client_IP)
-        self.sender_audio_sink[self.Source_test].set_property("sync", False)
-        self.sender_audio_sink[self.Source_h264].set_property("sync", False)
+        self.sender_video_sink[SRV_vars.TestMode].set_property("port", Port_CAM0)
+        self.sender_video_sink[SRV_vars.TestMode].set_property("sync", False)
+        self.sender_video_source[self.Source_test].set_property("pattern", "smpte")
+        self.sender_video_rtimer[self.Source_h264].set_property("config_interval", 1)
+        self.sender_video_rtimer[self.Source_h264].set_property("pt", 96)
+        self.player_audio_source[SRV_vars.TestMode].set_property("port", Port_SPK0)
+        self.player_audio_sink[SRV_vars.TestMode].set_property("device", SpkOut)
         self.sender_audio_source[self.Source_test].set_property("wave", 0)
         self.sender_audio_source[self.Source_h264].set_property("device", MicIn)
-
-        # caps = Gst.Caps.from_string("audio/x-raw, rate=32000")
-        # self.capsfilter_audio[self.Source_h264].set_property("caps", caps)
-        # self.capsfilter_audio[self.Source_test].set_property("caps", caps)
-
-        self.gst_init_audio_udp()
-
-        self.sender_video_sink[self.Source_test].set_property("port", Port_CAM0)
-        self.sender_video_sink[self.Source_h264].set_property("port", Port_CAM0)
-        self.sender_video_sink[self.Source_test].set_property("sync", False)
-        self.sender_video_sink[self.Source_h264].set_property("sync", False)
-
-        self.sender_audio_sink[self.Source_test].set_property("port", Port_MIC0)
-        self.sender_audio_sink[self.Source_h264].set_property("port", Port_MIC0)
-
-        self.player_audio_source[SRV_vars.TestMode].set_property("port", Port_SPK0)
+        self.sender_audio_sink[SRV_vars.TestMode].set_property("host", client_IP)
+        self.sender_audio_sink[SRV_vars.TestMode].set_property("sync", False)
+        self.sender_audio_sink[SRV_vars.TestMode].set_property("port", Port_MIC0)
+        # set initial caps
         caps = Gst.Caps.from_string("application/x-rtp, media=audio, clock-rate=32000, encoding-name=SPEEX, payload=96")
         self.player_audio_capsfilter[self.Source_test].set_property("caps", caps)
         self.player_audio_capsfilter[self.Source_h264].set_property("caps", caps)
@@ -461,13 +446,34 @@ class StreamThread(threading.Thread):
         self.player_audio_sink[self.Source_test].set_property("sync", True)
         self.player_audio_sink[self.Source_h264].set_property("sync", True)
 
-    def gst_init_video_test(self):
+        if Protocol == TCP:
+            if HOST:
+                self.player_video_source.set_property("host", HOST)
+                self.sender_video_sink[self.Source_test].set_property("host", HOST)
+                self.sender_video_sink[self.Source_h264].set_property("host", HOST)
+            else:
+                self.player_video_source.set_property("host", "0.0.0.0")
+                self.sender_video_sink[self.Source_test].set_property("host", "0.0.0.0")
+                self.sender_video_sink[self.Source_h264].set_property("host", "0.0.0.0")
+            self.gst_init_video_test_tcp()
+            self.gst_init_cam_tcp()
+        else:
+            self.sender_video_encoder[self.Source_test].set_property("tune", "zerolatency")
+            self.sender_video_sink[self.Source_test].set_property("host", client_IP)
+            self.sender_video_sink[self.Source_h264].set_property("host", client_IP)
+            # self.sender_video_sink[self.Source_test].set_property("sync", True)
+            # self.sender_video_sink[self.Source_h264].set_property("sync", True)
+            self.gst_init_video_test_udp()
+            self.gst_init_cam_udp()
+            self.gst_init_disp_udp()
+
+        self.gst_init_audio_udp()
+
+    def gst_init_video_test_tcp(self):
         ####################################################################
         ### Build test video pipelineas following:
         ###   Source[cam] > Caps > Encoder > Sink[tcp]
         ####################################################################
-        self.sender_video_source[self.Source_test].set_property("pattern", "smpte")
-
         self.sender_video[self.Source_test].add(self.sender_video_source[self.Source_test])
         self.sender_video[self.Source_test].add(self.sender_video_capsfilter[self.Source_test])
         self.sender_video[self.Source_test].add(self.sender_video_encoder[self.Source_test])
@@ -480,10 +486,8 @@ class StreamThread(threading.Thread):
     def gst_init_video_test_udp(self):
         ####################################################################
         ### Build test video pipelineas following:
-        ###   Source[cam] > Caps > Encoder > Sink[tcp]
+        ###   Source[cam] > Caps > Encoder > RtPay > Sink[tcp]
         ####################################################################
-        self.sender_video_source[self.Source_test].set_property("pattern", "smpte")
-
         self.sender_video[self.Source_test].add(self.sender_video_source[self.Source_test])
         self.sender_video[self.Source_test].add(self.sender_video_capsfilter[self.Source_test])
         self.sender_video[self.Source_test].add(self.sender_video_encoder[self.Source_test])
@@ -501,10 +505,6 @@ class StreamThread(threading.Thread):
         ###   Source[cam] > Caps > Parser > Codec_Opt > Encoder > Sink[tcp]
         ####################################################################
         parser = Gst.ElementFactory.make("h264parse", "parser")
-
-        self.sender_video_rtimer[self.Source_h264].set_property("config_interval", 1)
-        self.sender_video_rtimer[self.Source_h264].set_property("pt", 96)
-
         self.sender_video[self.Source_h264].add(self.sender_video_source[self.Source_h264])
         self.sender_video[self.Source_h264].add(self.sender_video_capsfilter[self.Source_h264])
         self.sender_video[self.Source_h264].add(parser)
@@ -520,10 +520,9 @@ class StreamThread(threading.Thread):
 
     def gst_init_cam_udp(self):
         ####################################################################
-        ### Build video pipelineas following:
-        ###   Source[cam] > Caps > Parser > Codec_Opt > Encoder > Sink[tcp]
+        ### Build video pipeline as following:
+        ###   Source[cam] > Caps > Encoder > RtPay > Sink[udp]
         ####################################################################
-
         self.sender_video[self.Source_h264].add(self.sender_video_source[self.Source_h264])
         self.sender_video[self.Source_h264].add(self.sender_video_capsfilter[self.Source_h264])
         self.sender_video[self.Source_h264].add(self.sender_video_encoder[self.Source_h264])
@@ -534,6 +533,30 @@ class StreamThread(threading.Thread):
         self.sender_video_capsfilter[self.Source_h264].link(self.sender_video_encoder[self.Source_h264])
         self.sender_video_encoder[self.Source_h264].link(self.sender_video_rtimer[self.Source_h264])
         self.sender_video_rtimer[self.Source_h264].link(self.sender_video_sink[self.Source_h264])
+
+    def gst_init_disp_udp(self):
+        ####################################################################
+        ### Build video pipeline as following:
+        ###   Source[cam] > Caps > Encoder > RtPay > Sink[udp]
+        ####################################################################
+        self.player_video.add(self.player_video_source)
+        self.player_video.add(self.player_video_capsfilter)
+        self.player_video.add(self.player_video_rtphdepay)
+        self.player_video.add(self.player_video_decoder)
+        self.player_video.add(self.player_video_convert)
+        # self.player_video.add(self.player_video_flip)
+        # self.player_video.add(self.player_video_videorate)
+        # self.player_video.add(self.player_video_fpsadjcaps)
+        self.player_video.add(self.player_video_sink)
+
+        self.player_video_source.link(self.player_video_capsfilter)
+        self.player_video_capsfilter.link(self.player_video_rtphdepay)
+        self.player_video_rtphdepay.link(self.player_video_decoder)
+        self.player_video_decoder.link(self.player_video_convert)
+        # self.player_video_convert.link(self.player_video_flip)
+        # self.player_video_convert.link(self.player_video_videorate)
+        # self.player_video_videorate.link(self.player_video_fpsadjcaps)
+        self.player_video_convert.link(self.player_video_sink)
 
     def gst_init_audio_udp(self):
         # SENDER
@@ -565,18 +588,20 @@ class StreamThread(threading.Thread):
     def run(self):
         Console.print('Streamer Thread #%s started' % self.ident)
 
-        req_mode = Gst.State.READY
-        self.res_queue.put(req_mode)
-
-        update = False
-        res_switch = 9
+        update          = False
+        res_switch      = 9
         curr_resolution = 0
+        curr_state      = None      # just to avoid error highlight
 
-        req_audio_mode = [Gst.State.READY, Gst.State.PLAYING]
-        curr_mic0 = not ConnectionData.mic
-        curr_speakers = not ConnectionData.speakers
+        req_audio_mode  = [Gst.State.READY, Gst.State.PLAYING]
+        curr_mic0       = not ConnectionData.mic
+        curr_speakers   = not ConnectionData.speakers
+        curr_display    = not ConnectionData.display
         curr_AudioBitrate = None
-        curr_Framerate = None
+        curr_Framerate  = None
+
+        req_mode        = Gst.State.READY
+        self.res_queue.put(req_mode)
         self.sender_audio[SRV_vars.TestMode].set_state(req_audio_mode[curr_mic0])
         self.player_audio[SRV_vars.TestMode].set_state(req_audio_mode[curr_speakers])
 
@@ -607,16 +632,30 @@ class StreamThread(threading.Thread):
 
                 self.player_audio[SRV_vars.TestMode].set_state(req_audio_mode[ConnectionData.speakers])
 
+            if curr_display is not ConnectionData.display:
+                fail = self.connect_camstream(ConnectionData.display)
+
+                if fail is True:
+                    Console.print(" Display Failed")
+                else:
+                    curr_display = ConnectionData.display
+                    if curr_display is True:
+                        Console.print(" Display On")
+                    else:
+                        Console.print(" Display Off")
+
             if curr_Framerate != ConnectionData.Framerate:
                 curr_Framerate = ConnectionData.Framerate
                 curr_resolution = None  # force cam reinitialization
+                Console.print(" Setting fps to %s/s..." % VideoFramerate[ConnectionData.Framerate])
 
             if curr_resolution != self.req_resolution:
                 if self.req_resolution > 0:
-                    Console.print("Changing Gstreamer fps/resolution")
-                    ### CHANGE RESOLUTION CAPS ###
-                    res_fps = capsstr[self.req_resolution] + VideoFramerate[ConnectionData.Framerate].__str__() + "/1"
-                    caps = Gst.Caps.from_string("video/x-" + VideoCodec[self.Video_Codec] + res_fps)
+                    Console.print("Changing Gstreamer resolution")
+                    ### CHANGE RESOLUTION/FPS CAPS ###
+                    caps = "video/x-%s" % VideoCodec[self.Video_Codec] + capsstr[self.req_resolution] +\
+                           VideoFramerate[ConnectionData.Framerate].__str__() + "/1"
+                    caps = Gst.Caps.from_string(caps)
                     self.sender_video_capsfilter[SRV_vars.TestMode].set_property("caps", caps)
 
                     if self.Video_Codec > 0:
@@ -651,6 +690,11 @@ class StreamThread(threading.Thread):
                 elif req_mode == Gst.State.READY:
                     Console.print("Preparing Gstreamer", end="...")
                     self.sender_video[SRV_vars.TestMode].set_state(req_mode)
+                    # set HW framerate of the camera
+                    cmd = "v4l2-ctl -p %s" % VideoFramerate[ConnectionData.Framerate]
+                    retmsg, err = execute_cmd(cmd)
+                    if err:
+                        Console.print(err)
                 elif req_mode == Gst.State.PLAYING:
                     Console.print("Requested streaming in mode " + self.req_resolution.__str__() + "/" +
                                   VideoFramerate[ConnectionData.Framerate].__str__() + "... ")
@@ -673,15 +717,16 @@ class StreamThread(threading.Thread):
 
         if curr_resolution > 3:
             Console.print("Switching to low resolution...")
-            res_fps = capsstr[1] + VideoFramerate[1].__str__() + "/1"
-            caps = Gst.Caps.from_string("video/x-" + VideoCodec[self.Video_Codec] + res_fps)
+            caps = Gst.Caps.from_string("video/x-%s" % VideoCodec[self.Video_Codec] + capsstr[1])
             self.sender_video_capsfilter[SRV_vars.TestMode].set_property("caps", caps)
             self.sender_video[SRV_vars.TestMode].set_state(Gst.State.READY)
             time.sleep(1)
 
-        self.sender_video[SRV_vars.TestMode].set_state(Gst.State.PAUSED)
+        # self.sender_video[SRV_vars.TestMode].set_state(Gst.State.PAUSED)
+        self.sender_video[SRV_vars.TestMode].set_state(Gst.State.READY)
         self.sender_audio[SRV_vars.TestMode].set_state(Gst.State.READY)
         self.player_audio[SRV_vars.TestMode].set_state(Gst.State.READY)
+        self.player_video.set_state(Gst.State.READY)
         time.sleep(0.25)
         self.sender_video[self.Source_test].set_state(Gst.State.NULL)
         self.sender_video[self.Source_h264].set_state(Gst.State.NULL)
@@ -691,8 +736,21 @@ class StreamThread(threading.Thread):
 
         self.player_audio[self.Source_test].set_state(Gst.State.NULL)
         self.player_audio[self.Source_h264].set_state(Gst.State.NULL)
+        self.player_video.set_state(Gst.State.NULL)
 
         Console.print('Streamer Thread #%s stopped' % self.ident)
+
+    def connect_camstream(self, Connect):
+        if Connect is True:
+            time.sleep(0.1)
+            retmsg = self.player_video.set_state(Gst.State.PLAYING)
+        else:
+            retmsg = self.player_video.set_state(Gst.State.NULL)
+
+        if retmsg == Gst.StateChangeReturn.FAILURE:
+            return True
+        else:
+            return False
 
 
 class DriverThread(threading.Thread):

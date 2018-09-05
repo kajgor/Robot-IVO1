@@ -1,6 +1,12 @@
+# Working UDP server:
+# gst-launch-1.0 v4l2src ! video/x-raw,framerate=15/1,width=640,height=480 ! videoconvert ! x264enc pass=qual quantizer=20 tune=zerolatency ! rtph264pay ! udpsink host=127.0.0.1 port=1234
+# Working UDP client:
+# gst-launch-1.0 udpsrc port=1234 ! "application/x-rtp, encoding-name=H264, payload=96" ! rtph264depay ! avdec_h264 ! videoconvert ! videorate ! xvimagesink sync=false
+
 CONSOLE_GUI = True
 RESP_DELAY = 0.025
 #RESP_DELAY = 0.05
+H264_ENC = "x264enc"
 
 Debug = 1
 
