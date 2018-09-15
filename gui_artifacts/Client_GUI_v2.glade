@@ -9,11 +9,11 @@
     <property name="step_increment">1</property>
     <property name="page_increment">10</property>
   </object>
-  <object class="GtkMenu" id="Menu_CamOptions">
+  <object class="GtkMenu" id="Menu_MainHub">
     <property name="visible">True</property>
     <property name="can_focus">False</property>
     <child>
-      <object class="GtkMenuItem" id="Menu_CamSub1">
+      <object class="GtkMenuItem" id="Menu_CamRes1">
         <property name="visible">True</property>
         <property name="can_focus">False</property>
         <property name="label" translatable="yes">Resolution</property>
@@ -77,7 +77,7 @@
       </object>
     </child>
     <child>
-      <object class="GtkMenuItem" id="Menu_CamSub2">
+      <object class="GtkMenuItem" id="Menu_CamFx2">
         <property name="visible">True</property>
         <property name="can_focus">False</property>
         <property name="label" translatable="yes">FX Modes</property>
@@ -250,6 +250,136 @@
         </child>
       </object>
     </child>
+    <child>
+      <object class="GtkMenuItem" id="Menu_CmdSub">
+        <property name="visible">True</property>
+        <property name="can_focus">False</property>
+        <property name="label" translatable="yes">Send Command</property>
+        <child type="submenu">
+          <object class="GtkMenu" id="Menu_CmdExe">
+            <property name="visible">True</property>
+            <property name="can_focus">False</property>
+            <child>
+              <object class="GtkMenuItem" id="Menu_CmdExe_ConfResend">
+                <property name="name">1</property>
+                <property name="visible">True</property>
+                <property name="can_focus">False</property>
+                <property name="label" translatable="yes">Resend Configuration</property>
+                <signal name="activate" handler="on_Menu_CmdExe_Item_activate" swapped="no"/>
+              </object>
+            </child>
+            <child>
+              <object class="GtkMenuItem" id="Menu_CmdExe_Sub_Server">
+                <property name="name">2</property>
+                <property name="visible">True</property>
+                <property name="can_focus">False</property>
+                <property name="tooltip_text" translatable="yes">Commands executed on Server OS</property>
+                <property name="label" translatable="yes">Server Commands</property>
+                <signal name="activate" handler="on_Menu_CmdExe_Item_activate" swapped="no"/>
+                <child type="submenu">
+                  <object class="GtkMenu" id="menu1">
+                    <property name="visible">True</property>
+                    <property name="can_focus">False</property>
+                    <child>
+                      <object class="GtkMenuItem" id="Menu_CmdExe_RebootRpi">
+                        <property name="name">250</property>
+                        <property name="visible">True</property>
+                        <property name="can_focus">False</property>
+                        <property name="label" translatable="yes">Reboot RPI</property>
+                        <signal name="activate" handler="on_Menu_CmdExe_Item_activate" swapped="no"/>
+                      </object>
+                    </child>
+                    <child>
+                      <object class="GtkMenuItem" id="Menu_CmdExe_ResetUsb">
+                        <property name="name">252</property>
+                        <property name="visible">True</property>
+                        <property name="can_focus">False</property>
+                        <property name="label" translatable="yes">Reset USB ports</property>
+                        <signal name="activate" handler="on_Menu_CmdExe_Item_activate" swapped="no"/>
+                      </object>
+                    </child>
+                  </object>
+                </child>
+              </object>
+            </child>
+            <child>
+              <object class="GtkMenuItem" id="Menu_CmdExe_Item5">
+                <property name="name">3</property>
+                <property name="visible">True</property>
+                <property name="sensitive">False</property>
+                <property name="can_focus">False</property>
+                <property name="label" translatable="yes">None</property>
+                <signal name="activate" handler="on_Menu_CmdExe_Item_activate" swapped="no"/>
+              </object>
+            </child>
+          </object>
+        </child>
+      </object>
+    </child>
+  </object>
+  <object class="GtkAdjustment" id="adjustment_CamBlueBalance">
+    <property name="lower">1</property>
+    <property name="upper">7999</property>
+    <property name="value">1000</property>
+    <property name="step_increment">1</property>
+    <property name="page_increment">100</property>
+  </object>
+  <object class="GtkAdjustment" id="adjustment_CamBrightness">
+    <property name="upper">100</property>
+    <property name="value">50</property>
+    <property name="step_increment">1</property>
+    <property name="page_increment">5</property>
+  </object>
+  <object class="GtkAdjustment" id="adjustment_CamContrast">
+    <property name="lower">-100</property>
+    <property name="upper">100</property>
+    <property name="step_increment">1</property>
+    <property name="page_increment">10</property>
+  </object>
+  <object class="GtkAdjustment" id="adjustment_CamRedBalance">
+    <property name="lower">1</property>
+    <property name="upper">7999</property>
+    <property name="value">1000</property>
+    <property name="step_increment">1</property>
+    <property name="page_increment">100</property>
+  </object>
+  <object class="GtkAdjustment" id="adjustment_CamSaturation">
+    <property name="lower">-100</property>
+    <property name="upper">100</property>
+    <property name="step_increment">1</property>
+    <property name="page_increment">10</property>
+  </object>
+  <object class="GtkAdjustment" id="adjustment_CamSharpness">
+    <property name="lower">-100</property>
+    <property name="upper">100</property>
+    <property name="step_increment">1</property>
+    <property name="page_increment">10</property>
+  </object>
+  <object class="GtkAdjustment" id="adjustment_ExpAbsTime">
+    <property name="lower">1</property>
+    <property name="upper">10000</property>
+    <property name="value">1000</property>
+    <property name="step_increment">1</property>
+    <property name="page_increment">100</property>
+  </object>
+  <object class="GtkAdjustment" id="adjustment_JpgQuality">
+    <property name="lower">1</property>
+    <property name="upper">100</property>
+    <property name="value">30</property>
+    <property name="step_increment">1</property>
+    <property name="page_increment">10</property>
+  </object>
+  <object class="GtkAdjustment" id="adjustment_Mic">
+    <property name="upper">10</property>
+    <property name="value">5</property>
+    <property name="step_increment">1</property>
+    <property name="page_increment">5</property>
+  </object>
+  <object class="GtkAdjustment" id="adjustment_Speakers">
+    <property name="upper">10</property>
+    <property name="value">5</property>
+    <property name="step_increment">1</property>
+    <property name="page_increment">5</property>
   </object>
   <object class="GtkWindow" id="Window_Console">
     <property name="can_focus">False</property>
@@ -287,7 +417,7 @@
             </child>
             <child>
               <object class="GtkButton" id="Button_Preferences">
-                <property name="label">gtk-preferences</property>
+                <property name="label">gtk-network</property>
                 <property name="width_request">125</property>
                 <property name="visible">True</property>
                 <property name="can_focus">True</property>
@@ -397,22 +527,22 @@
                         <property name="can_focus">False</property>
                         <property name="halign">end</property>
                         <property name="valign">start</property>
+                        <property name="margin_left">8</property>
+                        <property name="margin_right">2</property>
                         <property name="orientation">vertical</property>
                         <child>
-                          <object class="GtkCheckButton" id="CheckButton_LocalTest">
-                            <property name="label" translatable="yes">Test Transmission</property>
+                          <object class="GtkCheckButton" id="CheckButton_Auto">
+                            <property name="label" translatable="yes">AutoMode</property>
                             <property name="visible">True</property>
+                            <property name="sensitive">False</property>
                             <property name="can_focus">True</property>
                             <property name="receives_default">False</property>
                             <property name="halign">center</property>
                             <property name="margin_top">10</property>
-                            <property name="margin_bottom">15</property>
-                            <property name="hexpand">True</property>
-                            <property name="use_underline">True</property>
+                            <property name="margin_bottom">10</property>
                             <property name="focus_on_click">False</property>
                             <property name="xalign">0</property>
                             <property name="draw_indicator">True</property>
-                            <signal name="toggled" handler="on_CheckButton_LocalTest_toggled" swapped="no"/>
                           </object>
                           <packing>
                             <property name="expand">False</property>
@@ -421,91 +551,10 @@
                           </packing>
                         </child>
                         <child>
-                          <object class="GtkLabel" id="label1">
-                            <property name="visible">True</property>
-                            <property name="sensitive">False</property>
-                            <property name="can_focus">False</property>
-                            <property name="halign">center</property>
-                            <property name="label" translatable="yes">Resolution           Camera</property>
-                            <property name="track_visited_links">False</property>
-                          </object>
-                          <packing>
-                            <property name="expand">False</property>
-                            <property name="fill">True</property>
-                            <property name="position">1</property>
-                          </packing>
-                        </child>
-                        <child>
-                          <object class="GtkGrid" id="grid3">
+                          <object class="GtkGrid" id="grid14">
                             <property name="visible">True</property>
                             <property name="can_focus">False</property>
-                            <property name="margin_right">5</property>
-                            <property name="margin_bottom">10</property>
-                            <property name="column_homogeneous">True</property>
-                            <child>
-                              <object class="GtkComboBoxText" id="ComboBoxResolution">
-                                <property name="width_request">100</property>
-                                <property name="visible">True</property>
-                                <property name="can_focus">False</property>
-                                <property name="halign">start</property>
-                                <property name="hexpand">True</property>
-                                <property name="active">1</property>
-                                <items>
-                                  <item translatable="yes">320x240</item>
-                                  <item translatable="yes">640x480</item>
-                                  <item translatable="yes">800x600</item>
-                                  <item translatable="yes">1024x768</item>
-                                  <item translatable="yes">1152x864</item>
-                                </items>
-                                <signal name="changed" handler="on_ComboBoxResolution_changed" swapped="no"/>
-                              </object>
-                              <packing>
-                                <property name="left_attach">0</property>
-                                <property name="top_attach">0</property>
-                              </packing>
-                            </child>
-                            <child>
-                              <object class="GtkButton" id="Button_AdvancedCam">
-                                <property name="label" translatable="yes">Advanced</property>
-                                <property name="visible">True</property>
-                                <property name="can_focus">True</property>
-                                <property name="receives_default">True</property>
-                                <signal name="clicked" handler="on_Button_AdvancedCam_clicked" swapped="no"/>
-                              </object>
-                              <packing>
-                                <property name="left_attach">1</property>
-                                <property name="top_attach">0</property>
-                              </packing>
-                            </child>
-                          </object>
-                          <packing>
-                            <property name="expand">False</property>
-                            <property name="fill">True</property>
-                            <property name="position">2</property>
-                          </packing>
-                        </child>
-                        <child>
-                          <object class="GtkGrid" id="grid4">
-                            <property name="visible">True</property>
-                            <property name="can_focus">False</property>
-                            <property name="margin_bottom">15</property>
-                            <property name="column_spacing">10</property>
-                            <child>
-                              <object class="GtkCheckButton" id="CheckButton_Speakers">
-                                <property name="label" translatable="yes">Speakers</property>
-                                <property name="visible">True</property>
-                                <property name="can_focus">True</property>
-                                <property name="receives_default">False</property>
-                                <property name="focus_on_click">False</property>
-                                <property name="xalign">0</property>
-                                <property name="draw_indicator">True</property>
-                                <signal name="toggled" handler="on_CheckButton_Speakers_toggled" swapped="no"/>
-                              </object>
-                              <packing>
-                                <property name="left_attach">0</property>
-                                <property name="top_attach">1</property>
-                              </packing>
-                            </child>
+                            <property name="column_spacing">5</property>
                             <child>
                               <object class="GtkCheckButton" id="CheckButton_Mic">
                                 <property name="label" translatable="yes">Mic.</property>
@@ -518,38 +567,23 @@
                                 <signal name="toggled" handler="on_CheckButton_Mic_toggled" swapped="no"/>
                               </object>
                               <packing>
-                                <property name="left_attach">1</property>
+                                <property name="left_attach">0</property>
                                 <property name="top_attach">1</property>
                               </packing>
                             </child>
                             <child>
-                              <object class="GtkCheckButton" id="CheckButton_Auto">
-                                <property name="label" translatable="yes">AutoMode</property>
+                              <object class="GtkCheckButton" id="CheckButton_Speakers">
+                                <property name="label" translatable="yes">Speaker</property>
                                 <property name="visible">True</property>
                                 <property name="can_focus">True</property>
                                 <property name="receives_default">False</property>
                                 <property name="focus_on_click">False</property>
                                 <property name="xalign">0</property>
                                 <property name="draw_indicator">True</property>
+                                <signal name="toggled" handler="on_CheckButton_Speakers_toggled" swapped="no"/>
                               </object>
                               <packing>
-                                <property name="left_attach">1</property>
-                                <property name="top_attach">0</property>
-                              </packing>
-                            </child>
-                            <child>
-                              <object class="GtkCheckButton" id="CheckButton_Lights">
-                                <property name="label" translatable="yes">Lights</property>
-                                <property name="visible">True</property>
-                                <property name="can_focus">True</property>
-                                <property name="receives_default">False</property>
-                                <property name="focus_on_click">False</property>
-                                <property name="xalign">0</property>
-                                <property name="draw_indicator">True</property>
-                                <signal name="toggled" handler="on_CheckButton_Lights_toggled" swapped="no"/>
-                              </object>
-                              <packing>
-                                <property name="left_attach">1</property>
+                                <property name="left_attach">0</property>
                                 <property name="top_attach">2</property>
                               </packing>
                             </child>
@@ -583,47 +617,178 @@
                               </object>
                               <packing>
                                 <property name="left_attach">0</property>
+                                <property name="top_attach">3</property>
+                              </packing>
+                            </child>
+                            <child>
+                              <object class="GtkButton" id="Button_AdvancedCam">
+                                <property name="label">gtk-preferences</property>
+                                <property name="visible">True</property>
+                                <property name="can_focus">True</property>
+                                <property name="receives_default">True</property>
+                                <property name="halign">center</property>
+                                <property name="valign">center</property>
+                                <property name="use_stock">True</property>
+                                <signal name="clicked" handler="on_Button_AdvancedCam_clicked" swapped="no"/>
+                              </object>
+                              <packing>
+                                <property name="left_attach">1</property>
+                                <property name="top_attach">0</property>
+                              </packing>
+                            </child>
+                            <child>
+                              <object class="GtkScale" id="Scale_Mic">
+                                <property name="name">31</property>
+                                <property name="visible">True</property>
+                                <property name="can_focus">True</property>
+                                <property name="margin_left">5</property>
+                                <property name="margin_right">5</property>
+                                <property name="adjustment">adjustment_Mic</property>
+                                <property name="show_fill_level">True</property>
+                                <property name="fill_level">10</property>
+                                <property name="round_digits">1</property>
+                                <property name="digits">0</property>
+                                <property name="draw_value">False</property>
+                                <property name="value_pos">right</property>
+                                <signal name="value-changed" handler="on_FX_value_changed" swapped="no"/>
+                              </object>
+                              <packing>
+                                <property name="left_attach">1</property>
+                                <property name="top_attach">1</property>
+                              </packing>
+                            </child>
+                            <child>
+                              <object class="GtkScale" id="Scale_Speakers">
+                                <property name="name">32</property>
+                                <property name="visible">True</property>
+                                <property name="can_focus">True</property>
+                                <property name="margin_left">5</property>
+                                <property name="margin_right">5</property>
+                                <property name="adjustment">adjustment_Speakers</property>
+                                <property name="show_fill_level">True</property>
+                                <property name="fill_level">10</property>
+                                <property name="round_digits">1</property>
+                                <property name="digits">0</property>
+                                <property name="draw_value">False</property>
+                                <property name="value_pos">right</property>
+                                <signal name="value-changed" handler="on_FX_value_changed" swapped="no"/>
+                              </object>
+                              <packing>
+                                <property name="left_attach">1</property>
                                 <property name="top_attach">2</property>
+                              </packing>
+                            </child>
+                            <child>
+                              <object class="GtkCheckButton" id="CheckButton_IR">
+                                <property name="label" translatable="yes">IR</property>
+                                <property name="visible">True</property>
+                                <property name="can_focus">True</property>
+                                <property name="receives_default">False</property>
+                                <property name="xalign">0</property>
+                                <property name="draw_indicator">True</property>
+                              </object>
+                              <packing>
+                                <property name="left_attach">1</property>
+                                <property name="top_attach">3</property>
                               </packing>
                             </child>
                           </object>
                           <packing>
                             <property name="expand">False</property>
                             <property name="fill">True</property>
-                            <property name="position">3</property>
+                            <property name="position">1</property>
                           </packing>
                         </child>
                         <child>
-                          <object class="GtkGrid" id="grid5">
+                          <object class="GtkGrid" id="grid3">
                             <property name="visible">True</property>
                             <property name="can_focus">False</property>
-                            <property name="margin_bottom">5</property>
+                            <property name="margin_top">10</property>
+                            <property name="margin_bottom">10</property>
+                            <property name="column_homogeneous">True</property>
                             <child>
-                              <placeholder/>
+                              <object class="GtkLabel" id="label43">
+                                <property name="visible">True</property>
+                                <property name="can_focus">False</property>
+                                <property name="label" translatable="yes">Lights</property>
+                              </object>
+                              <packing>
+                                <property name="left_attach">0</property>
+                                <property name="top_attach">0</property>
+                              </packing>
                             </child>
                             <child>
-                              <placeholder/>
+                              <object class="GtkComboBoxText" id="ComboBoxText_Lights">
+                                <property name="visible">True</property>
+                                <property name="sensitive">False</property>
+                                <property name="can_focus">False</property>
+                                <property name="halign">center</property>
+                                <property name="active">0</property>
+                                <items>
+                                  <item id="0" translatable="yes">Off</item>
+                                  <item id="1" translatable="yes">25%</item>
+                                  <item id="2" translatable="yes">50%</item>
+                                  <item id="3" translatable="yes">75%</item>
+                                  <item id="4" translatable="yes">100%</item>
+                                  <item id="5" translatable="yes">Auto</item>
+                                </items>
+                              </object>
+                              <packing>
+                                <property name="left_attach">0</property>
+                                <property name="top_attach">1</property>
+                              </packing>
+                            </child>
+                          </object>
+                          <packing>
+                            <property name="expand">False</property>
+                            <property name="fill">True</property>
+                            <property name="position">2</property>
+                          </packing>
+                        </child>
+                        <child>
+                          <placeholder/>
+                        </child>
+                        <child>
+                          <object class="GtkBox" id="box14">
+                            <property name="visible">True</property>
+                            <property name="can_focus">False</property>
+                            <property name="margin_right">10</property>
+                            <child>
+                              <object class="GtkCheckButton" id="CheckButton_Show">
+                                <property name="label" translatable="yes">Show</property>
+                                <property name="visible">True</property>
+                                <property name="sensitive">False</property>
+                                <property name="can_focus">True</property>
+                                <property name="receives_default">False</property>
+                                <property name="halign">start</property>
+                                <property name="focus_on_click">False</property>
+                                <property name="xalign">0</property>
+                                <property name="draw_indicator">True</property>
+                                <signal name="toggled" handler="on_CheckButton_Display_toggled" swapped="no"/>
+                              </object>
+                              <packing>
+                                <property name="expand">False</property>
+                                <property name="fill">True</property>
+                                <property name="position">0</property>
+                              </packing>
                             </child>
                             <child>
-                              <placeholder/>
-                            </child>
-                            <child>
-                              <placeholder/>
-                            </child>
-                            <child>
-                              <placeholder/>
-                            </child>
-                            <child>
-                              <placeholder/>
-                            </child>
-                            <child>
-                              <placeholder/>
-                            </child>
-                            <child>
-                              <placeholder/>
-                            </child>
-                            <child>
-                              <placeholder/>
+                              <object class="GtkButton" id="Button_AdvancedShow">
+                                <property name="label">gtk-preferences</property>
+                                <property name="visible">True</property>
+                                <property name="sensitive">False</property>
+                                <property name="can_focus">True</property>
+                                <property name="receives_default">True</property>
+                                <property name="halign">end</property>
+                                <property name="valign">center</property>
+                                <property name="hexpand">True</property>
+                                <property name="use_stock">True</property>
+                              </object>
+                              <packing>
+                                <property name="expand">False</property>
+                                <property name="fill">True</property>
+                                <property name="position">1</property>
+                              </packing>
                             </child>
                           </object>
                           <packing>
@@ -1185,19 +1350,7 @@
                               </packing>
                             </child>
                             <child>
-                              <object class="GtkCheckButton" id="CheckButton_Display">
-                                <property name="label" translatable="yes">Display</property>
-                                <property name="can_focus">True</property>
-                                <property name="receives_default">False</property>
-                                <property name="focus_on_click">False</property>
-                                <property name="xalign">0</property>
-                                <property name="draw_indicator">True</property>
-                                <signal name="toggled" handler="on_CheckButton_Display_toggled" swapped="no"/>
-                              </object>
-                              <packing>
-                                <property name="left_attach">2</property>
-                                <property name="top_attach">4</property>
-                              </packing>
+                              <placeholder/>
                             </child>
                             <child>
                               <placeholder/>
@@ -1342,10 +1495,13 @@
                     <child>
                       <object class="GtkDrawingArea" id="DrawingArea_Cam">
                         <property name="visible">True</property>
+                        <property name="app_paintable">True</property>
                         <property name="can_focus">False</property>
                         <property name="events">GDK_POINTER_MOTION_MASK | GDK_BUTTON_PRESS_MASK | GDK_BUTTON_RELEASE_MASK</property>
+                        <property name="double_buffered">False</property>
                         <signal name="button-press-event" handler="on_mouse_press" swapped="no"/>
                         <signal name="button-release-event" handler="on_mouse_release" swapped="no"/>
+                        <signal name="draw" handler="on_DrawingArea_Cam_draw" swapped="no"/>
                         <signal name="motion-notify-event" handler="on_motion_notify" swapped="no"/>
                       </object>
                     </child>
@@ -1398,7 +1554,7 @@
                 <property name="valign">center</property>
                 <property name="margin_left">5</property>
                 <property name="margin_right">5</property>
-                <property name="pulse_step">0.050</property>
+                <property name="pulse_step">0.050000000000000003</property>
                 <property name="text">Sync queue</property>
                 <property name="show_text">True</property>
               </object>
@@ -1464,7 +1620,7 @@
                     <property name="margin_bottom">5</property>
                     <property name="value">10</property>
                     <property name="min_value">10</property>
-                    <property name="max_value">11.699999999999999</property>
+                    <property name="max_value">11.5</property>
                   </object>
                   <packing>
                     <property name="expand">False</property>
@@ -1577,14 +1733,128 @@
       </object>
     </child>
   </object>
+  <object class="GtkDialog" id="Dialog_YN">
+    <property name="name">Dialog_YN</property>
+    <property name="can_focus">False</property>
+    <property name="title" translatable="yes">Warning</property>
+    <property name="icon_name">important</property>
+    <property name="type_hint">dialog</property>
+    <property name="urgency_hint">True</property>
+    <property name="deletable">False</property>
+    <property name="transient_for">Window_Console</property>
+    <signal name="delete-event" handler="on_Window_delete_event" swapped="no"/>
+    <child internal-child="vbox">
+      <object class="GtkBox" id="dialog-vbox">
+        <property name="can_focus">False</property>
+        <property name="orientation">vertical</property>
+        <property name="spacing">2</property>
+        <child internal-child="action_area">
+          <object class="GtkButtonBox" id="dialog-action_area">
+            <property name="can_focus">False</property>
+            <property name="layout_style">end</property>
+            <child>
+              <object class="GtkButton" id="Button_N">
+                <property name="label">gtk-cancel</property>
+                <property name="name">0</property>
+                <property name="visible">True</property>
+                <property name="can_focus">True</property>
+                <property name="receives_default">True</property>
+                <property name="use_stock">True</property>
+                <signal name="clicked" handler="return_widget_name" swapped="no"/>
+              </object>
+              <packing>
+                <property name="expand">True</property>
+                <property name="fill">True</property>
+                <property name="position">0</property>
+              </packing>
+            </child>
+            <child>
+              <object class="GtkButton" id="Button_Y">
+                <property name="label">gtk-ok</property>
+                <property name="name">1</property>
+                <property name="visible">True</property>
+                <property name="can_focus">True</property>
+                <property name="receives_default">True</property>
+                <property name="use_stock">True</property>
+                <signal name="clicked" handler="return_widget_name" swapped="no"/>
+              </object>
+              <packing>
+                <property name="expand">True</property>
+                <property name="fill">True</property>
+                <property name="position">1</property>
+              </packing>
+            </child>
+          </object>
+          <packing>
+            <property name="expand">False</property>
+            <property name="fill">False</property>
+            <property name="position">0</property>
+          </packing>
+        </child>
+        <child>
+          <object class="GtkLabel" id="Label_dialog_yn">
+            <property name="visible">True</property>
+            <property name="can_focus">False</property>
+            <property name="margin_top">5</property>
+            <property name="margin_bottom">5</property>
+            <property name="label" translatable="yes">Are you sure?</property>
+          </object>
+          <packing>
+            <property name="expand">False</property>
+            <property name="fill">True</property>
+            <property name="position">1</property>
+          </packing>
+        </child>
+      </object>
+    </child>
+  </object>
+  <object class="GtkMessageDialog" id="MessageDialog_Warning">
+    <property name="can_focus">False</property>
+    <property name="title" translatable="yes">Device Warning</property>
+    <property name="resizable">False</property>
+    <property name="modal">True</property>
+    <property name="window_position">center-on-parent</property>
+    <property name="destroy_with_parent">True</property>
+    <property name="icon_name">dialog-warning</property>
+    <property name="type_hint">dialog</property>
+    <property name="transient_for">Window_Console</property>
+    <property name="message_type">warning</property>
+    <property name="text" translatable="yes">Some devices are not
+     set up correctly.
+Check devices setup.</property>
+    <signal name="close" handler="on_Window_delete_event" swapped="no"/>
+    <signal name="delete-event" handler="on_Window_delete_event" swapped="no"/>
+    <child internal-child="vbox">
+      <object class="GtkBox" id="messagedialog-vbox">
+        <property name="can_focus">False</property>
+        <property name="orientation">vertical</property>
+        <property name="spacing">2</property>
+        <child internal-child="action_area">
+          <object class="GtkButtonBox" id="messagedialog-action_area">
+            <property name="can_focus">False</property>
+            <property name="homogeneous">True</property>
+            <property name="layout_style">end</property>
+            <child>
+              <placeholder/>
+            </child>
+          </object>
+          <packing>
+            <property name="expand">False</property>
+            <property name="fill">False</property>
+            <property name="position">0</property>
+          </packing>
+        </child>
+      </object>
+    </child>
+  </object>
   <object class="GtkWindow" id="Window_Advanced">
     <property name="can_focus">False</property>
-    <property name="title" translatable="yes">SETUP</property>
+    <property name="title" translatable="yes">NETWORK SETUP</property>
     <property name="resizable">False</property>
     <property name="destroy_with_parent">True</property>
     <property name="icon_name">preferences-desktop</property>
     <property name="transient_for">Window_Console</property>
-    <signal name="delete-event" handler="on_Window_Advanced_delete_event" swapped="no"/>
+    <signal name="delete-event" handler="on_Window_delete_event" swapped="no"/>
     <child>
       <object class="GtkBox" id="box1">
         <property name="visible">True</property>
@@ -1614,14 +1884,52 @@
                   </packing>
                 </child>
                 <child>
-                  <object class="GtkLabel" id="label13">
+                  <object class="GtkBox" id="box20">
                     <property name="visible">True</property>
                     <property name="can_focus">False</property>
-                    <property name="margin_top">10</property>
-                    <property name="label" translatable="yes">Video Setup</property>
-                    <attributes>
-                      <attribute name="weight" value="medium"/>
-                    </attributes>
+                    <property name="halign">center</property>
+                    <property name="valign">center</property>
+                    <property name="margin_top">11</property>
+                    <property name="spacing">25</property>
+                    <child>
+                      <object class="GtkLabel" id="label13">
+                        <property name="visible">True</property>
+                        <property name="can_focus">False</property>
+                        <property name="margin_left">80</property>
+                        <property name="margin_top">1</property>
+                        <property name="label" translatable="yes">Video Setup</property>
+                        <attributes>
+                          <attribute name="weight" value="medium"/>
+                        </attributes>
+                      </object>
+                      <packing>
+                        <property name="expand">False</property>
+                        <property name="fill">True</property>
+                        <property name="position">0</property>
+                      </packing>
+                    </child>
+                    <child>
+                      <object class="GtkCheckButton" id="CheckButton_LocalTest">
+                        <property name="label" translatable="yes">Test</property>
+                        <property name="visible">True</property>
+                        <property name="can_focus">True</property>
+                        <property name="receives_default">False</property>
+                        <property name="halign">center</property>
+                        <property name="valign">center</property>
+                        <property name="margin_left">5</property>
+                        <property name="hexpand">False</property>
+                        <property name="use_underline">True</property>
+                        <property name="focus_on_click">False</property>
+                        <property name="xalign">0</property>
+                        <property name="draw_indicator">True</property>
+                        <signal name="toggled" handler="on_CheckButton_LocalTest_toggled" swapped="no"/>
+                      </object>
+                      <packing>
+                        <property name="expand">False</property>
+                        <property name="fill">True</property>
+                        <property name="position">1</property>
+                      </packing>
+                    </child>
                   </object>
                   <packing>
                     <property name="expand">False</property>
@@ -1688,10 +1996,10 @@
                         <property name="active">2</property>
                         <property name="button_sensitivity">on</property>
                         <items>
-                          <item id="0">30</item>
-                          <item id="1">25</item>
-                          <item id="2">15</item>
-                          <item id="3">5</item>
+                          <item id="0">5</item>
+                          <item id="1">15</item>
+                          <item id="2">25</item>
+                          <item id="3">30</item>
                         </items>
                         <signal name="changed" handler="on_ComboBoxText_Framerate_changed" swapped="no"/>
                       </object>
@@ -2206,12 +2514,87 @@ video signal.</property>
               </packing>
             </child>
             <child>
-              <object class="GtkLabel" id="label12">
+              <object class="GtkGrid" id="grid4">
                 <property name="visible">True</property>
                 <property name="can_focus">False</property>
-                <property name="label" translatable="yes">              Defaults Tab
-
-=== Under Construction ===</property>
+                <property name="margin_left">10</property>
+                <property name="margin_right">10</property>
+                <property name="margin_top">10</property>
+                <property name="margin_bottom">10</property>
+                <property name="row_spacing">2</property>
+                <property name="column_spacing">5</property>
+                <child>
+                  <object class="GtkComboBoxText" id="ComboBoxText_Cam1">
+                    <property name="visible">True</property>
+                    <property name="can_focus">False</property>
+                    <property name="hexpand">True</property>
+                  </object>
+                  <packing>
+                    <property name="left_attach">1</property>
+                    <property name="top_attach">1</property>
+                  </packing>
+                </child>
+                <child>
+                  <object class="GtkComboBoxText" id="ComboBoxText_AudioIn">
+                    <property name="visible">True</property>
+                    <property name="can_focus">False</property>
+                    <property name="hexpand">True</property>
+                  </object>
+                  <packing>
+                    <property name="left_attach">1</property>
+                    <property name="top_attach">2</property>
+                  </packing>
+                </child>
+                <child>
+                  <object class="GtkComboBoxText" id="ComboBoxText_AudioOut">
+                    <property name="visible">True</property>
+                    <property name="can_focus">False</property>
+                    <property name="hexpand">True</property>
+                  </object>
+                  <packing>
+                    <property name="left_attach">1</property>
+                    <property name="top_attach">3</property>
+                  </packing>
+                </child>
+                <child>
+                  <object class="GtkLabel" id="label12">
+                    <property name="visible">True</property>
+                    <property name="can_focus">False</property>
+                    <property name="label" translatable="yes">Camera</property>
+                  </object>
+                  <packing>
+                    <property name="left_attach">0</property>
+                    <property name="top_attach">1</property>
+                  </packing>
+                </child>
+                <child>
+                  <object class="GtkLabel" id="label54">
+                    <property name="visible">True</property>
+                    <property name="can_focus">False</property>
+                    <property name="label" translatable="yes">Mic.</property>
+                  </object>
+                  <packing>
+                    <property name="left_attach">0</property>
+                    <property name="top_attach">2</property>
+                  </packing>
+                </child>
+                <child>
+                  <object class="GtkLabel" id="label55">
+                    <property name="visible">True</property>
+                    <property name="can_focus">False</property>
+                    <property name="label" translatable="yes">Speakers</property>
+                  </object>
+                  <packing>
+                    <property name="left_attach">0</property>
+                    <property name="top_attach">3</property>
+                  </packing>
+                </child>
+                <child>
+                  <placeholder/>
+                </child>
+                <child>
+                  <placeholder/>
+                </child>
               </object>
               <packing>
                 <property name="position">2</property>
@@ -2273,10 +2656,10 @@ video signal.</property>
     <property name="destroy_with_parent">True</property>
     <property name="icon_name">applications-system</property>
     <property name="type_hint">utility</property>
-    <property name="deletable">False</property>
     <property name="gravity">static</property>
     <property name="transient_for">Window_Console</property>
     <property name="attached_to">Window_Console</property>
+    <signal name="delete-event" handler="on_Window_delete_event" swapped="no"/>
     <child>
       <object class="GtkScrolledWindow" id="ScrolledWindow_Log">
         <property name="visible">True</property>
@@ -2295,58 +2678,6 @@ video signal.</property>
       </object>
     </child>
   </object>
-  <object class="GtkAdjustment" id="adjustment_CamBlueBalance">
-    <property name="lower">1</property>
-    <property name="upper">7999</property>
-    <property name="value">1000</property>
-    <property name="step_increment">1</property>
-    <property name="page_increment">100</property>
-  </object>
-  <object class="GtkAdjustment" id="adjustment_CamBrightness">
-    <property name="upper">100</property>
-    <property name="value">50</property>
-    <property name="step_increment">1</property>
-    <property name="page_increment">5</property>
-  </object>
-  <object class="GtkAdjustment" id="adjustment_CamContrast">
-    <property name="lower">-100</property>
-    <property name="upper">100</property>
-    <property name="step_increment">1</property>
-    <property name="page_increment">10</property>
-  </object>
-  <object class="GtkAdjustment" id="adjustment_CamRedBalance">
-    <property name="lower">1</property>
-    <property name="upper">7999</property>
-    <property name="value">1000</property>
-    <property name="step_increment">1</property>
-    <property name="page_increment">100</property>
-  </object>
-  <object class="GtkAdjustment" id="adjustment_CamSaturation">
-    <property name="lower">-100</property>
-    <property name="upper">100</property>
-    <property name="step_increment">1</property>
-    <property name="page_increment">10</property>
-  </object>
-  <object class="GtkAdjustment" id="adjustment_CamSharpness">
-    <property name="lower">-100</property>
-    <property name="upper">100</property>
-    <property name="step_increment">1</property>
-    <property name="page_increment">10</property>
-  </object>
-  <object class="GtkAdjustment" id="adjustment_ExpAbsTime">
-    <property name="lower">1</property>
-    <property name="upper">10000</property>
-    <property name="value">1000</property>
-    <property name="step_increment">1</property>
-    <property name="page_increment">100</property>
-  </object>
-  <object class="GtkAdjustment" id="adjustment_JpgQuality">
-    <property name="lower">1</property>
-    <property name="upper">100</property>
-    <property name="value">30</property>
-    <property name="step_increment">1</property>
-    <property name="page_increment">10</property>
-  </object>
   <object class="GtkAdjustment" id="adjustment_VbitRate">
     <property name="lower">25000</property>
     <property name="upper">25000000</property>
@@ -2358,11 +2689,12 @@ video signal.</property>
     <property name="width_request">350</property>
     <property name="height_request">300</property>
     <property name="can_focus">False</property>
+    <property name="title" translatable="yes">Camera Preferences</property>
     <property name="resizable">False</property>
     <property name="destroy_with_parent">True</property>
     <property name="icon_name">dconf-editor</property>
     <property name="transient_for">Window_Console</property>
-    <signal name="delete-event" handler="on_Window_AdvancedCam_delete_event" swapped="no"/>
+    <signal name="delete-event" handler="on_Window_delete_event" swapped="no"/>
     <child>
       <object class="GtkBox" id="box5">
         <property name="visible">True</property>
@@ -2404,9 +2736,7 @@ video signal.</property>
                     <property name="round_digits">0</property>
                     <property name="digits">0</property>
                     <property name="value_pos">right</property>
-                    <signal name="button-press-event" handler="on_mouse_press" swapped="no"/>
-                    <signal name="button-release-event" handler="on_mouse_release" swapped="no"/>
-                    <signal name="format-value" handler="on_FxValue_scrolled" swapped="no"/>
+                    <signal name="value-changed" handler="on_FX_value_changed" swapped="no"/>
                   </object>
                   <packing>
                     <property name="expand">False</property>
@@ -2438,9 +2768,7 @@ video signal.</property>
                     <property name="round_digits">0</property>
                     <property name="digits">0</property>
                     <property name="value_pos">right</property>
-                    <signal name="button-press-event" handler="on_mouse_press" swapped="no"/>
-                    <signal name="button-release-event" handler="on_mouse_release" swapped="no"/>
-                    <signal name="format-value" handler="on_FxValue_scrolled" swapped="no"/>
+                    <signal name="value-changed" handler="on_FX_value_changed" swapped="no"/>
                   </object>
                   <packing>
                     <property name="expand">False</property>
@@ -2472,9 +2800,7 @@ video signal.</property>
                     <property name="round_digits">0</property>
                     <property name="digits">0</property>
                     <property name="value_pos">right</property>
-                    <signal name="button-press-event" handler="on_mouse_press" swapped="no"/>
-                    <signal name="button-release-event" handler="on_mouse_release" swapped="no"/>
-                    <signal name="format-value" handler="on_FxValue_scrolled" swapped="no"/>
+                    <signal name="value-changed" handler="on_FX_value_changed" swapped="no"/>
                   </object>
                   <packing>
                     <property name="expand">False</property>
@@ -2506,9 +2832,7 @@ video signal.</property>
                     <property name="round_digits">0</property>
                     <property name="digits">0</property>
                     <property name="value_pos">right</property>
-                    <signal name="button-press-event" handler="on_mouse_press" swapped="no"/>
-                    <signal name="button-release-event" handler="on_mouse_release" swapped="no"/>
-                    <signal name="format-value" handler="on_FxValue_scrolled" swapped="no"/>
+                    <signal name="value-changed" handler="on_FX_value_changed" swapped="no"/>
                   </object>
                   <packing>
                     <property name="expand">False</property>
@@ -2557,9 +2881,7 @@ video signal.</property>
                         <property name="round_digits">0</property>
                         <property name="digits">0</property>
                         <property name="value_pos">right</property>
-                        <signal name="button-press-event" handler="on_mouse_press" swapped="no"/>
-                        <signal name="button-release-event" handler="on_mouse_release" swapped="no"/>
-                        <signal name="format-value" handler="on_FxValue_scrolled" swapped="no"/>
+                        <signal name="value-changed" handler="on_FX_value_changed" swapped="no"/>
                       </object>
                       <packing>
                         <property name="left_attach">0</property>
@@ -2577,9 +2899,7 @@ video signal.</property>
                         <property name="round_digits">0</property>
                         <property name="digits">0</property>
                         <property name="value_pos">right</property>
-                        <signal name="button-press-event" handler="on_mouse_press" swapped="no"/>
-                        <signal name="button-release-event" handler="on_mouse_release" swapped="no"/>
-                        <signal name="format-value" handler="on_FxValue_scrolled" swapped="no"/>
+                        <signal name="value-changed" handler="on_FX_value_changed" swapped="no"/>
                       </object>
                       <packing>
                         <property name="left_attach">1</property>
@@ -2594,42 +2914,11 @@ video signal.</property>
                   </packing>
                 </child>
                 <child>
-                  <object class="GtkBox" id="box4">
+                  <object class="GtkGrid" id="grid13">
                     <property name="visible">True</property>
                     <property name="can_focus">False</property>
                     <property name="margin_top">10</property>
-                    <property name="homogeneous">True</property>
-                    <child>
-                      <object class="GtkLabel" id="label41">
-                        <property name="visible">True</property>
-                        <property name="can_focus">False</property>
-                        <property name="label" translatable="yes">Flip</property>
-                      </object>
-                      <packing>
-                        <property name="expand">False</property>
-                        <property name="fill">True</property>
-                        <property name="position">0</property>
-                      </packing>
-                    </child>
-                    <child>
-                      <object class="GtkComboBoxText" id="ComboBoxText_Flip">
-                        <property name="visible">True</property>
-                        <property name="can_focus">False</property>
-                        <property name="active">0</property>
-                        <property name="active_id">0:0</property>
-                        <items>
-                          <item id="0:0" translatable="yes">None</item>
-                          <item id="0:1" translatable="yes">H</item>
-                          <item id="1:0" translatable="yes">V</item>
-                          <item id="1:1" translatable="yes">H+V</item>
-                        </items>
-                      </object>
-                      <packing>
-                        <property name="expand">False</property>
-                        <property name="fill">True</property>
-                        <property name="position">1</property>
-                      </packing>
-                    </child>
+                    <property name="column_homogeneous">True</property>
                     <child>
                       <object class="GtkLabel" id="label4">
                         <property name="visible">True</property>
@@ -2637,15 +2926,15 @@ video signal.</property>
                         <property name="label" translatable="yes">Rotate</property>
                       </object>
                       <packing>
-                        <property name="expand">False</property>
-                        <property name="fill">True</property>
-                        <property name="position">2</property>
+                        <property name="left_attach">1</property>
+                        <property name="top_attach">0</property>
                       </packing>
                     </child>
                     <child>
                       <object class="GtkComboBoxText" id="ComboBoxText_Rotate">
                         <property name="visible">True</property>
                         <property name="can_focus">False</property>
+                        <property name="halign">center</property>
                         <property name="active">0</property>
                         <property name="active_id">0</property>
                         <items>
@@ -2657,9 +2946,73 @@ video signal.</property>
                         <signal name="changed" handler="on_ComboBoxText_Rotate_changed" swapped="no"/>
                       </object>
                       <packing>
-                        <property name="expand">False</property>
-                        <property name="fill">True</property>
-                        <property name="position">3</property>
+                        <property name="left_attach">1</property>
+                        <property name="top_attach">1</property>
+                      </packing>
+                    </child>
+                    <child>
+                      <object class="GtkLabel" id="label41">
+                        <property name="visible">True</property>
+                        <property name="can_focus">False</property>
+                        <property name="label" translatable="yes">Flip</property>
+                      </object>
+                      <packing>
+                        <property name="left_attach">2</property>
+                        <property name="top_attach">0</property>
+                      </packing>
+                    </child>
+                    <child>
+                      <object class="GtkComboBoxText" id="ComboBoxText_Flip">
+                        <property name="visible">True</property>
+                        <property name="can_focus">False</property>
+                        <property name="halign">center</property>
+                        <property name="active">0</property>
+                        <property name="active_id">0:0</property>
+                        <items>
+                          <item id="0:0" translatable="yes">None</item>
+                          <item id="0:1" translatable="yes">H</item>
+                          <item id="1:0" translatable="yes">V</item>
+                          <item id="1:1" translatable="yes">H+V</item>
+                        </items>
+                      </object>
+                      <packing>
+                        <property name="left_attach">2</property>
+                        <property name="top_attach">1</property>
+                      </packing>
+                    </child>
+                    <child>
+                      <object class="GtkLabel" id="label1">
+                        <property name="visible">True</property>
+                        <property name="can_focus">False</property>
+                        <property name="halign">center</property>
+                        <property name="label" translatable="yes">Resolution</property>
+                        <property name="track_visited_links">False</property>
+                      </object>
+                      <packing>
+                        <property name="left_attach">0</property>
+                        <property name="top_attach">0</property>
+                      </packing>
+                    </child>
+                    <child>
+                      <object class="GtkComboBoxText" id="ComboBoxResolution">
+                        <property name="width_request">100</property>
+                        <property name="visible">True</property>
+                        <property name="can_focus">False</property>
+                        <property name="halign">center</property>
+                        <property name="hexpand">True</property>
+                        <property name="active">1</property>
+                        <items>
+                          <item translatable="yes">320x240</item>
+                          <item translatable="yes">640x480</item>
+                          <item translatable="yes">800x600</item>
+                          <item translatable="yes">1024x768</item>
+                          <item translatable="yes">1152x864</item>
+                        </items>
+                        <signal name="changed" handler="on_ComboBoxResolution_changed" swapped="no"/>
+                      </object>
+                      <packing>
+                        <property name="left_attach">0</property>
+                        <property name="top_attach">1</property>
                       </packing>
                     </child>
                   </object>
@@ -2670,11 +3023,11 @@ video signal.</property>
                   </packing>
                 </child>
                 <child>
-                  <object class="GtkBox" id="box14">
+                  <object class="GtkGrid" id="grid12">
                     <property name="visible">True</property>
                     <property name="can_focus">False</property>
                     <property name="margin_top">10</property>
-                    <property name="homogeneous">True</property>
+                    <property name="column_homogeneous">True</property>
                     <child>
                       <object class="GtkLabel" id="label53">
                         <property name="visible">True</property>
@@ -2682,15 +3035,15 @@ video signal.</property>
                         <property name="label" translatable="yes">FX effect</property>
                       </object>
                       <packing>
-                        <property name="expand">False</property>
-                        <property name="fill">True</property>
-                        <property name="position">0</property>
+                        <property name="left_attach">1</property>
+                        <property name="top_attach">0</property>
                       </packing>
                     </child>
                     <child>
                       <object class="GtkComboBoxText" id="ComboBoxText_FxEffect">
                         <property name="visible">True</property>
                         <property name="can_focus">False</property>
+                        <property name="halign">center</property>
                         <property name="active">0</property>
                         <property name="active_id">0</property>
                         <items>
@@ -2714,10 +3067,15 @@ video signal.</property>
                         <signal name="changed" handler="on_ComboBoxText_FxEffect_changed" swapped="no"/>
                       </object>
                       <packing>
-                        <property name="expand">False</property>
-                        <property name="fill">True</property>
-                        <property name="position">1</property>
+                        <property name="left_attach">1</property>
+                        <property name="top_attach">1</property>
                       </packing>
+                    </child>
+                    <child>
+                      <placeholder/>
+                    </child>
+                    <child>
+                      <placeholder/>
                     </child>
                   </object>
                   <packing>
@@ -2727,7 +3085,29 @@ video signal.</property>
                   </packing>
                 </child>
                 <child>
-                  <placeholder/>
+                  <object class="GtkBox" id="box4">
+                    <property name="visible">True</property>
+                    <property name="can_focus">False</property>
+                    <property name="margin_top">10</property>
+                    <property name="homogeneous">True</property>
+                    <child>
+                      <placeholder/>
+                    </child>
+                    <child>
+                      <placeholder/>
+                    </child>
+                    <child>
+                      <placeholder/>
+                    </child>
+                    <child>
+                      <placeholder/>
+                    </child>
+                  </object>
+                  <packing>
+                    <property name="expand">False</property>
+                    <property name="fill">True</property>
+                    <property name="position">11</property>
+                  </packing>
                 </child>
               </object>
             </child>
@@ -2793,7 +3173,7 @@ Exposure</property>
                         <property name="xalign">0</property>
                         <property name="active">True</property>
                         <property name="draw_indicator">True</property>
-                        <signal name="toggled" handler="on_FxValue_changed" swapped="no"/>
+                        <signal name="toggled" handler="on_FxValue_selected" swapped="no"/>
                       </object>
                       <packing>
                         <property name="left_attach">1</property>
@@ -2845,7 +3225,7 @@ Exposure</property>
                           <item id="23" translatable="yes">3667</item>
                           <item id="24" translatable="yes">4000</item>
                         </items>
-                        <signal name="changed" handler="on_FxValue_changed" swapped="no"/>
+                        <signal name="changed" handler="on_FxValue_selected" swapped="no"/>
                       </object>
                       <packing>
                         <property name="left_attach">3</property>
@@ -2860,7 +3240,7 @@ Exposure</property>
                         <property name="text" translatable="yes">1000</property>
                         <property name="adjustment">adjustment_ExpAbsTime</property>
                         <property name="value">1000</property>
-                        <signal name="value-changed" handler="on_FxValue_spinned" swapped="no"/>
+                        <signal name="value-changed" handler="on_FX_value_changed" swapped="no"/>
                       </object>
                       <packing>
                         <property name="left_attach">1</property>
@@ -2887,7 +3267,7 @@ Exposure</property>
                         <property name="halign">start</property>
                         <property name="xalign">0</property>
                         <property name="draw_indicator">True</property>
-                        <signal name="toggled" handler="on_FxValue_changed" swapped="no"/>
+                        <signal name="toggled" handler="on_FxValue_selected" swapped="no"/>
                       </object>
                       <packing>
                         <property name="left_attach">3</property>
@@ -2969,7 +3349,7 @@ Framerate</property>
                         <property name="xalign">0</property>
                         <property name="active">True</property>
                         <property name="draw_indicator">True</property>
-                        <signal name="toggled" handler="on_FxValue_changed" swapped="no"/>
+                        <signal name="toggled" handler="on_FxValue_selected" swapped="no"/>
                       </object>
                       <packing>
                         <property name="left_attach">1</property>
@@ -3000,7 +3380,7 @@ Framerate</property>
                           <item id="3" translatable="yes">400.000</item>
                           <item id="4" translatable="yes">800.000</item>
                         </items>
-                        <signal name="changed" handler="on_FxValue_changed" swapped="no"/>
+                        <signal name="changed" handler="on_FxValue_selected" swapped="no"/>
                       </object>
                       <packing>
                         <property name="left_attach">1</property>
@@ -3037,7 +3417,7 @@ Framerate</property>
                           <item id="8" translatable="yes">Cloudy</item>
                           <item id="9" translatable="yes">Shade</item>
                         </items>
-                        <signal name="changed" handler="on_FxValue_changed" swapped="no"/>
+                        <signal name="changed" handler="on_FxValue_selected" swapped="no"/>
                       </object>
                       <packing>
                         <property name="left_attach">3</property>
@@ -3067,7 +3447,7 @@ Framerate</property>
                           <item id="8" translatable="yes">Night</item>
                           <item id="11" translatable="yes">Sport</item>
                         </items>
-                        <signal name="changed" handler="on_FxValue_changed" swapped="no"/>
+                        <signal name="changed" handler="on_FxValue_selected" swapped="no"/>
                       </object>
                       <packing>
                         <property name="left_attach">3</property>
@@ -3144,7 +3524,7 @@ Framerate</property>
                           <item id="1" translatable="yes">Center Weighted</item>
                           <item id="2" translatable="yes">Spot</item>
                         </items>
-                        <signal name="changed" handler="on_FxValue_changed" swapped="no"/>
+                        <signal name="changed" handler="on_FxValue_selected" swapped="no"/>
                       </object>
                       <packing>
                         <property name="left_attach">1</property>
@@ -3160,7 +3540,7 @@ Framerate</property>
                         <property name="text" translatable="yes">30</property>
                         <property name="adjustment">adjustment_JpgQuality</property>
                         <property name="value">30</property>
-                        <signal name="value-changed" handler="on_FxValue_spinned" swapped="no"/>
+                        <signal name="value-changed" handler="on_FX_value_changed" swapped="no"/>
                       </object>
                       <packing>
                         <property name="left_attach">1</property>
@@ -3244,7 +3624,7 @@ Framerate</property>
                         <property name="halign">start</property>
                         <property name="xalign">0</property>
                         <property name="draw_indicator">True</property>
-                        <signal name="toggled" handler="on_FxValue_changed" swapped="no"/>
+                        <signal name="toggled" handler="on_FxValue_selected" swapped="no"/>
                       </object>
                       <packing>
                         <property name="left_attach">3</property>
@@ -3276,7 +3656,7 @@ Header</property>
                           <item id="0" translatable="yes">Variable</item>
                           <item id="1" translatable="yes">Constant</item>
                         </items>
-                        <signal name="changed" handler="on_FxValue_changed" swapped="no"/>
+                        <signal name="changed" handler="on_FxValue_selected" swapped="no"/>
                       </object>
                       <packing>
                         <property name="left_attach">1</property>
@@ -3304,7 +3684,7 @@ Header</property>
                         <property name="text" translatable="yes">10000000</property>
                         <property name="adjustment">adjustment_VbitRate</property>
                         <property name="value">10000000</property>
-                        <signal name="value-changed" handler="on_FxValue_spinned" swapped="no"/>
+                        <signal name="value-changed" handler="on_FX_value_changed" swapped="no"/>
                       </object>
                       <packing>
                         <property name="left_attach">1</property>
@@ -3344,7 +3724,7 @@ Header</property>
                           <item id="10" translatable="yes">3.2</item>
                           <item id="11" translatable="yes">4</item>
                         </items>
-                        <signal name="changed" handler="on_FxValue_changed" swapped="no"/>
+                        <signal name="changed" handler="on_FxValue_selected" swapped="no"/>
                       </object>
                       <packing>
                         <property name="left_attach">3</property>
@@ -3377,7 +3757,7 @@ Header</property>
                           <item id="2" translatable="yes">Main</item>
                           <item id="4" translatable="yes">High</item>
                         </items>
-                        <signal name="changed" handler="on_FxValue_changed" swapped="no"/>
+                        <signal name="changed" handler="on_FxValue_selected" swapped="no"/>
                       </object>
                       <packing>
                         <property name="left_attach">1</property>

@@ -89,7 +89,6 @@ connection with
             <property name="left_margin">5</property>
             <property name="right_margin">5</property>
             <property name="cursor_visible">False</property>
-            <property name="monospace">True</property>
           </object>
         </child>
       </object>
@@ -151,7 +150,6 @@ connection with
             <property name="left_margin">5</property>
             <property name="right_margin">5</property>
             <property name="cursor_visible">False</property>
-            <property name="monospace">True</property>
           </object>
         </child>
       </object>

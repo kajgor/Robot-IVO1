@@ -1,6 +1,18 @@
+# Working UDP server:
+# gst-launch-1.0 v4l2src ! video/x-raw,framerate=15/1,width=640,height=480 ! videoconvert ! x264enc pass=qual quantizer=20 tune=zerolatency ! rtph264pay ! udpsink host=127.0.0.1 port=1234
+# Working UDP client:
+# gst-launch-1.0 udpsrc port=1234 ! "application/x-rtp, encoding-name=H264, payload=96" ! rtph264depay ! avdec_h264 ! videoconvert ! videorate ! xvimagesink sync=false
+# Tee for client cam:
+# gst-launch-1.0 -v v4l2src device=/dev/video0 ! tee name=t t.
+# ! videorate ! queue ! video/x-raw, framerate=15/1, width=320, height=240 ! videoconvert ! xvimagesink t.
+# ! videorate ! queue ! video/x-raw, framerate=15/1, width=320, height=240 ! videoconvert ! x264enc pass=qual bitrate=300 tune=zerolatency ! rtph264pay ! udpsink host=10.0.0.55 port=1234
+
+
+
 CONSOLE_GUI = True
 RESP_DELAY = 0.025
 #RESP_DELAY = 0.05
+H264_ENC = "x264enc"
 
 Debug = 1
 
@@ -12,7 +24,8 @@ else:
 
 # DEVICES
 # MIC0_DEVICE = "alsa_input.usb-C-Media_Electronics_Inc._USB_PnP_Sound_Device-00.analog-mono"
-MIC0_DEVICE = "alsa_input.pci-0000_00_05.0.analog-stereo"
+# MIC0_DEVICE = "alsa_input.pci-0000_00_05.0.analog-stereo"
+
 
 class arrow(object):
     points = (
@@ -24,6 +37,20 @@ class arrow(object):
     )
 
 
+class rombe(object):
+    points = (
+        (0, -5),
+        (-5, 0),
+        (0, 5),
+        (5, 0),
+        (0, -5),
+        (0, -3),
+        (-3, 0),
+        (0, 3),
+        (3, 0),
+        (0, -3),
+    )
+
 class KEY_control:
     Shift   = False
     Left    = False
@@ -34,16 +61,21 @@ class KEY_control:
     MouseBtn = [False, False]
     MouseXY = [0, 0]
     time    = 0
+    hud     = False
 
 
-class CAM0_control:
-    Flip     = 0
+class DEVICE_control:
+    DEV_Cam0    = None
+    DEV_AudioIn = None
+    DEV_AudioOut = None
+    Cam0_Flip   = 0
+
 
 from os import path
 from sys import argv
-class Paths:
+
+
+class Files:
     pathname = path.dirname(argv[0])
-    GUI_file = pathname + "/gui_artifacts/Client_GUI.glade"
-    # GUI_file = pathname + "/gui_artifacts/MainConsole_extendedIII.glade"
-    cfg_file = pathname + "/ClientGUI.cfg"
+    ini_file = pathname + "/ClientGUI.ini"
     background_file = pathname + "/gui_artifacts/images/HUD_small.png"

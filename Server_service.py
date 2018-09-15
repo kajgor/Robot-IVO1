@@ -1,9 +1,9 @@
-#!/usr/bin/env python3.5
+#!/usr/bin/env python3.6
 # -*- coding: CP1252 -*-
 from time import sleep
 from ServerLib import ThreadManager
 
-Thread_Manager = ThreadManager(False)
+Thread_Manager = ThreadManager(False, False, False)
 Thread_Manager.shutdown_flag = False
 
 Thread_Manager.run()
