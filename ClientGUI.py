@@ -8,12 +8,12 @@ gi.require_version('Gdk', '3.0')
 from gi.repository import Gtk, Gdk, GLib
 from sys import argv
 
-from ClientLib import ConnectionThread, Console
+from ClientLib import ConnectionThread, Console, DisplayStream
 from Client_vars import Files, DEVICE_control, KEY_control, CommunicationFFb
 from Common_vars import VideoFramerate, AudioBitrate, AudioCodec, VideoCodec, PrintOnOff, execute_cmd,\
     TIMEOUT_GUI, PROTO_NAME, LEFT, RIGHT, X_AXIS, Y_AXIS, MOUSE_MIN, MOUSE_MAX, ConnectionData, COMM_IDLE,\
     CAM_1_CMD, DEV_OUT_CMD, DEV_INP_CMD
-
+from v4l2Gtk import v4l2Gtk
 
 # noinspection PyAttributeOutsideInit
 class MainWindow(Gtk.Window):
@@ -35,12 +35,19 @@ class MainWindow(Gtk.Window):
         self.context_id1     = self.StatusBar1.get_context_id('message')
         self.context_id2     = self.StatusBar2.get_context_id('message')
 
+        # Init v4l2 panel
+        self.load_v4l2_panel()
+
         # Connect signals
         self.builder.connect_signals(self)
 
         self.Window_Console.show()
-        SXID = self.DrawingArea_Cam.get_property('window')
-        self.Connection_Thread = ConnectionThread(SXID)
+        P_SXID = self.DrawingArea_Cam.get_property('window')
+        S_SXID = self.DrawingArea_Disp.get_property('window')
+
+        print("SXID0: %s" % P_SXID)
+        print("SXID1: %s" % S_SXID)
+        self.Connection_Thread = ConnectionThread(P_SXID, S_SXID)
 
         Console.print('Console 3.0 initialized.\n')
 
@@ -69,6 +76,13 @@ class MainWindow(Gtk.Window):
             self.StatusBar.push(self.context_id, 'Resetting to default configuration.')
 
         self.load_devices()
+
+    def load_v4l2_panel(self):
+        notebook = v4l2Gtk().v4l2Gtk()
+        self.Grid_AdvancedDisp.attach(notebook, 0, 0, 1, 1)
+
+        self.Window_AdvancedDisp.show_all()
+        self.Window_AdvancedDisp.hide()
 
     @staticmethod
     def get_argv(checkval):
@@ -265,6 +279,10 @@ class MainWindow(Gtk.Window):
 ################   MAIN LOOP END   ############################################
 ###############################################################################
 
+    def on_Button_AdvancedShow_clicked(self, widget):
+        self.Window_AdvancedDisp.show()
+        return True
+
     def on_DrawingArea_Control_draw(self, widget, message):
         self.Connection_Thread.draw_arrow(message)
 
@@ -426,7 +444,7 @@ class MainWindow(Gtk.Window):
         self.store_FX_request(widget.get_name(), widget.get_active())
 
     def on_FX_value_changed(self, widget):
-        FXmode   = int(widget.get_name())
+        FXmode = int(widget.get_name())
         if FXmode < 4:  # Avoid negative values to be sent for Brightness, Contrast & Saturation
             self.store_FX_request(FXmode, int(widget.get_value()) + 100)
         elif FXmode == 11:
@@ -465,6 +483,15 @@ class MainWindow(Gtk.Window):
 
     def on_CheckButton_Display_toggled(self, widget):
         ConnectionData.display = widget.get_active()
+
+        # if self.Window_AdvancedDisp.is_visible() is True or ConnectionData.connected is True:
+        self.Connection_Thread.start_display_stream(ConnectionData.display)
+
+        if ConnectionData.display is True:
+            self.DrawingArea_Disp.show()
+        else:
+            self.DrawingArea_Disp.hide()
+
         self.Console.print('Display:', ConnectionData.display)
         retmsg = 'Display: ' + PrintOnOff[ConnectionData.display]
         self.StatusBar.push(self.context_id, retmsg)
@@ -492,6 +519,7 @@ class MainWindow(Gtk.Window):
             self.Window_Log.show()
         else:
             self.Window_Log.hide()
+        return True
 
     def on_Menu_CamRes_Item_activate(self, widget):
         if widget.get_active() is True:

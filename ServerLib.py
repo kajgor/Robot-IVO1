@@ -176,11 +176,15 @@ class ServerThread(threading.Thread):
                     if Fxmode < 4:
                         Fxvalue -= 100
                     Console.print(" Entering FX mode %s, value" % FxModes[Fxmode - 1], Fxvalue)
-                    v4lparse(Cam0, FxModes[Fxmode - 1] + "=" + Fxvalue.__str__())
-                    # cmd = "v4l2-ctl --set-ctrl=" + FxModes[Fxmode - 1] + "=" + Fxvalue.__str__()
-                    # retmsg, err = execute_cmd(cmd)
-                    # if retmsg:
-                    #     Console.print(retmsg)
+# ToDo:
+#                     call('v4l2-ctl -d %s -c ' % device + FxModes[Fxmode - 1] + '=' + Fxvalue.__str__(), shell=True)
+
+                    arg =  FxModes[Fxmode - 1] + '=' + Fxvalue.__str__()
+                    retmsg, err = execute_cmd('v4l2-ctl -c %s' % arg)
+                    if err:
+                        Console.print(err)
+                    # call('v4l2-ctl -c %s' % arg, shell=True)
+
                 elif Fxmode < 35:
                     cmd = None
                     if Fxmode == 30:
@@ -369,12 +373,14 @@ class StreamThread(threading.Thread):
         self.player_video_capsfilter = Gst.ElementFactory.make("capsfilter", "capsfilter")
         # self.player_video_gdpdepay   = Gst.ElementFactory.make("gdpdepay", "depayloader")
         self.player_video_rtphdepay  = Gst.ElementFactory.make("rtph264depay", "rtimer")
+        self.player_video_queue      = Gst.ElementFactory.make("queue", "queue")
         self.player_video_decoder    = Gst.ElementFactory.make("avdec_h264", "avdec")
         self.player_video_convert    = Gst.ElementFactory.make("videoconvert")
         # self.player_video_videorate  = Gst.ElementFactory.make("videorate")
         # self.player_video_fpsadjcaps = Gst.ElementFactory.make("capsfilter", "fpsadj")
         # self.player_video_sink       = Gst.ElementFactory.make("ximagesink", "sink")
-        self.player_video_sink       = Gst.ElementFactory.make("gtksink", "sink")
+        # self.player_video_sink       = Gst.ElementFactory.make("gtksink", "sink")
+        self.player_video_sink       = Gst.ElementFactory.make("ximagesink", "player_video_sink")
 
         self.sender_video_capsfilter = [Gst.ElementFactory.make("capsfilter", "capsfilter_test"),
                                         Gst.ElementFactory.make("capsfilter", "capsfilter")]
@@ -425,6 +431,7 @@ class StreamThread(threading.Thread):
         self.player_video_source.set_property("port", Port_DSP0)
         caps = Gst.Caps.from_string("application/x-rtp, encoding-name=H264, payload=96")
         self.player_video_capsfilter.set_property("caps", caps)
+        self.player_video_sink.set_property("sync", False)
 
         self.sender_video_sink[SRV_vars.TestMode].set_property("port", Port_CAM0)
         self.sender_video_sink[SRV_vars.TestMode].set_property("sync", False)
@@ -459,10 +466,11 @@ class StreamThread(threading.Thread):
             self.gst_init_cam_tcp()
         else:
             self.sender_video_encoder[self.Source_test].set_property("tune", "zerolatency")
+            self.sender_video_encoder[self.Source_test].set_property("pass", "qual")
+            self.sender_video_encoder[self.Source_test].set_property("bitrate", 512)
+            self.sender_video_encoder[self.Source_test].set_property("byte-stream", True)
             self.sender_video_sink[self.Source_test].set_property("host", client_IP)
             self.sender_video_sink[self.Source_h264].set_property("host", client_IP)
-            # self.sender_video_sink[self.Source_test].set_property("sync", True)
-            # self.sender_video_sink[self.Source_h264].set_property("sync", True)
             self.gst_init_video_test_udp()
             self.gst_init_cam_udp()
             self.gst_init_disp_udp()
@@ -537,11 +545,12 @@ class StreamThread(threading.Thread):
     def gst_init_disp_udp(self):
         ####################################################################
         ### Build video pipeline as following:
-        ###   Source[cam] > Caps > Encoder > RtPay > Sink[udp]
+        ###   Source[UDP] > Caps > RtDepay > Queue > Decoder > Convert > Sink[ximage]
         ####################################################################
         self.player_video.add(self.player_video_source)
         self.player_video.add(self.player_video_capsfilter)
         self.player_video.add(self.player_video_rtphdepay)
+        self.player_video.add(self.player_video_queue)
         self.player_video.add(self.player_video_decoder)
         self.player_video.add(self.player_video_convert)
         # self.player_video.add(self.player_video_flip)
@@ -551,7 +560,8 @@ class StreamThread(threading.Thread):
 
         self.player_video_source.link(self.player_video_capsfilter)
         self.player_video_capsfilter.link(self.player_video_rtphdepay)
-        self.player_video_rtphdepay.link(self.player_video_decoder)
+        self.player_video_rtphdepay.link(self.player_video_queue)
+        self.player_video_queue.link(self.player_video_decoder)
         self.player_video_decoder.link(self.player_video_convert)
         # self.player_video_convert.link(self.player_video_flip)
         # self.player_video_convert.link(self.player_video_videorate)

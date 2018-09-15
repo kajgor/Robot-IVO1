@@ -119,49 +119,6 @@ class ConnectionData:
     Protocol    = 0
 
 
-def v4lparse(device, *args):
-    if args:
-        errout = []
-        for arg in args:
-            if device:
-                execute_cmd('v4l2-ctl -d %s -c ' % device + arg)
-            else:
-                execute_cmd('v4l2-ctl -c %s' % arg)
-        #     if err:
-        #         print('!!! err %s' % err)
-        #         errout.append(err)
-        # if errout:
-        #     return errout
-    else:
-        tmp_line = None
-        out_list = []
-        if device:
-            v4l2_prop_txt, err = execute_cmd('v4l2-ctl -L -d %s' % device)
-        else:
-            v4l2_prop_txt, err = execute_cmd('v4l2-ctl -L')
-        if err:
-            return err
-
-        prop_list = v4l2_prop_txt.split('\n')
-        prop_list.append(": .\n")  # Spool out last line of the list with that string
-        if ":" in prop_list[0]:
-            prop_list.insert(0, "Defaults")
-
-        for i_line in prop_list:
-            i_line = i_line.strip()
-            if ":" in i_line:
-                if i_line.split()[0][-1] == ":":
-                    tmp_line.append(i_line.split(": "))
-                else:
-                    if tmp_line is not None:
-                        out_list.append(tmp_line)
-                    tmp_line = i_line.split()
-            else:
-                out_list.append(i_line)
-
-        return out_list
-
-
 import binascii
 
 
