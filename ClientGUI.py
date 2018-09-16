@@ -8,7 +8,7 @@ gi.require_version('Gdk', '3.0')
 from gi.repository import Gtk, Gdk, GLib
 from sys import argv
 
-from ClientLib import ConnectionThread, Console, DisplayStream
+from ClientLib import ConnectionThread, Console, SenderStream
 from Client_vars import Files, DEVICE_control, KEY_control, CommunicationFFb
 from Common_vars import VideoFramerate, AudioBitrate, AudioCodec, VideoCodec, PrintOnOff, execute_cmd,\
     TIMEOUT_GUI, PROTO_NAME, LEFT, RIGHT, X_AXIS, Y_AXIS, MOUSE_MIN, MOUSE_MAX, ConnectionData, COMM_IDLE,\
@@ -45,8 +45,8 @@ class MainWindow(Gtk.Window):
         P_SXID = self.DrawingArea_Cam.get_property('window')
         S_SXID = self.DrawingArea_Disp.get_property('window')
 
-        print("SXID0: %s" % P_SXID)
-        print("SXID1: %s" % S_SXID)
+        # print("SXID0: %s" % P_SXID)
+        # print("SXID1: %s" % S_SXID)
         self.Connection_Thread = ConnectionThread(P_SXID, S_SXID)
 
         Console.print('Console 3.0 initialized.\n')
