@@ -22,31 +22,42 @@ Gst.init(None)
 
 
 class SenderStream:
-    def __init__(self):
-        self.sender_video       = Gst.Pipeline.new("sender_video")
-        self.sender_audio       = Gst.Pipeline.new("sender_audio")
+    sender_video = None
+    sender_audio = None
+
+    def __init__(self, Sender_SXID):
+        self.Sender_SXID = Sender_SXID
+
+    def set_video_source(self):
+        self.sender_video              = Gst.Pipeline.new("sender_video")
+
+        if DEVICE_control.DEV_Cam0 == "videotestsrc":
+            self.sender_video_source   = Gst.ElementFactory.make("videotestsrc", "video-source")
+            # print("setup v4l2src %s" % DEVICE_control.DEV_Cam0)
+        else:
+            self.sender_video_source   = Gst.ElementFactory.make("v4l2src", "video-source")
+            # print("setup %s" % DEVICE_control.DEV_Cam0)
+
         # glimagesink(default)/gtksink/cacasink/autovideosink/ximagesink(working)
         #   SET VIDEO (SENDER)
-        self.sender_video_source       = Gst.ElementFactory.make("v4l2src", "video-source")
-
         self.sender_video_videorate_udp = Gst.ElementFactory.make("videorate", "vr1")
-        self.sender_video_queue_udp    = Gst.ElementFactory.make("queue", "queue1")
-        self.sender_video_caps_udp     = Gst.ElementFactory.make("capsfilter", "capsfilter1")
-        self.sender_video_convert_udp  = Gst.ElementFactory.make("videoconvert", "vc1")
-        self.sender_video_encoder      = Gst.ElementFactory.make(H264_ENC, "encoder_udp")
-        self.sender_video_rtimer       = Gst.ElementFactory.make("rtph264pay", "rtimer_udp")
-        self.sender_video_sink_udp     = Gst.ElementFactory.make("udpsink", "udp-output")
+        self.sender_video_queue_udp = Gst.ElementFactory.make("queue", "queue1")
+        self.sender_video_caps_udp = Gst.ElementFactory.make("capsfilter", "capsfilter1")
+        self.sender_video_convert_udp = Gst.ElementFactory.make("videoconvert", "vc1")
+        self.sender_video_encoder = Gst.ElementFactory.make(H264_ENC, "encoder_udp")
+        self.sender_video_rtimer = Gst.ElementFactory.make("rtph264pay", "rtimer_udp")
+        self.sender_video_sink_udp = Gst.ElementFactory.make("udpsink", "udp-output")
 
         self.sender_video_videorate_xv = Gst.ElementFactory.make("videorate", "vr2")
-        self.sender_video_queue_xv     = Gst.ElementFactory.make("queue", "queue2")
-        self.sender_video_caps_xv      = Gst.ElementFactory.make("capsfilter", "capsfilter2")
-        self.sender_video_convert_xv   = Gst.ElementFactory.make("videoconvert", "vc2")
-        self.sender_video_sink_xv      = Gst.ElementFactory.make("xvimagesink", "video-output")
+        self.sender_video_queue_xv = Gst.ElementFactory.make("queue", "queue2")
+        self.sender_video_caps_xv = Gst.ElementFactory.make("capsfilter", "capsfilter2")
+        self.sender_video_convert_xv = Gst.ElementFactory.make("videoconvert", "vc2")
+        self.sender_video_sink_xv = Gst.ElementFactory.make("xvimagesink", "video-output")
 
-        self.sender_video_tee          = Gst.ElementFactory.make("tee", "tee")
+        self.sender_video_tee = Gst.ElementFactory.make("tee", "tee")
 
         if ConnectionData.Protocol == TCP:
-# ToDo:
+            # ToDo:
             pass
         else:
             self.sender_video_sink_udp.set_property("host", 'localhost')
@@ -65,29 +76,36 @@ class SenderStream:
         self.sender_video_caps_xv.set_property("caps", caps)
         self.sender_video_sink_xv.set_property("sync", False)
 
+        self.gst_init_udp_video_stream()
+
+    def set_audio_source(self):
+        self.sender_audio              = Gst.Pipeline.new("sender_audio")
         # SET AUDIO SENDER
-        # if VideoMode is False:
-        #     self.sender_audio_source = Gst.ElementFactory.make("audiotestsrc", "local_source_audio")
-        #     self.sender_audio_source.set_property("wave", 0)
-        # else:
-        self.sender_audio_source = Gst.ElementFactory.make("pulsesrc", "local_source_audio")
-        self.sender_audio_source.set_property("device", DEVICE_control.DEV_AudioIn)
+        if DEVICE_control.DEV_AudioIn == "audiotestsrc":
+            self.sender_audio_source = Gst.ElementFactory.make("audiotestsrc", "local_source_audio")
+            self.sender_audio_source.set_property("wave", 0)
+        else:
+            self.sender_audio_source = Gst.ElementFactory.make("pulsesrc", "local_source_audio")
+            self.sender_audio_source.set_property("device", DEVICE_control.DEV_AudioIn)
 
         self.sender_audio_capsfilter = Gst.ElementFactory.make("capsfilter", "capsfilter_audio")
-        self.sender_audio_resample   = Gst.ElementFactory.make("audioresample", "resample_audio")
-        self.sender_audio_encoder    = Gst.ElementFactory.make("speexenc", "encoder_audio")
-        self.sender_audio_rtimer     = Gst.ElementFactory.make("rtpspeexpay", "rtimer_audio")
+        self.sender_audio_resample = Gst.ElementFactory.make("audioresample", "resample_audio")
+        self.sender_audio_encoder = Gst.ElementFactory.make("speexenc", "encoder_audio")
+        self.sender_audio_rtimer = Gst.ElementFactory.make("rtpspeexpay", "rtimer_audio")
 
         if ConnectionData.Protocol == TCP:
-            self.sender_audio_sink   = Gst.ElementFactory.make("tcpserversink", "remote_sink_audio")
+            self.sender_audio_sink = Gst.ElementFactory.make("tcpserversink", "remote_sink_audio")
         else:
-            self.sender_audio_sink    = Gst.ElementFactory.make("udpsink", "remote_sink_audio_udp")
+            self.sender_audio_sink = Gst.ElementFactory.make("udpsink", "remote_sink_audio_udp")
+
+        caps = Gst.Caps.from_string("audio/x-raw, rate=" + AudioBitrate[ConnectionData.Abitrate].__str__())
+        self.sender_audio_capsfilter.set_property("caps", caps)
 
         self.sender_audio_sink.set_property("host", 'localhost')
         self.sender_audio_sink.set_property("port", 0)
         self.sender_audio_sink.set_property("sync", False)
 
-        self.gst_init_udp_stream()
+        self.gst_init_udp_audio_stream()
 
     def gst_init_tcp_stream(self):
         ####################################################################
@@ -110,7 +128,7 @@ class SenderStream:
         self.sender_audio_encoder.link(self.sender_audio_rtimer)
         self.sender_audio_rtimer.link(self.sender_audio_sink)
 
-    def gst_init_udp_stream(self):
+    def gst_init_udp_video_stream(self):
         ####################################################################
         ### Build video pipeline as following:
         ####################################################################
@@ -149,6 +167,7 @@ class SenderStream:
 
         self.sender_video_source.link(self.sender_video_tee)
 
+    def gst_init_udp_audio_stream(self):
         # SENDER AUDIO (UDP)
         self.sender_audio.add(self.sender_audio_source)
         self.sender_audio.add(self.sender_audio_capsfilter)
@@ -163,26 +182,81 @@ class SenderStream:
         self.sender_audio_encoder.link(self.sender_audio_rtimer)
         self.sender_audio_rtimer.link(self.sender_audio_sink)
 
+    def run_video(self, flag, Host, Port_DSP0):
+        if flag is True:
+            self.set_video_source()
+            self.sender_video_sink_udp.set_property('port', Port_DSP0)
+            self.sender_video_sink_udp.set_property('host', Host)
+
+        self.sender_video.set_state(Gst.State.READY)
+        time.sleep(0.1)
+        if flag is True:
+            self.CliCamera_gtksync()
+            retmsg = self.sender_video.set_state(Gst.State.PLAYING)
+        else:
+            retmsg = self.sender_video.set_state(Gst.State.NULL)
+
+        time.sleep(0.1)
+        if retmsg == Gst.StateChangeReturn.FAILURE:
+            Console.print("AUDIO CONNECTION ERROR: Unable to set the pipeline to the playing state.")
+            return not flag
+        else:
+            return flag
+
+    def run_audio(self, flag, Host, Port_SPK0):
+        if flag is True:
+            self.set_audio_source()
+            self.sender_audio_sink.set_property("port", Port_SPK0)
+            self.sender_audio_sink.set_property("host", Host)
+
+        self.sender_audio.set_state(Gst.State.READY)
+        time.sleep(0.1)
+        if flag is True:
+            retmsg = self.sender_audio.set_state(Gst.State.PLAYING)
+        else:
+            retmsg = self.sender_audio.set_state(Gst.State.NULL)
+
+        time.sleep(0.1)
+        if retmsg == Gst.StateChangeReturn.FAILURE:
+            return not flag
+        else:
+            return flag
+
+    def CliCamera_gtksync(self):
+        bus = self.sender_video.get_bus()
+        bus.add_signal_watch()
+        bus.enable_sync_message_emission()
+        bus.connect("message", self.on_sender_message)
+        bus.connect("sync-message::element", self.on_sender_sync_message)
+
+    def on_sender_message(self, bus, message):
+        retmsg = self.on_message(message)
+        if retmsg is not None:
+            print("retmsg:", retmsg)
+            # self.ToggleButton_connect.set_active(False)
+            # self.StatusBar.push(self.context_id, retmsg)
+
+    def on_sender_sync_message(self, bus, message):
+        self.on_sync_message(message, self.Sender_SXID)
+
     def on_message(self, message):
         msgtype = message.type
         if msgtype == Gst.MessageType.EOS:
             if Debug > 1:
                 Console.print ("EOS: SIGNAL LOST")
             return "VIDEO CONNECTION EOS: SIGNAL LOST"
-
         elif msgtype == Gst.MessageType.ERROR:
             err, debug = message.parse_error()
             debug_s = debug.split("\n")
             if Debug > 0:
                 Console.print ("ERROR:", debug_s)
             return debug_s[debug_s.__len__() - 1]
-
         elif msgtype == Gst.MessageType.STATE_CHANGED:
             # print('STATE_CHANGED')
             pass
-
-        # elif msgtype == Gst.MessageType.BUFFERING:
-        #     print('BUFFERING')
+        elif msgtype == Gst.MessageType.BUFFERING:
+            # print('BUFFERING')
+            pass
         else:
             return None
 
@@ -226,6 +300,7 @@ class ReceiverStream:
         self.player_video_depayloader  = Gst.ElementFactory.make("gdpdepay", "depayloader")
         self.player_video_convert      = Gst.ElementFactory.make("videoconvert")
         self.player_video_rtimer       = Gst.ElementFactory.make("rtph264depay", "rtimer")
+        self.player_video_queue        = Gst.ElementFactory.make("queue", "queue")
         self.player_video_decoder      = Gst.ElementFactory.make("avdec_h264", "avdec")
         self.player_video_fpsadj       = Gst.ElementFactory.make("videorate")
         self.player_video_fpsadjcaps   = Gst.ElementFactory.make("capsfilter", "fpsadj")
@@ -254,7 +329,7 @@ class ReceiverStream:
             if ConnectionData.TestMode is False:
                 self.gst_init_test_tcp()
             else:
-                self.gst_init_live()
+                self.gst_init_live_tcp()
 
         else:
             self.player_video_source  = Gst.ElementFactory.make("udpsrc", "remote_source_video_udp")
@@ -308,7 +383,7 @@ class ReceiverStream:
         self.player_audio_decoder.link(self.player_audio_sink)
         # --- Gstreamer setup end ---
 
-    def gst_init_live(self):
+    def gst_init_live_tcp(self):
         # --- Gstreamer setup begin ---
         self.player_video.add(self.player_video_source)
         self.player_video.add(self.player_video_depayloader)
@@ -383,6 +458,7 @@ class ReceiverStream:
         self.player_video.add(self.player_video_source)
         self.player_video.add(self.player_video_capsfilter)
         self.player_video.add(self.player_video_rtimer)
+        self.player_video.add(self.player_video_queue)
         self.player_video.add(self.player_video_decoder)
         self.player_video.add(self.player_video_convert)
         self.player_video.add(self.player_video_fpsadj)
@@ -392,7 +468,8 @@ class ReceiverStream:
 
         self.player_video_source.link(self.player_video_capsfilter)
         self.player_video_capsfilter.link(self.player_video_rtimer)
-        self.player_video_rtimer.link(self.player_video_decoder)
+        self.player_video_rtimer.link(self.player_video_queue)
+        self.player_video_queue.link(self.player_video_decoder)
         self.player_video_decoder.link(self.player_video_convert)
         self.player_video_convert.link(self.player_video_fpsadj)
         self.player_video_fpsadj.link(self.player_video_fpsadjcaps)
@@ -529,9 +606,9 @@ class ControlDisplay:
             # print('STATE_CHANGED')
             pass
 
-        # elif msgtype == Gst.MessageType.BUFFERING:
-        #     print('BUFFERING')
-
+        elif msgtype == Gst.MessageType.BUFFERING:
+            # print('BUFFERING')
+            pass
         else:
             return None
 
@@ -546,13 +623,12 @@ class ConnectionThread:
     srv             = None
     tunnel          = None
 
+    # Sender_Stream   = None
     Control_Display = ControlDisplay()
-    Sender_Stream   = SenderStream()
     FxQueue         = queue.Queue()
 
-    def __init__(self, P_SXID, S_SXID):
+    def __init__(self, P_SXID):
         self.Player_SXID    = P_SXID
-        self.Sender_SXID    = S_SXID
         self.Streaming_mode = 0
         self.FxMode         = 255
         self.FxValue        = 0
@@ -622,25 +698,8 @@ class ConnectionThread:
             # self.ToggleButton_connect.set_active(False)
             # self.StatusBar.push(self.context_id, retmsg)
 
-    def on_sender_message(self, bus, message):
-        retmsg = self.Sender_Stream.on_message(message)
-        if retmsg is not None:
-            print("retmsg:", retmsg)
-            # self.ToggleButton_connect.set_active(False)
-            # self.StatusBar.push(self.context_id, retmsg)
-
     def on_player_sync_message(self, bus, message):
         self.Control_Display.on_sync_message(message, self.Player_SXID)
-
-    def on_sender_sync_message(self, bus, message):
-        self.Sender_Stream.on_sync_message(message, self.Sender_SXID)
-
-    def CliCamera_gtksync(self):
-        bus = self.Sender_Stream.sender_video.get_bus()
-        bus.add_signal_watch()
-        bus.enable_sync_message_emission()
-        bus.connect("message", self.on_sender_message)
-        bus.connect("sync-message::element", self.on_sender_sync_message)
 
     def CliDisplay_gtksync(self):
         bus = self.Receiver_Stream.player_video.get_bus()
@@ -656,9 +715,9 @@ class ConnectionThread:
         Port_SPK0 = Port + 5
 
         self.Receiver_Stream = ReceiverStream()
-        self.Sender_Stream.sender_video.set_state(Gst.State.NULL)
-        self.Sender_Stream.sender_audio.set_state(Gst.State.NULL)
-        self.Sender_Stream = SenderStream()
+        # self.Sender_Stream.sender_video.set_state(Gst.State.NULL)
+        # self.Sender_Stream.sender_audio.set_state(Gst.State.NULL)
+        # self.Sender_Stream = SenderStream()
 
         self.CliDisplay_gtksync()
 
@@ -667,14 +726,6 @@ class ConnectionThread:
         self.Receiver_Stream.player_audio_source.set_property("port", Port_MIC0)
         # self.Receiver_Stream.player_audio_source.set_property("host", Host)
 
-        self.Sender_Stream.sender_video_sink_udp.set_property('port', Port_DSP0)
-        self.Sender_Stream.sender_video_sink_udp.set_property('host', Host)
-        self.Sender_Stream.sender_audio_sink.set_property("port", Port_SPK0)
-        self.Sender_Stream.sender_audio_sink.set_property("host", Host)
-
-        # if self.Display_Stream.sender_video.get_state() == Gst.State.PLAYING:
-        self.Sender_Stream.sender_video.set_state(Gst.State.READY)
-        self.Sender_Stream.sender_audio.set_state(Gst.State.READY)
         self.Receiver_Stream.player_video.set_state(Gst.State.READY)
         self.Receiver_Stream.player_audio.set_state(Gst.State.READY)
 
@@ -791,10 +842,10 @@ class ConnectionThread:
 
         cam0_restart = False
         resolution_last = None
-        AudioBitrate_last = None
+        # AudioBitrate_last = None
         mic_last = None
-        speaker_last = None
-        display_last = None
+        # speaker_last = None
+        # display_last = None
         cam0_flip_last = None
         self.Streaming_mode = 0
         warmup = 30
@@ -809,25 +860,24 @@ class ConnectionThread:
                 self.calculate_MotorPower()     # Set control variables
                 self.mouseInput()               # Set mouse Variables
 
-            if AudioBitrate[ConnectionData.Abitrate] != AudioBitrate_last:
-                AudioBitrate_last = AudioBitrate[ConnectionData.Abitrate]
-                self.Sender_Stream.sender_audio.set_state(Gst.State.READY)
-                speaker_last = None
+            # if AudioBitrate[ConnectionData.Abitrate] != AudioBitrate_last:
+            #     AudioBitrate_last = AudioBitrate[ConnectionData.Abitrate]
+                # speaker_last = None
 
             if ConnectionData.mic is not mic_last:
                 mic_last = self.conect_micstream(ConnectionData.mic)
 
-            if ConnectionData.speakers is not speaker_last:
-                speaker_last = self.conect_speakerstream(ConnectionData.speakers)
+            # if ConnectionData.speakers is not speaker_last:
+            #     speaker_last = self.conect_speakerstream(ConnectionData.speakers)
 
-            if ConnectionData.display != display_last:
-                if ConnectionData.display == True:
-                    warmup -= 1
-                    if warmup == 0:
-                        warmup = 30
-                        display_last = self.start_display_stream(ConnectionData.display)
-                else:
-                    display_last = self.start_display_stream(ConnectionData.display)
+            # if ConnectionData.display != display_last:
+            #     if ConnectionData.display == True:
+            #         warmup -= 1
+            #         if warmup == 0:
+            #             warmup = 30
+            #             display_last = self.start_display_stream(ConnectionData.display)
+            #     else:
+            #         display_last = self.start_display_stream(ConnectionData.display)
 
             if ConnectionData.resolution != resolution_last and self.FxQueue.empty() is True:
                 resolution_last = ConnectionData.resolution
@@ -858,16 +908,16 @@ class ConnectionThread:
 
         self.Receiver_Stream.player_video.set_state(Gst.State.NULL)
         self.Receiver_Stream.player_audio.set_state(Gst.State.NULL)
-        self.Sender_Stream.sender_audio.set_state(Gst.State.NULL)
-        self.Sender_Stream.sender_video.set_state(Gst.State.READY)
-        self.Sender_Stream.sender_video_sink_udp.set_property('host', 'localhost')
-        self.Sender_Stream.sender_video_sink_udp.set_property('port', 9999)
-        self.Sender_Stream.sender_audio_sink.set_property("host", 'localhost')
-        self.Sender_Stream.sender_audio_sink.set_property("port", 9998)
+        # self.Sender_Stream.sender_audio.set_state(Gst.State.NULL)
+        # self.Sender_Stream.sender_video.set_state(Gst.State.READY)
+        # self.Sender_Stream.sender_video_sink_udp.set_property('host', 'localhost')
+        # self.Sender_Stream.sender_video_sink_udp.set_property('port', 9999)
+        # self.Sender_Stream.sender_audio_sink.set_property("host", 'localhost')
+        # self.Sender_Stream.sender_audio_sink.set_property("port", 9998)
 
         self.close_connection()
-        if ConnectionData.display is True:
-            self.Sender_Stream.sender_video.set_state(Gst.State.PLAYING)
+        # if ConnectionData.display is True:
+        #     self.Sender_Stream.sender_video.set_state(Gst.State.PLAYING)
 
         Console.print("Closing Thread.")
         exit_thread()
@@ -931,15 +981,13 @@ class ConnectionThread:
     ###############################################################################
 
     def start_display_stream(self, Connect):
+        self.Sender_Stream.sender_video.set_state(Gst.State.READY)
         self.CliCamera_gtksync()
-        if self.Sender_Stream is not None:
-            if Connect is True:
-                retmsg = self.Sender_Stream.sender_video.set_state(Gst.State.PLAYING)
-            else:
-                retmsg = self.Sender_Stream.sender_video.set_state(Gst.State.READY)
+        if Connect is True:
+            time.sleep(.5)
+            retmsg = self.Sender_Stream.sender_video.set_state(Gst.State.PLAYING)
         else:
-            print("self.Display_Stream is None")
-            return not Connect
+            retmsg = self.Sender_Stream.sender_video.set_state(Gst.State.NULL)
 
         if retmsg == Gst.StateChangeReturn.FAILURE:
             return not Connect
@@ -975,27 +1023,27 @@ class ConnectionThread:
             Console.print(retmsg)
         return success
 
-    def conect_speakerstream(self, Connect):
-        if Connect is True:
-            Console.print(" Speaker requested rate:", AudioBitrate[ConnectionData.Abitrate])
-            caps = Gst.Caps.from_string("audio/x-raw, rate=" + AudioBitrate[ConnectionData.Abitrate].__str__())
-            self.Sender_Stream.sender_audio_capsfilter.set_property("caps", caps)
-
-            retmsg = self.Sender_Stream.sender_audio.set_state(Gst.State.PLAYING)
-        else:
-            retmsg = self.Sender_Stream.sender_audio.set_state(Gst.State.READY)
-            Console.print(" Speaker muted")
-
-        if retmsg == Gst.StateChangeReturn.FAILURE:
-            retmsg = "AUDIO CONNECTION ERROR: Unable to set the pipeline to the playing state."
-            success = not Connect
-        else:
-            retmsg = ""
-            success = Connect
-
-        if Debug > 1 and retmsg:
-            Console.print(retmsg)
-        return success
+    # def conect_speakerstream(self, Connect):
+    #     if Connect is True:
+    #         Console.print(" Speaker requested rate:", AudioBitrate[ConnectionData.Abitrate])
+    #         caps = Gst.Caps.from_string("audio/x-raw, rate=" + AudioBitrate[ConnectionData.Abitrate].__str__())
+    #         self.Sender_Stream.sender_audio_capsfilter.set_property("caps", caps)
+    #
+    #         retmsg = self.Sender_Stream.sender_audio.set_state(Gst.State.PLAYING)
+    #     else:
+    #         retmsg = self.Sender_Stream.sender_audio.set_state(Gst.State.READY)
+    #         Console.print(" Speaker muted")
+    #
+    #     if retmsg == Gst.StateChangeReturn.FAILURE:
+    #         retmsg = "AUDIO CONNECTION ERROR: Unable to set the pipeline to the playing state."
+    #         success = not Connect
+    #     else:
+    #         retmsg = ""
+    #         success = Connect
+    #
+    #     if Debug > 1 and retmsg:
+    #         Console.print(retmsg)
+    #     return success
 
     def transmit_message(self, out_str):
         sendstr = str(chr(0) + out_str + chr(10)).encode(Encoding)

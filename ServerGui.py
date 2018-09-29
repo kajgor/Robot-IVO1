@@ -35,7 +35,7 @@ class GtkTsMain(Gtk.Window):
         self.ComboBoxText_AudioOut= builder.get_object("ComboBoxText_AudioOut")
         self.SpinButton_Port      = builder.get_object("SpinButton_Port")
 
-        tmp, tmp, tmp, self.Port_COMM = load_setup()
+        tmp, tmp, tmp, self.Port_COMM, tmp, tmp = load_setup()
         if self.Port_COMM:
             self.SpinButton_Port.set_value(self.Port_COMM)
 
@@ -80,7 +80,7 @@ class GtkTsMain(Gtk.Window):
                 print("Invalid arument:", argv[x])
 
     def load_devices(self):
-        Cam0, MicIn, SpkOut, Port_Comm = load_setup()
+        Cam0, MicIn, SpkOut, Port_Comm, tmp, tmp = load_setup()
 
         fail = self.set_device(CAM_1_CMD, self.ComboBoxText_Cam1, Cam0)
         fail += self.set_device(DEV_INP_CMD, self.ComboBoxText_AudioIn, MicIn)

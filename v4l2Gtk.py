@@ -42,29 +42,32 @@ def v4lparse(device, *args):
         else:
             v4l2_prop_txt = get_command_output('v4l2-ctl -L')
 
-        prop_list = v4l2_prop_txt.split('\n')
-        prop_list.append(": .\n")  # Spool out last line of the list with that string
-        if ":" in prop_list[0]:
-            prop_list.insert(0, "Defaults")
+        if v4l2_prop_txt:
+            prop_list = v4l2_prop_txt.split('\n')
+            prop_list.append(": .\n")  # Spool out last line of the list with that string
+            if ":" in prop_list[0]:
+                prop_list.insert(0, "Defaults")
 
-        for i_line in prop_list:
-            if not i_line:
-                continue
-            i_line = i_line.strip()
-            if ":" in i_line:
-                if i_line.split()[0][-1] == ":":
-                    tmp_line.append(i_line.split(": "))
+            for i_line in prop_list:
+                if not i_line:
+                    continue
+                i_line = i_line.strip()
+                if ":" in i_line:
+                    if i_line.split()[0][-1] == ":":
+                        tmp_line.append(i_line.split(": "))
+                    else:
+                        if tmp_line is not None:
+                            out_list.append(tmp_line)
+
+                        tmp_line = i_line.split()
+
+                        if tmp_line[1][-2:] == '):':  # In order to process '(intmenu):' string
+                            tmp_line[1] = tmp_line[1][0:-1]
+                            tmp_line.insert(2, ":")
                 else:
-                    if tmp_line is not None:
-                        out_list.append(tmp_line)
-
-                    tmp_line = i_line.split()
-
-                    if tmp_line[1][-2:] == '):':  # In order to process '(intmenu):' string
-                        tmp_line[1] = tmp_line[1][0:-1]
-                        tmp_line.insert(2, ":")
-            else:
-                out_list.append(i_line)
+                    out_list.append(i_line)
+        else:
+            out_list = v4l2_prop_txt
 
         return out_list
 

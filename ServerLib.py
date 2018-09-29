@@ -146,7 +146,8 @@ class ServerThread(threading.Thread):
         resolution = 0
         SRV_vars.heartbeat = HB_VALUE
 
-        Cam0, MicIn, SpkOut, Port_COMM = load_setup()
+        Cam0, MicIn, SpkOut, Port_COMM, PRG_CONN_BEGIN, PRG_CONN_END = load_setup()
+        execute_cmd(PRG_CONN_BEGIN)
 
         Stream_Thread = StreamThread(client_IP, Protocol, Video_Codec, Cam0, MicIn, SpkOut, Port_COMM)
         Stream_Thread.start()
@@ -241,7 +242,9 @@ class ServerThread(threading.Thread):
 
                 SRV_vars.heartbeat = HB_VALUE
 
+        execute_cmd(PRG_CONN_END)
         Stream_Thread.shutdown_flag.set()
+        time.sleep(0.25)
 
         return conn
 
@@ -1102,4 +1105,8 @@ def load_setup():
     else:
         Port_COMM = dev
 
-    return Cam0, MicIn, SpkOut, int(Port_COMM)
+    PRG_CONN_BEGIN, err = execute_cmd("cat %s |grep PRG_CONN_BEGIN|cut -d' ' -f2-" % Paths.ini_file)
+
+    PRG_CONN_END, err = execute_cmd("cat %s |grep PRG_CONN_END|cut -d' ' -f2-" % Paths.ini_file)
+
+    return Cam0, MicIn, SpkOut, int(Port_COMM), PRG_CONN_BEGIN, PRG_CONN_END

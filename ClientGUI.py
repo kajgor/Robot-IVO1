@@ -18,6 +18,9 @@ from v4l2Gtk import v4l2Gtk
 # noinspection PyAttributeOutsideInit
 class MainWindow(Gtk.Window):
     Console = Console()
+    Sender_Stream = None
+    Host = "0.0.0.0"
+    Port = 0
 
     def __init__(self):
         super(MainWindow, self).__init__()
@@ -42,12 +45,13 @@ class MainWindow(Gtk.Window):
         self.builder.connect_signals(self)
 
         self.Window_Console.show()
-        P_SXID = self.DrawingArea_Cam.get_property('window')
-        S_SXID = self.DrawingArea_Disp.get_property('window')
+        self.P_SXID = self.DrawingArea_Cam.get_property('window')
+        self.S_SXID = self.DrawingArea_Disp.get_property('window')
 
         # print("SXID0: %s" % P_SXID)
         # print("SXID1: %s" % S_SXID)
-        self.Connection_Thread = ConnectionThread(P_SXID, S_SXID)
+        self.Connection_Thread = ConnectionThread(self.P_SXID)
+        self.Sender_Stream     = SenderStream(self.S_SXID)
 
         Console.print('Console 3.0 initialized.\n')
 
@@ -157,20 +161,36 @@ class MainWindow(Gtk.Window):
         self.StatusBar1.push(self.context_id1, SStatBar)
 
     def load_devices(self):
-        fail  = self.set_device(CAM_1_CMD, self.ComboBoxText_Cam1, DEVICE_control.DEV_Cam0)
-        fail += self.set_device(DEV_INP_CMD, self.ComboBoxText_AudioIn, DEVICE_control.DEV_AudioIn)
-        fail += self.set_device(DEV_OUT_CMD, self.ComboBoxText_AudioOut, DEVICE_control.DEV_AudioOut)
+        fail = 0
+        detected_devices, err = execute_cmd(CAM_1_CMD)
+        detected_devices += "\nvideotestsrc"
+        err  = self.set_device(detected_devices, self.ComboBoxText_Cam1, DEVICE_control.DEV_Cam0)
+        if err:
+            self.CheckButton_Show.set_active(False)
+            self.CheckButton_Show.sensitive(False)
+            fail += 1
+
+        detected_devices, err = execute_cmd(DEV_INP_CMD)
+        detected_devices += "\naudiotestsrc"
+        err  = self.set_device(detected_devices, self.ComboBoxText_AudioIn, DEVICE_control.DEV_AudioIn)
+        if err:
+            self.CheckButton_Speakers.set_active(False)
+            self.CheckButton_Speakers.sensitive(False)
+            fail += 1
+
+        detected_devices, err = execute_cmd(DEV_OUT_CMD)
+        detected_devices += "\n/dev/null"
+        fail += self.set_device(detected_devices, self.ComboBoxText_AudioOut, DEVICE_control.DEV_AudioOut)
 
         if fail > 0:
             self.MessageDialog_Warning.show()
 
-    def set_device(self, CMD, widget, DevToMatch):
+    def set_device(self, detected_devices, widget, DevToMatch):
         active_item = 0
         if DevToMatch is None:
-            Console.print("Warning: %s device not setup yet!" % Gtk.Buildable.get_name(widget).split('_')[1])
+            Console.print("Warning: %s device set automatically as default." % Gtk.Buildable.get_name(widget).split('_')[1])
 
         LsDev = Gtk.ListStore(str, int)
-        detected_devices, err = execute_cmd(CMD)
         if detected_devices > "":
             for idx, DevName in enumerate(detected_devices.splitlines()):
                 if DevName.find(":") == -1:
@@ -289,13 +309,23 @@ class MainWindow(Gtk.Window):
     def on_DrawingArea_Cam_draw(self, widget, message):
         self.Connection_Thread.draw_hud(message)
 
-    def on_ComboBox_Host_changed(self, widget):
+    def get_host_and_port(self):
+        widget = self.ComboBox_Host
         try:
-            self.Host = str(widget.get_model()[widget.get_active()][0])
-            self.Port = int(float(widget.get_model()[widget.get_active()][1]))
+            Host = str(widget.get_model()[widget.get_active()][0])
+            Port = int(float(widget.get_model()[widget.get_active()][1]))
         except IndexError:
-            return
-        # self.SpinButton_Port.set_value(self.Port)
+            return None
+
+        return Host, Port
+
+    def on_ComboBox_Host_changed(self, widget):
+        pass
+        # try:
+        #     self.Host = str(widget.get_model()[widget.get_active()][0])
+        #     self.Port = int(float(widget.get_model()[widget.get_active()][1]))
+        # except IndexError:
+        #     return
 
     def on_SpinButton_Port_value_changed(self, widget):
         # self.Port = widget.get_value_as_int()
@@ -314,8 +344,11 @@ class MainWindow(Gtk.Window):
         self.on_key_press_handler = None
         if widget.get_active() is True:
             widget.set_label(Gtk.STOCK_DISCONNECT)
+
             self.gui_update_connect()
             self.gui_connect_loop()
+
+            self.Host, self.Port = self.get_host_and_port()
 
             # retmsg = 'SSH Connection Error!'
             # if self.CheckButton_SshTunnel.get_active() is True:
@@ -347,6 +380,8 @@ class MainWindow(Gtk.Window):
 
                     self.StatusBar.push(self.context_id, retmsg)
         else:
+            self.Host = "0.0.0.0"
+            self.Port = 0
             ConnectionData.connected = False
             widget.set_label(Gtk.STOCK_CONNECT)
             self.StatusBar.push(self.context_id, 'Disconnected.')
@@ -472,25 +507,50 @@ class MainWindow(Gtk.Window):
 
     def on_ComboBoxText_Abitrate_changed(self, widget):
         ConnectionData.Abitrate = widget.get_active()
+        if self.CheckButton_Speakers.get_active() is True:  # restart stream
+            self.CheckButton_Speakers.set_active(False)
+            self.CheckButton_Speakers.set_active(True)
         self.Console.print('Audio Bitrate:', AudioBitrate[ConnectionData.Abitrate])
         self.SSBar_update()
 
+    def on_ComboBoxText_Cam1_changed(self, widget):
+        DEVICE_control.DEV_Cam0 = widget.get_active_text()
+
     def on_CheckButton_Speakers_toggled(self, widget):
         ConnectionData.speakers = widget.get_active()
-        self.Console.print('Speakers:', ConnectionData.speakers)
-        retmsg = 'Speakers: ' + PrintOnOff[ConnectionData.speakers]
+
+        Port_SPK0 = self.Port + 5
+        ret = False
+        if ConnectionData.speakers is True:
+            Console.print(" Speaker requested rate:", AudioBitrate[ConnectionData.Abitrate])
+            ret = self.Sender_Stream.run_audio(ConnectionData.speakers, self.Host, Port_SPK0)
+        else:
+            # Console.print(" Speaker muted")
+            if self.Sender_Stream.sender_audio:
+                ret = self.Sender_Stream.run_audio(ConnectionData.speakers, self.Host, Port_SPK0)
+
+        retmsg = 'Speakers: %s' % PrintOnOff[ret]
+        self.Console.print(retmsg)
         self.StatusBar.push(self.context_id, retmsg)
+
+        if ConnectionData.speakers is False:
+            self.Sender_Stream.sender_audio = None
 
     def on_CheckButton_Display_toggled(self, widget):
         ConnectionData.display = widget.get_active()
-
+        # print("DEVICE_Control_Cam0: %s" % DEVICE_control.DEV_Cam0)
         # if self.Window_AdvancedDisp.is_visible() is True or ConnectionData.connected is True:
-        self.Connection_Thread.start_display_stream(ConnectionData.display)
+        # if self.ComboBoxText_Cam1.get_active_text():
 
         if ConnectionData.display is True:
             self.DrawingArea_Disp.show()
+            Port_DSP0 = self.Port + 4
+            self.Sender_Stream.run_video(ConnectionData.display, self.Host, Port_DSP0)
         else:
+            if self.Sender_Stream.sender_video:
+                self.Sender_Stream.run_video(ConnectionData.display, "0.0.0.0", 0)
             self.DrawingArea_Disp.hide()
+            self.Sender_Stream.sender_video = None
 
         self.Console.print('Display:', ConnectionData.display)
         retmsg = 'Display: ' + PrintOnOff[ConnectionData.display]
@@ -893,6 +953,10 @@ class ConfigStorage:
                 elif name == "Entry_SkinFile":
                     SkinFile = value
                     continue
+                elif name == "CheckButton_Speakers":
+                    value = False
+                elif name == "CheckButton_Show":
+                    value = False
                 else:
                     active_text = None
 

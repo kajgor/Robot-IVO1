@@ -454,8 +454,9 @@
               <object class="GtkLabel" id="Label">
                 <property name="visible">True</property>
                 <property name="can_focus">False</property>
-                <property name="halign">center</property>
+                <property name="halign">end</property>
                 <property name="margin_left">75</property>
+                <property name="hexpand">True</property>
                 <property name="label" translatable="yes">Host </property>
               </object>
               <packing>
@@ -471,7 +472,6 @@
                 <property name="can_focus">True</property>
                 <property name="receives_default">True</property>
                 <property name="halign">start</property>
-                <property name="hexpand">True</property>
                 <property name="use_stock">True</property>
                 <property name="always_show_image">True</property>
                 <signal name="clicked" handler="on_Button_Preferences_clicked" swapped="no"/>
@@ -492,7 +492,7 @@
                 <property name="draw_indicator">True</property>
               </object>
               <packing>
-                <property name="left_attach">4</property>
+                <property name="left_attach">3</property>
                 <property name="top_attach">0</property>
               </packing>
             </child>
@@ -1460,6 +1460,9 @@
                 <property name="width">2</property>
               </packing>
             </child>
+            <child>
+              <placeholder/>
+            </child>
           </object>
           <packing>
             <property name="expand">False</property>
@@ -1475,7 +1478,7 @@
             <property name="baseline_position">bottom</property>
             <child>
               <object class="GtkStatusbar" id="StatusBar">
-                <property name="width_request">250</property>
+                <property name="width_request">175</property>
                 <property name="visible">True</property>
                 <property name="can_focus">False</property>
                 <property name="valign">end</property>
@@ -1496,7 +1499,7 @@
             </child>
             <child>
               <object class="GtkProgressBar" id="ProgressBar_SsBar">
-                <property name="width_request">50</property>
+                <property name="width_request">125</property>
                 <property name="can_focus">False</property>
                 <property name="valign">center</property>
                 <property name="margin_left">5</property>
@@ -1513,7 +1516,7 @@
             </child>
             <child>
               <object class="GtkStatusbar" id="StatusBar1">
-                <property name="width_request">225</property>
+                <property name="width_request">175</property>
                 <property name="visible">True</property>
                 <property name="can_focus">False</property>
                 <property name="valign">end</property>
@@ -1533,88 +1536,10 @@
               </packing>
             </child>
             <child>
-              <object class="GtkStatusbar" id="StatusBar3">
+              <object class="GtkLabel" id="label32">
                 <property name="visible">True</property>
                 <property name="can_focus">False</property>
-                <property name="halign">end</property>
-                <property name="margin_left">10</property>
-                <property name="margin_right">10</property>
-                <property name="margin_start">10</property>
-                <property name="margin_end">10</property>
-                <property name="margin_top">6</property>
-                <property name="margin_bottom">6</property>
-                <property name="hexpand">True</property>
-                <property name="spacing">2</property>
-                <child>
-                  <object class="GtkLabel" id="label32">
-                    <property name="visible">True</property>
-                    <property name="can_focus">False</property>
-                    <property name="label" translatable="yes">Battery</property>
-                  </object>
-                  <packing>
-                    <property name="expand">False</property>
-                    <property name="fill">True</property>
-                    <property name="position">0</property>
-                  </packing>
-                </child>
-                <child>
-                  <object class="GtkLevelBar" id="LevelBar_Voltage">
-                    <property name="width_request">50</property>
-                    <property name="visible">True</property>
-                    <property name="can_focus">False</property>
-                    <property name="tooltip_text" translatable="yes">Volts</property>
-                    <property name="margin_top">5</property>
-                    <property name="margin_bottom">5</property>
-                    <property name="value">10</property>
-                    <property name="min_value">10</property>
-                    <property name="max_value">11.699999999999999</property>
-                  </object>
-                  <packing>
-                    <property name="expand">False</property>
-                    <property name="fill">True</property>
-                    <property name="position">2</property>
-                  </packing>
-                </child>
-                <child>
-                  <object class="GtkLabel" id="label33">
-                    <property name="visible">True</property>
-                    <property name="can_focus">False</property>
-                    <property name="label" translatable="yes">V</property>
-                  </object>
-                  <packing>
-                    <property name="expand">False</property>
-                    <property name="fill">True</property>
-                    <property name="position">3</property>
-                  </packing>
-                </child>
-                <child>
-                  <object class="GtkLevelBar" id="LevelBar_Current">
-                    <property name="width_request">50</property>
-                    <property name="visible">True</property>
-                    <property name="can_focus">False</property>
-                    <property name="tooltip_text" translatable="yes">Ampers</property>
-                    <property name="margin_top">5</property>
-                    <property name="margin_bottom">5</property>
-                    <property name="max_value">5</property>
-                  </object>
-                  <packing>
-                    <property name="expand">False</property>
-                    <property name="fill">True</property>
-                    <property name="position">4</property>
-                  </packing>
-                </child>
-                <child>
-                  <object class="GtkLabel" id="label34">
-                    <property name="visible">True</property>
-                    <property name="can_focus">False</property>
-                    <property name="label" translatable="yes">A</property>
-                  </object>
-                  <packing>
-                    <property name="expand">False</property>
-                    <property name="fill">True</property>
-                    <property name="position">5</property>
-                  </packing>
-                </child>
+                <property name="label" translatable="yes">Battery</property>
               </object>
               <packing>
                 <property name="expand">False</property>
@@ -1623,8 +1548,66 @@
               </packing>
             </child>
             <child>
+              <object class="GtkLevelBar" id="LevelBar_Voltage">
+                <property name="width_request">75</property>
+                <property name="visible">True</property>
+                <property name="can_focus">False</property>
+                <property name="tooltip_text" translatable="yes">Volts</property>
+                <property name="margin_top">10</property>
+                <property name="margin_bottom">10</property>
+                <property name="value">10</property>
+                <property name="min_value">10</property>
+                <property name="max_value">11.699999999999999</property>
+              </object>
+              <packing>
+                <property name="expand">False</property>
+                <property name="fill">True</property>
+                <property name="position">4</property>
+              </packing>
+            </child>
+            <child>
+              <object class="GtkLabel" id="label33">
+                <property name="visible">True</property>
+                <property name="can_focus">False</property>
+                <property name="label" translatable="yes">V</property>
+              </object>
+              <packing>
+                <property name="expand">False</property>
+                <property name="fill">True</property>
+                <property name="position">5</property>
+              </packing>
+            </child>
+            <child>
+              <object class="GtkLevelBar" id="LevelBar_Current">
+                <property name="width_request">75</property>
+                <property name="visible">True</property>
+                <property name="can_focus">False</property>
+                <property name="tooltip_text" translatable="yes">Ampers</property>
+                <property name="margin_top">10</property>
+                <property name="margin_bottom">10</property>
+                <property name="max_value">5</property>
+              </object>
+              <packing>
+                <property name="expand">False</property>
+                <property name="fill">True</property>
+                <property name="position">6</property>
+              </packing>
+            </child>
+            <child>
+              <object class="GtkLabel" id="label34">
+                <property name="visible">True</property>
+                <property name="can_focus">False</property>
+                <property name="label" translatable="yes">A</property>
+              </object>
+              <packing>
+                <property name="expand">False</property>
+                <property name="fill">True</property>
+                <property name="position">7</property>
+              </packing>
+            </child>
+            <child>
               <object class="GtkStatusbar" id="StatusBar2">
-                <property name="width_request">-1</property>
+                <property name="width_request">60</property>
                 <property name="visible">True</property>
                 <property name="can_focus">False</property>
                 <property name="halign">end</property>
@@ -1642,7 +1625,7 @@
               <packing>
                 <property name="expand">False</property>
                 <property name="fill">True</property>
-                <property name="position">4</property>
+                <property name="position">8</property>
               </packing>
             </child>
             <child>
@@ -1666,7 +1649,7 @@
               <packing>
                 <property name="expand">False</property>
                 <property name="fill">True</property>
-                <property name="position">5</property>
+                <property name="position">9</property>
               </packing>
             </child>
           </object>
@@ -2127,6 +2110,7 @@ Check devices setup.</property>
                         <property name="visible">True</property>
                         <property name="can_focus">False</property>
                         <property name="hexpand">True</property>
+                        <signal name="changed" handler="on_ComboBoxText_Cam1_changed" swapped="no"/>
                       </object>
                       <packing>
                         <property name="left_attach">1</property>
