@@ -484,20 +484,20 @@ class ReceiverStream:
         self.player_audio_decoder.link(self.player_audio_sink)
         # --- Gstreamer setup end ---
 
-    def run_video(self, flag, Host, Port_CAM0):
-        # Port_CAM0 = Port + 1
-        if flag is True:
-            self.set_video_source()
-            self.player_video_source.set_property("port", Port_CAM0)
-            # self.Receiver_Stream.player_video_source.set_property("host", Host)
+    def prepare_video(self, Host, Port):
+        self.set_video_source()
+        self.player_video_source.set_property("port", Port)
+        # self.Receiver_Stream.player_video_source.set_property("host", Host)
+        self.player_video.set_state(Gst.State.NULL)
+        self.CliDisplay_gtksync()
 
-        self.player_video.set_state(Gst.State.READY)
-        time.sleep(0.1)
+    def run_video(self, flag):
         if flag is True:
-            self.CliDisplay_gtksync()
             retmsg = self.player_video.set_state(Gst.State.PLAYING)
         else:
-            retmsg = self.player_video.set_state(Gst.State.NULL)
+            self.player_video.set_state(Gst.State.NULL)  # in order to blank the screen
+            time.sleep(0.1)
+            retmsg = self.player_video.set_state(Gst.State.READY)
 
         time.sleep(0.1)
         if retmsg == Gst.StateChangeReturn.FAILURE:
@@ -710,7 +710,7 @@ class ConnectionThread:
         # self.Receiver_Stream.player_video.set_state(Gst.State.READY)
         # self.Receiver_Stream.player_audio.set_state(Gst.State.READY)
 
-    def establish_connection(self, Host, Port):
+    def establish_connection(self, Host, Port, Receiver):
         Console.print("Establishing connection with \n %s on port"  % Host, Port)
 
         # self.start_media_streams(Host, Port)
@@ -718,7 +718,7 @@ class ConnectionThread:
         ##########################################################
         #              RUN CONNECTION THREAD LOOP                #
         ##########################################################
-        start_new_thread(self.connection_thread, (Host, Port))   #
+        start_new_thread(self.connection_thread, (Host, Port, Receiver))   #
         time.sleep(0.25)                                         #
         ##########################################################
 
@@ -791,7 +791,7 @@ class ConnectionThread:
     ################   COMMUNICATION LOOP START   #################################
     ###############################################################################
 
-    def connection_thread(self, Host, Port_Comm):
+    def connection_thread(self, Host, Port_Comm, Receiver):
         if Debug > 2:
             Console.print("Connecting...")
         self.srv = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -823,8 +823,9 @@ class ConnectionThread:
 
         cam0_restart = False
         resolution_last = None
-        ConnectionData.StreamMode = 0
-        warmup = 30
+        ConnectionData.resolution = 0
+        ConnectionData.StreamMode = None
+        # warmup = 30
 
         while ConnectionData.connected is True:
             if CommunicationFFb is True:
@@ -832,64 +833,31 @@ class ConnectionThread:
                 self.calculate_MotorPower()     # Set control variables
                 self.mouseInput()               # Set mouse Variables
 
-            # if AudioBitrate[ConnectionData.Abitrate] != AudioBitrate_last:
-            #     AudioBitrate_last = AudioBitrate[ConnectionData.Abitrate]
-                # speaker_last = None
-
-            # if ConnectionData.mic is not mic_last:
-            #     mic_last = self.conect_micstream(ConnectionData.mic)
-
-            # if ConnectionData.speakers is not speaker_last:
-            #     speaker_last = self.conect_speakerstream(ConnectionData.speakers)
-
-            # if ConnectionData.display != display_last:
-            #     if ConnectionData.display == True:
-            #         warmup -= 1
-            #         if warmup == 0:
-            #             warmup = 30
-            #             display_last = self.start_display_stream(ConnectionData.display)
-            #     else:
-            #         display_last = self.start_display_stream(ConnectionData.display)
-
             if ConnectionData.resolution != resolution_last and self.FxQueue.empty() is True:
                 resolution_last = ConnectionData.resolution
 
-                self.FxMode  = 0
+                self.FxMode  = 0  # Resolution Tag is 0
                 self.FxValue = ConnectionData.resolution
 
-                cam0_restart = bool(ConnectionData.resolution)
                 if ConnectionData.resolution > 0:
                     Console.print("Requesting mode", ConnectionData.resolution, end='...')
-                else:
+                    cam0_restart = True
+
+                if Receiver.player_video:
                     Console.print("Pausing Video Stream")
-                # self.connect_camstream(False)
+                    Receiver.run_video(False)
+                    # Receiver.player_video = None
 
             if cam0_restart is True:
-                if ConnectionData.Protocol == TCP:
-                    if ConnectionData.resolution == ConnectionData.StreamMode:
-                        Console.print("OK!")
-                        # cam0_restart = self.connect_camstream(True)
-                else:  # UDP connection
-                    # self.connect_camstream(True)
-                    if ConnectionData.resolution == ConnectionData.StreamMode:
-                        Console.print("OK!")
-                cam0_restart = False
+                if ConnectionData.resolution == ConnectionData.StreamMode:
+                    Console.print("Player START")
+                    Receiver.run_video(True)
+                    cam0_restart = False
 
             if self.check_connection(None) is True:
                 self.send_and_receive()
 
-        # self.Receiver_Stream.player_video.set_state(Gst.State.NULL)
-        # self.Receiver_Stream.player_audio.set_state(Gst.State.NULL)
-        # self.Sender_Stream.sender_audio.set_state(Gst.State.NULL)
-        # self.Sender_Stream.sender_video.set_state(Gst.State.READY)
-        # self.Sender_Stream.sender_video_sink_udp.set_property('host', 'localhost')
-        # self.Sender_Stream.sender_video_sink_udp.set_property('port', 9999)
-        # self.Sender_Stream.sender_audio_sink.set_property("host", 'localhost')
-        # self.Sender_Stream.sender_audio_sink.set_property("port", 9998)
-
         self.close_connection()
-        # if ConnectionData.display is True:
-        #     self.Sender_Stream.sender_video.set_state(Gst.State.PLAYING)
 
         Console.print("Closing Thread.")
         exit_thread()

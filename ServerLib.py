@@ -878,26 +878,29 @@ class MediaStream:
             caps = Gst.Caps.from_string("video/x-%s%s" % (VideoCodec[self.Video_Codec], capsstr[1]))
             self.sender_video_capsfilter.set_property("caps", caps)
             self.video_sender_queue.put(Gst.State.READY)
-            # time.sleep(1)
 
         Console.print("Stopping media streams...")
         self.video_sender_queue.put(Gst.State.NULL)
         self.audio_sender_queue.put(Gst.State.NULL)
-        self.player_audio.set_state(Gst.State.NULL)
-        self.player_video.set_state(Gst.State.NULL)
+
+        if self.player_audio:
+            self.player_audio.set_state(Gst.State.NULL)
+        if self.player_video:
+            self.player_video.set_state(Gst.State.NULL)
 
         while not self.video_sender_queue.empty():
             curr_state = self.sender_video.get_state(1)[1]
-            if curr_state == self.sender_video_mode:
-                self.sender_video_mode = self.video_sender_queue.get()
-            self.sender_video.set_state(self.sender_video_mode)
+            if curr_state:
+                if curr_state == self.sender_video_mode:
+                    self.sender_video_mode = self.video_sender_queue.get()
+                self.sender_video.set_state(self.sender_video_mode)
 
         while not self.audio_sender_queue.empty():
             curr_state = self.sender_audio.get_state(1)[1]
-            if curr_state == self.sender_audio_mode:
-                self.sender_audio_mode = self.audio_sender_queue.get()
-            self.sender_audio.set_state(self.sender_audio_mode)
-            # print("snd_mode % s" % self.snd_mode)
+            if curr_state:
+                if curr_state == self.sender_audio_mode:
+                    self.sender_audio_mode = self.audio_sender_queue.get()
+                self.sender_audio.set_state(self.sender_audio_mode)
 
         Console.print('media stopped.')
 

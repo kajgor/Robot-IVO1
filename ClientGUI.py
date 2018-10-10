@@ -50,9 +50,9 @@ class MainWindow(Gtk.Window):
 
         # print("SXID0: %s" % P_SXID)
         # print("SXID1: %s" % S_SXID)
-        self.Connection_Thread = ConnectionThread()
         self.Sender_Stream     = SenderStream(self.S_SXID)
         self.Receiver_Stream   = ReceiverStream(self.P_SXID)
+        self.Connection_Thread = ConnectionThread()
 
         Console.print('Console 3.0 initialized.\n')
 
@@ -371,14 +371,17 @@ class MainWindow(Gtk.Window):
 
             if success is True:
                 self.Spinner_Connected.start()
-                success, retmsg = self.Connection_Thread.establish_connection(self.Host, self.Port)
+                success, retmsg = self.Connection_Thread.establish_connection(self.Host, self.Port,
+                                                                              self.Receiver_Stream)
                 # if success is True:
                 #     self.Connection_Thread.update_server_list(self.ComboBox_Host, self.SpinButton_Port.get_value())
 
-                if success is not True:
+                if success is True:
+                    Port_CAM0 = self.Port + 1
+                    self.Receiver_Stream.prepare_video(self.Host, Port_CAM0)
+                else:
                     Console.print(retmsg)
                     self.gui_update_disconnect()
-
                     self.StatusBar.push(self.context_id, retmsg)
         else:
             self.Host = "0.0.0.0"
@@ -573,17 +576,6 @@ class MainWindow(Gtk.Window):
     def on_CheckButton_Cam_toggled(self, widget):
         self.camera_on = widget.get_active()
         ConnectionData.resolution = self.resolution * self.camera_on
-
-        if self.camera_on is True:
-            # self.DrawingArea_Disp.show()
-            Port_CAM0 = self.Port + 1
-            self.Receiver_Stream.run_video(self.camera_on, self.Host, Port_CAM0)
-        else:
-            if self.Receiver_Stream.player_video:
-                self.Receiver_Stream.run_video(self.camera_on, "0.0.0.0", 0)
-            # self.DrawingArea_Disp.hide()
-            self.Receiver_Stream.player_video = None
-
         retmsg = 'Camera: %s' % PrintOnOff[self.camera_on]
         self.Console.print(retmsg)
         self.StatusBar.push(self.context_id, retmsg)
