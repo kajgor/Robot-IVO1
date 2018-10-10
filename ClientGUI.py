@@ -8,7 +8,7 @@ gi.require_version('Gdk', '3.0')
 from gi.repository import Gtk, Gdk, GLib
 from sys import argv
 
-from ClientLib import ConnectionThread, Console, SenderStream
+from ClientLib import ConnectionThread, Console, SenderStream, ReceiverStream
 from Client_vars import Files, DEVICE_control, KEY_control, CommunicationFFb
 from Common_vars import VideoFramerate, AudioBitrate, AudioCodec, VideoCodec, PrintOnOff, execute_cmd,\
     TIMEOUT_GUI, PROTO_NAME, LEFT, RIGHT, X_AXIS, Y_AXIS, MOUSE_MIN, MOUSE_MAX, ConnectionData, COMM_IDLE,\
@@ -50,8 +50,9 @@ class MainWindow(Gtk.Window):
 
         # print("SXID0: %s" % P_SXID)
         # print("SXID1: %s" % S_SXID)
-        self.Connection_Thread = ConnectionThread(self.P_SXID)
+        self.Connection_Thread = ConnectionThread()
         self.Sender_Stream     = SenderStream(self.S_SXID)
+        self.Receiver_Stream   = ReceiverStream(self.P_SXID)
 
         Console.print('Console 3.0 initialized.\n')
 
@@ -179,7 +180,7 @@ class MainWindow(Gtk.Window):
             fail += 1
 
         detected_devices, err = execute_cmd(DEV_OUT_CMD)
-        detected_devices += "\n/dev/null"
+        # detected_devices += "\nnull"
         fail += self.set_device(detected_devices, self.ComboBoxText_AudioOut, DEVICE_control.DEV_AudioOut)
 
         if fail > 0:
@@ -387,13 +388,6 @@ class MainWindow(Gtk.Window):
             self.StatusBar.push(self.context_id, 'Disconnected.')
             self.gui_update_disconnect()
 
-    def on_CheckButton_Cam_toggled(self, widget):
-        self.camera_on = widget.get_active()
-        ConnectionData.resolution = self.resolution * self.camera_on
-        retmsg = 'Camera: %s' % PrintOnOff[self.camera_on]
-        Console.print(retmsg)
-        self.StatusBar.push(self.context_id, retmsg)
-
     def store_FX_request(self, FXmode, FXvalue):
         items = self.Connection_Thread.FxQueue.qsize()
         if items == 0:
@@ -504,6 +498,8 @@ class MainWindow(Gtk.Window):
 
     def on_ComboBoxText_Rotate_changed(self, widget):
         DEVICE_control.Cam0_Flip = widget.get_active()
+        if self.Receiver_Stream.player_video:
+            self.Receiver_Stream.player_video_flip.set_property("method", DEVICE_control.Cam0_Flip)  # => "rotate"
 
     def on_ComboBoxText_Abitrate_changed(self, widget):
         ConnectionData.Abitrate = widget.get_active()
@@ -536,6 +532,24 @@ class MainWindow(Gtk.Window):
         if ConnectionData.speakers is False:
             self.Sender_Stream.sender_audio = None
 
+    def on_CheckButton_Mic_toggled(self, widget):
+        ConnectionData.mic = widget.get_active()
+
+        ret = False
+        if ConnectionData.mic is True:
+            Port_MIC0 = self.Port + 2
+            Console.print(" Mic requested rate:", AudioBitrate[ConnectionData.Abitrate])
+            ret = self.Receiver_Stream.run_audio(ConnectionData.mic, self.Host, Port_MIC0)
+        else:
+            if self.Receiver_Stream.player_audio:
+                ret = self.Receiver_Stream.run_audio(ConnectionData.mic, "0.0.0.0", 0)
+        retmsg = 'Microphone: ' + PrintOnOff[ret]
+        self.Console.print(retmsg)
+        self.StatusBar.push(self.context_id, retmsg)
+
+        if ConnectionData.mic is False:
+            self.Receiver_Stream.player_audio = None
+
     def on_CheckButton_Display_toggled(self, widget):
         ConnectionData.display = widget.get_active()
         # print("DEVICE_Control_Cam0: %s" % DEVICE_control.DEV_Cam0)
@@ -556,16 +570,28 @@ class MainWindow(Gtk.Window):
         retmsg = 'Display: ' + PrintOnOff[ConnectionData.display]
         self.StatusBar.push(self.context_id, retmsg)
 
+    def on_CheckButton_Cam_toggled(self, widget):
+        self.camera_on = widget.get_active()
+        ConnectionData.resolution = self.resolution * self.camera_on
+
+        if self.camera_on is True:
+            # self.DrawingArea_Disp.show()
+            Port_CAM0 = self.Port + 1
+            self.Receiver_Stream.run_video(self.camera_on, self.Host, Port_CAM0)
+        else:
+            if self.Receiver_Stream.player_video:
+                self.Receiver_Stream.run_video(self.camera_on, "0.0.0.0", 0)
+            # self.DrawingArea_Disp.hide()
+            self.Receiver_Stream.player_video = None
+
+        retmsg = 'Camera: %s' % PrintOnOff[self.camera_on]
+        self.Console.print(retmsg)
+        self.StatusBar.push(self.context_id, retmsg)
+
     def on_CheckButton_Lights_toggled(self, widget):
         ConnectionData.light = widget.get_active()
         self.Console.print('Lights:', ConnectionData.light)
         retmsg = 'Lights: ' + PrintOnOff[ConnectionData.light]
-        self.StatusBar.push(self.context_id, retmsg)
-
-    def on_CheckButton_Mic_toggled(self, widget):
-        ConnectionData.mic = widget.get_active()
-        self.Console.print('Microphone:', ConnectionData.mic)
-        retmsg = 'Microphone: ' + PrintOnOff[ConnectionData.mic]
         self.StatusBar.push(self.context_id, retmsg)
 
     def on_CheckButton_Laser_toggled(self, widget):
@@ -917,6 +943,8 @@ class ConfigStorage:
                                 ItemCount += int(self.set_object_value(obj, value))
                             else:
                                 ItemCount += 1
+                                # print('LOAD NAME/TEXT %s' % name)
+                                # print('LOAD TEXT %s' % text)
                                 if name == "ComboBoxText_Cam1":
                                     DEVICE_control.DEV_Cam0 = text
                                 elif name == "ComboBoxText_AudioIn":
@@ -960,6 +988,8 @@ class ConfigStorage:
                 else:
                     active_text = None
 
+                # if active_text:
+                #     print('SAVE NAME/TEXT %s' % name + " >> " + active_text)
                 SetupVar.append((active_text, name, value))
 
         with open(Files.ini_file, 'wb') as iniFile:
