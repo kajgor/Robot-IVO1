@@ -80,6 +80,11 @@ class MainWindow(Gtk.Window):
             self.Console.print('Resetting to default configuration.')
             self.StatusBar.push(self.context_id, 'Resetting to default configuration.')
 
+        Proto = self.ComboBoxText_Proto.get_active()
+        self.Sender_Stream.set_video_source(Proto)
+        self.Sender_Stream.set_audio_source(Proto)
+        self.Sender_Stream.CliCamera_gtksync()
+
         self.load_devices()
 
     def load_v4l2_panel(self):
@@ -378,7 +383,11 @@ class MainWindow(Gtk.Window):
 
                 if success is True:
                     Port_CAM0 = self.Port + 1
-                    self.Receiver_Stream.prepare_video(self.Host, Port_CAM0)
+                    Port_MIC0 = self.Port + 2
+                    Port_DSP0 = self.Port + 4
+                    Port_SPK0 = self.Port + 5
+                    self.Receiver_Stream.prepare_receiver(self.Host, Port_CAM0, Port_MIC0)
+                    self.Sender_Stream.prepare_sender(self.Host, Port_DSP0, Port_SPK0)
                 else:
                     Console.print(retmsg)
                     self.gui_update_disconnect()
@@ -518,56 +527,41 @@ class MainWindow(Gtk.Window):
     def on_CheckButton_Speakers_toggled(self, widget):
         ConnectionData.speakers = widget.get_active()
 
-        Port_SPK0 = self.Port + 5
         ret = False
         if ConnectionData.speakers is True:
             Console.print(" Speaker requested rate:", AudioBitrate[ConnectionData.Abitrate])
-            ret = self.Sender_Stream.run_audio(ConnectionData.speakers, self.Host, Port_SPK0)
+            ret = self.Sender_Stream.run_audio(ConnectionData.speakers)
         else:
-            # Console.print(" Speaker muted")
             if self.Sender_Stream.sender_audio:
-                ret = self.Sender_Stream.run_audio(ConnectionData.speakers, self.Host, Port_SPK0)
+                ret = self.Sender_Stream.run_audio(ConnectionData.speakers)
 
         retmsg = 'Speakers: %s' % PrintOnOff[ret]
         self.Console.print(retmsg)
         self.StatusBar.push(self.context_id, retmsg)
-
-        if ConnectionData.speakers is False:
-            self.Sender_Stream.sender_audio = None
 
     def on_CheckButton_Mic_toggled(self, widget):
         ConnectionData.mic = widget.get_active()
 
         ret = False
         if ConnectionData.mic is True:
-            Port_MIC0 = self.Port + 2
             Console.print(" Mic requested rate:", AudioBitrate[ConnectionData.Abitrate])
-            ret = self.Receiver_Stream.run_audio(ConnectionData.mic, self.Host, Port_MIC0)
+            ret = self.Receiver_Stream.run_audio(ConnectionData.mic)
         else:
             if self.Receiver_Stream.player_audio:
-                ret = self.Receiver_Stream.run_audio(ConnectionData.mic, "0.0.0.0", 0)
+                ret = self.Receiver_Stream.run_audio(ConnectionData.mic)
         retmsg = 'Microphone: ' + PrintOnOff[ret]
         self.Console.print(retmsg)
         self.StatusBar.push(self.context_id, retmsg)
 
-        if ConnectionData.mic is False:
-            self.Receiver_Stream.player_audio = None
-
     def on_CheckButton_Display_toggled(self, widget):
         ConnectionData.display = widget.get_active()
-        # print("DEVICE_Control_Cam0: %s" % DEVICE_control.DEV_Cam0)
-        # if self.Window_AdvancedDisp.is_visible() is True or ConnectionData.connected is True:
-        # if self.ComboBoxText_Cam1.get_active_text():
 
         if ConnectionData.display is True:
             self.DrawingArea_Disp.show()
-            Port_DSP0 = self.Port + 4
-            self.Sender_Stream.run_video(ConnectionData.display, self.Host, Port_DSP0)
+            self.Sender_Stream.run_video(ConnectionData.display)
         else:
-            if self.Sender_Stream.sender_video:
-                self.Sender_Stream.run_video(ConnectionData.display, "0.0.0.0", 0)
+            self.Sender_Stream.run_video(ConnectionData.display)
             self.DrawingArea_Disp.hide()
-            self.Sender_Stream.sender_video = None
 
         self.Console.print('Display:', ConnectionData.display)
         retmsg = 'Display: ' + PrintOnOff[ConnectionData.display]
@@ -658,6 +652,11 @@ class MainWindow(Gtk.Window):
         FXvalue = int(widget.get_name())
         if FXvalue == 250:
             self.Label_dialog_yn.set_text("Do you really want\n\tto reboot RPI?")
+            resp = self.Dialog_YN.run()
+            if resp < 1:
+                return
+        elif FXvalue == 251:
+            self.Label_dialog_yn.set_text("Restart server?")
             resp = self.Dialog_YN.run()
             if resp < 1:
                 return

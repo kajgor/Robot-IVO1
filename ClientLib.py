@@ -28,15 +28,13 @@ class SenderStream:
     def __init__(self, Sender_SXID):
         self.Sender_SXID = Sender_SXID
 
-    def set_video_source(self):
+    def set_video_source(self, Proto):
         self.sender_video              = Gst.Pipeline.new("sender_video")
 
         if DEVICE_control.DEV_Cam0 == "videotestsrc":
             self.sender_video_source   = Gst.ElementFactory.make("videotestsrc", "video-source")
-            # print("setup v4l2src %s" % DEVICE_control.DEV_Cam0)
         else:
             self.sender_video_source   = Gst.ElementFactory.make("v4l2src", "video-source")
-            # print("setup %s" % DEVICE_control.DEV_Cam0)
 
         # glimagesink(default)/gtksink/cacasink/autovideosink/ximagesink(working)
         #   SET VIDEO (SENDER)
@@ -58,7 +56,7 @@ class SenderStream:
 
         if ConnectionData.Protocol == TCP:
             # ToDo:
-            self.gst_init_tcp_stream()
+            # self.gst_init_tcp_stream()
             pass
         else:
             self.sender_video_sink_udp.set_property("host", 'localhost')
@@ -79,7 +77,7 @@ class SenderStream:
 
         self.gst_init_udp_video_stream()
 
-    def set_audio_source(self):
+    def set_audio_source(self, Proto):
         self.sender_audio              = Gst.Pipeline.new("sender_audio")
         # SET AUDIO SENDER
         if DEVICE_control.DEV_AudioIn == "audiotestsrc":
@@ -94,10 +92,11 @@ class SenderStream:
         self.sender_audio_encoder = Gst.ElementFactory.make("speexenc", "encoder_audio")
         self.sender_audio_rtimer = Gst.ElementFactory.make("rtpspeexpay", "rtimer_audio")
 
-        if ConnectionData.Protocol == TCP:
-            self.sender_audio_sink = Gst.ElementFactory.make("tcpserversink", "remote_sink_audio")
-        else:
-            self.sender_audio_sink = Gst.ElementFactory.make("udpsink", "remote_sink_audio_udp")
+        # ToDo:
+        # if ConnectionData.Protocol == TCP:
+        #     self.sender_audio_sink = Gst.ElementFactory.make("tcpserversink", "remote_sink_audio")
+        # else:
+        self.sender_audio_sink = Gst.ElementFactory.make("udpsink", "remote_sink_audio_udp")
 
         self.sender_audio_sink.set_property("host", 'localhost')
         self.sender_audio_sink.set_property("port", 0)
@@ -183,45 +182,51 @@ class SenderStream:
         self.sender_audio_encoder.link(self.sender_audio_rtimer)
         self.sender_audio_rtimer.link(self.sender_audio_sink)
 
-    def run_video(self, flag, Host, Port_DSP0):
-        if flag is True:
-            self.set_video_source()
-            self.sender_video_sink_udp.set_property('port', Port_DSP0)
-            self.sender_video_sink_udp.set_property('host', Host)
+    def prepare_sender(self, Host, Port_DSP0, Port_SPK0):
+        self.sender_video_sink_udp.set_property('port', Port_DSP0)
+        self.sender_video_sink_udp.set_property('host', Host)
+        self.sender_video.set_state(Gst.State.NULL)
 
-        self.sender_video.set_state(Gst.State.READY)
-        time.sleep(0.1)
+        self.sender_audio_sink.set_property("port", Port_SPK0)
+        self.sender_audio_sink.set_property("host", Host)
+        self.sender_audio.set_state(Gst.State.NULL)
+
+    def run_video(self, flag):
+        # flag 0 - Stop and be ready for Play (restart mode)
+        # flag 1 - Play
+        retmsg = None
         if flag is True:
-            self.CliCamera_gtksync()
             retmsg = self.sender_video.set_state(Gst.State.PLAYING)
         else:
-            retmsg = self.sender_video.set_state(Gst.State.NULL)
+            if self.sender_video:
+                self.sender_video.set_state(Gst.State.NULL)
+                time.sleep(0.1)
+                retmsg = self.sender_video.set_state(Gst.State.READY)
 
         time.sleep(0.1)
         if retmsg == Gst.StateChangeReturn.FAILURE:
             Console.print("AUDIO CONNECTION ERROR: Unable to set the pipeline to the playing state.")
-            return not flag
+            return False
         else:
-            return flag
+            return True
 
-    def run_audio(self, flag, Host, Port_SPK0):
-        if flag is True:
-            self.set_audio_source()
-            self.sender_audio_sink.set_property("port", Port_SPK0)
-            self.sender_audio_sink.set_property("host", Host)
-
-        self.sender_audio.set_state(Gst.State.READY)
-        time.sleep(0.1)
+    def run_audio(self, flag):
+        # flag 0 - Stop and be ready for Play (restart mode)
+        # flag 1 - Play
+        retmsg = None
         if flag is True:
             retmsg = self.sender_audio.set_state(Gst.State.PLAYING)
         else:
-            retmsg = self.sender_audio.set_state(Gst.State.NULL)
+            if self.sender_audio:
+                self.sender_audio.set_state(Gst.State.NULL)
+                time.sleep(0.1)
+                retmsg = self.sender_audio.set_state(Gst.State.READY)
 
         time.sleep(0.1)
         if retmsg == Gst.StateChangeReturn.FAILURE:
-            return not flag
+            return False
         else:
-            return flag
+            return True
 
     def CliCamera_gtksync(self):
         bus = self.sender_video.get_bus()
@@ -271,7 +276,6 @@ class SenderStream:
 class ReceiverStream:
     player_video = None
     player_audio = None
-    # player_video_flip = None
 
     def __init__(self, Player_SXID):
         self.Player_SXID = Player_SXID
@@ -484,46 +488,60 @@ class ReceiverStream:
         self.player_audio_decoder.link(self.player_audio_sink)
         # --- Gstreamer setup end ---
 
-    def prepare_video(self, Host, Port):
+    def prepare_receiver(self, Host, Port_Video, Port_Audio):
         self.set_video_source()
-        self.player_video_source.set_property("port", Port)
+        self.player_video_source.set_property("port", Port_Video)
         # self.Receiver_Stream.player_video_source.set_property("host", Host)
         self.player_video.set_state(Gst.State.NULL)
         self.CliDisplay_gtksync()
 
+        self.set_audio_source()
+        self.player_audio_source.set_property("port", Port_Audio)
+        # self.Receiver_Stream.player_audio_source.set_property("host", Host)
+        self.player_audio.set_state(Gst.State.NULL)
+
     def run_video(self, flag):
-        if flag is True:
+        # flag 0 - Stop and be ready for Play (restart mode)
+        # flag 1 - Play
+        # flag 2 - Stop and release resources (exit mode)
+        if self.player_video is None:
+            return True
+
+        if flag is True:   # Play
             retmsg = self.player_video.set_state(Gst.State.PLAYING)
         else:
-            self.player_video.set_state(Gst.State.NULL)  # in order to blank the screen
-            time.sleep(0.1)
-            retmsg = self.player_video.set_state(Gst.State.READY)
+            retmsg = self.player_video.set_state(Gst.State.NULL)  # in order to blank the screen
+            if flag is False:  # Restart (get ready for Play)
+                time.sleep(0.1)
+                retmsg = self.player_video.set_state(Gst.State.READY)
 
         time.sleep(0.1)
         if retmsg == Gst.StateChangeReturn.FAILURE:
             Console.print("AUDIO CONNECTION ERROR: Unable to set the pipeline to the playing state.")
-            return not flag
+            return False
         else:
-            return flag
+            return True
 
-    def run_audio(self, flag, Host, Port_MIC0):
-        # Port_MIC0 = Port + 2
-        if flag is True:
-            self.set_audio_source()
-            self.player_audio_source.set_property("port", Port_MIC0)
+    def run_audio(self, flag):
+        # flag 0 - Stop and be ready for Play (restart mode)
+        # flag 1 - Play
+        # flag 2 - Stop and release resources (exit mode)
+        if self.player_audio is None:
+            return True
 
-        self.player_audio.set_state(Gst.State.READY)
-        time.sleep(0.1)
         if flag is True:
             retmsg = self.player_audio.set_state(Gst.State.PLAYING)
         else:
             retmsg = self.player_audio.set_state(Gst.State.NULL)
+            if flag is False:
+                time.sleep(0.1)
+                retmsg = self.player_audio.set_state(Gst.State.READY)
 
         time.sleep(0.1)
         if retmsg == Gst.StateChangeReturn.FAILURE:
-            return not flag
+            return False
         else:
-            return flag
+            return True
 
     def CliDisplay_gtksync(self):
         bus = self.player_video.get_bus()
@@ -697,19 +715,6 @@ class ConnectionThread:
         Port_DSP0 = Port + 4
         Port_SPK0 = Port + 5
 
-        # self.Receiver_Stream = ReceiverStream()
-        # self.Sender_Stream.sender_video.set_state(Gst.State.NULL)
-        # self.Sender_Stream.sender_audio.set_state(Gst.State.NULL)
-        # self.Sender_Stream = SenderStream()
-
-        # self.Receiver_Stream.player_video_source.set_property("port", Port_CAM0)
-        # self.Receiver_Stream.player_video_source.set_property("host", Host)
-        # self.Receiver_Stream.player_audio_source.set_property("port", Port_MIC0)
-        # self.Receiver_Stream.player_audio_source.set_property("host", Host)
-
-        # self.Receiver_Stream.player_video.set_state(Gst.State.READY)
-        # self.Receiver_Stream.player_audio.set_state(Gst.State.READY)
-
     def establish_connection(self, Host, Port, Receiver):
         Console.print("Establishing connection with \n %s on port"  % Host, Port)
 
@@ -823,9 +828,7 @@ class ConnectionThread:
 
         cam0_restart = False
         resolution_last = None
-        ConnectionData.resolution = 0
         ConnectionData.StreamMode = None
-        # warmup = 30
 
         while ConnectionData.connected is True:
             if CommunicationFFb is True:
@@ -833,20 +836,20 @@ class ConnectionThread:
                 self.calculate_MotorPower()     # Set control variables
                 self.mouseInput()               # Set mouse Variables
 
-            if ConnectionData.resolution != resolution_last and self.FxQueue.empty() is True:
-                resolution_last = ConnectionData.resolution
+            if resolution_last != [ConnectionData.resolution, ConnectionData.Framerate]:
+                if self.FxQueue.empty() is True and ConnectionData.StreamMode is not None:
+                    resolution_last = [ConnectionData.resolution, ConnectionData.Framerate]
 
-                self.FxMode  = 0  # Resolution Tag is 0
-                self.FxValue = ConnectionData.resolution
+                    self.FxMode  = 0  # Resolution Tag is 0
+                    self.FxValue = ConnectionData.resolution
 
-                if ConnectionData.resolution > 0:
-                    Console.print("Requesting mode", ConnectionData.resolution, end='...')
-                    cam0_restart = True
+                    if ConnectionData.resolution > 0:
+                        Console.print("Requesting mode", ConnectionData.resolution, end='...')
+                        cam0_restart = True
 
-                if Receiver.player_video:
-                    Console.print("Pausing Video Stream")
-                    Receiver.run_video(False)
-                    # Receiver.player_video = None
+                    if Receiver.player_video:
+                        Console.print("Pausing Video Stream")
+                        Receiver.run_video(False)
 
             if cam0_restart is True:
                 if ConnectionData.resolution == ConnectionData.StreamMode:
@@ -857,6 +860,8 @@ class ConnectionThread:
             if self.check_connection(None) is True:
                 self.send_and_receive()
 
+        Receiver.run_video(None)
+        Receiver.run_audio(None)
         self.close_connection()
 
         Console.print("Closing Thread.")
@@ -919,54 +924,6 @@ class ConnectionThread:
     ###############################################################################
     ################   CONN LOOP END   ############################################
     ###############################################################################
-
-    def connect_camstream(self, Connect):
-        if Connect is True:
-            time.sleep(0.1)
-            retmsg = self.Receiver_Stream.player_video.set_state(Gst.State.PLAYING)
-        else:
-            retmsg = self.Receiver_Stream.player_video.set_state(Gst.State.NULL)
-
-        if retmsg == Gst.StateChangeReturn.FAILURE:
-            return True
-        else:
-            return False
-
-    def conect_micstream(self, Connect):
-        if Connect is True:
-            retmsg = self.Receiver_Stream.player_audio.set_state(Gst.State.PLAYING)
-        else:
-            retmsg = self.Receiver_Stream.player_audio.set_state(Gst.State.READY)
-
-        if retmsg == Gst.StateChangeReturn.FAILURE:
-            retmsg = "AUDIO CONNECTION ERROR: Unable to set the pipeline to the playing state."
-            if Debug > 1 and retmsg:
-                Console.print(retmsg)
-            return not Connect
-        else:
-            return Connect
-
-    # def conect_speakerstream(self, Connect):
-    #     if Connect is True:
-    #         Console.print(" Speaker requested rate:", AudioBitrate[ConnectionData.Abitrate])
-    #         caps = Gst.Caps.from_string("audio/x-raw, rate=" + AudioBitrate[ConnectionData.Abitrate].__str__())
-    #         self.Sender_Stream.sender_audio_capsfilter.set_property("caps", caps)
-    #
-    #         retmsg = self.Sender_Stream.sender_audio.set_state(Gst.State.PLAYING)
-    #     else:
-    #         retmsg = self.Sender_Stream.sender_audio.set_state(Gst.State.READY)
-    #         Console.print(" Speaker muted")
-    #
-    #     if retmsg == Gst.StateChangeReturn.FAILURE:
-    #         retmsg = "AUDIO CONNECTION ERROR: Unable to set the pipeline to the playing state."
-    #         success = not Connect
-    #     else:
-    #         retmsg = ""
-    #         success = Connect
-    #
-    #     if Debug > 1 and retmsg:
-    #         Console.print(retmsg)
-    #     return success
 
     def transmit_message(self, out_str):
         sendstr = str(chr(0) + out_str + chr(10)).encode(Encoding)

@@ -295,6 +295,15 @@
                       </object>
                     </child>
                     <child>
+                      <object class="GtkMenuItem" id="Menu_CmdExe_RestartServer">
+                        <property name="name">251</property>
+                        <property name="visible">True</property>
+                        <property name="can_focus">False</property>
+                        <property name="label" translatable="yes">Restart Server</property>
+                        <signal name="activate" handler="on_Menu_CmdExe_Item_activate" swapped="no"/>
+                      </object>
+                    </child>
+                    <child>
                       <object class="GtkMenuItem" id="Menu_CmdExe_ResetUsb">
                         <property name="name">252</property>
                         <property name="visible">True</property>
@@ -1553,6 +1562,7 @@
                 <property name="visible">True</property>
                 <property name="can_focus">False</property>
                 <property name="tooltip_text" translatable="yes">Volts</property>
+                <property name="margin_left">3</property>
                 <property name="margin_top">10</property>
                 <property name="margin_bottom">10</property>
                 <property name="value">10</property>
@@ -1569,6 +1579,7 @@
               <object class="GtkLabel" id="label33">
                 <property name="visible">True</property>
                 <property name="can_focus">False</property>
+                <property name="margin_left">3</property>
                 <property name="label" translatable="yes">V</property>
               </object>
               <packing>
@@ -1583,6 +1594,7 @@
                 <property name="visible">True</property>
                 <property name="can_focus">False</property>
                 <property name="tooltip_text" translatable="yes">Ampers</property>
+                <property name="margin_left">5</property>
                 <property name="margin_top">10</property>
                 <property name="margin_bottom">10</property>
                 <property name="max_value">5</property>
@@ -1597,6 +1609,7 @@
               <object class="GtkLabel" id="label34">
                 <property name="visible">True</property>
                 <property name="can_focus">False</property>
+                <property name="margin_left">3</property>
                 <property name="label" translatable="yes">A</property>
               </object>
               <packing>
@@ -2110,7 +2123,6 @@ Check devices setup.</property>
                         <property name="visible">True</property>
                         <property name="can_focus">False</property>
                         <property name="hexpand">True</property>
-                        <signal name="changed" handler="on_ComboBoxText_Cam1_changed" swapped="no"/>
                       </object>
                       <packing>
                         <property name="left_attach">1</property>

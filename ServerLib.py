@@ -61,7 +61,7 @@ class ServerThread(threading.Thread):
             exe_cmd = 'lsof -F u -i :%i | head -1 | cut -c2-' % port
             pid, err = execute_cmd(exe_cmd)
             while pid != "":
-                Console.print('killing port blocker [%s] for ' % pid, port)
+                Console.print('killing port blocker %i for port %i' % (pid, port))
                 execute_cmd('kill -9 %s' % pid)
                 time.sleep(.25)
                 pid, err = execute_cmd(exe_cmd)
@@ -70,7 +70,7 @@ class ServerThread(threading.Thread):
 
     def listen_socket(self):
         self.srv.listen(5)
-        Console.print('Socket now listening on', HOST + "[%i]" % self.Port)
+        Console.print('Socket now listening on %s:%i' % (HOST , self.Port))
 
         self.conn = addr = None
         try:
@@ -82,7 +82,7 @@ class ServerThread(threading.Thread):
             Console.print("No connection interrupted.")
         else:
             client_IP = addr[0]
-            Console.print('Connected with', client_IP + ':%i' % addr[1])
+            Console.print('Connected with %s on %i' % (client_IP, addr[1]))
             # Sending message to connected client
             data = self.get_bytes_from_client(CLIMSGLEN)
             if len(data) == 9:
@@ -100,8 +100,8 @@ class ServerThread(threading.Thread):
                     ConnIP              += data[5].__str__() + "."
                     ConnIP              += data[6].__str__() + "."
                     ConnIP              += data[7].__str__()
-                    Console.print("Client:", client_IP + "[%s]" % PROTO_NAME[Protocol])
-                    Console.print("Video Codec is " + VideoCodec[Video_Codec])
+                    Console.print("Client: %s/%s" % (client_IP, PROTO_NAME[Protocol]))
+                    Console.print("Video Codec is %s " % VideoCodec[Video_Codec])
 
                     self.connection_loop(client_IP, Protocol, Video_Codec)
 
@@ -159,7 +159,7 @@ class ServerThread(threading.Thread):
                 elif Fxmode < 30:
                     if Fxmode < 4:
                         Fxvalue -= 100
-                    Console.print("_Entering FX mode %s, value" % FxModes[Fxmode - 1], Fxvalue)
+                    Console.print("_Entering FX mode %s, value %i" % (FxModes[Fxmode - 1], Fxvalue))
 # ToDo:
 #  call('v4l2-ctl -d %s -c ' % device + FxModes[Fxmode - 1] + '=' + Fxvalue.__str__(), shell=True)
                     arg = FxModes[Fxmode - 1] + '=' + Fxvalue.__str__()
@@ -610,12 +610,12 @@ class MediaStream:
     curr_speakers     = None
     curr_Framerate    = None
     curr_display      = None
+    last_pending      = Gst.State.READY
     sender_audio_mode = Gst.State.READY
-    sender_video_mode = Gst.State.NULL
+    sender_video_mode = Gst.State.READY
 
     def __init__(self, client_IP, Protocol, Video_Codec, Cam0, MicIn, SpkOut, Port_COMM):
 
-        ConnectionData.resolution   = 0  # init camera to standby mode
         self.delay_counter          = 10
 
         Port_CAM0 = Port_COMM + 1
@@ -633,6 +633,11 @@ class MediaStream:
         self.player_audio   = Gst.Pipeline.new("player_audio")
         self.sender_video   = Gst.Pipeline.new("sender_video")
         self.sender_audio   = Gst.Pipeline.new("sender_audio")
+
+        bus = self.sender_video.get_bus()
+        bus.add_signal_watch()
+        bus.enable_sync_message_emission()
+        bus.connect("message", self.on_sender_message)
 
         # Define elements:
         # pulsesrc device=2 ! audio/x-raw,rate=32000 ! audioresample ! speexenc ! audioresample ! speexenc !
@@ -872,37 +877,61 @@ class MediaStream:
         self.player_audio_depayloader.link(self.player_audio_decoder)
         self.player_audio_decoder.link(self.player_audio_sink)
 
-    def close_all(self):
-        if self.curr_resolution > 3:
-            Console.print("Switching to low resolution...")
-            caps = Gst.Caps.from_string("video/x-%s%s" % (VideoCodec[self.Video_Codec], capsstr[1]))
-            self.sender_video_capsfilter.set_property("caps", caps)
-            self.video_sender_queue.put(Gst.State.READY)
+    def on_sender_message(self, bus, message):
+        msgtype = message.type
+        if msgtype == Gst.MessageType.EOS:
+            if Debug > 1:
+                Console.print("EOS: SIGNAL LOST")
+            return False
 
-        Console.print("Stopping media streams...")
-        self.video_sender_queue.put(Gst.State.NULL)
-        self.audio_sender_queue.put(Gst.State.NULL)
+        elif msgtype == Gst.MessageType.STATE_CHANGED:
+            old_state, curr_state, pending_state = message.parse_state_changed()
+            # print("old_state/new_state/pending_state is %s/%s/%s" % (old_state, curr_state, pending_state))
+            if pending_state == Gst.State.VOID_PENDING:
+                next_queue_item = self.process_video_queue()
+                if next_queue_item is not None:
+                    self.sender_video_mode = next_queue_item
+                    self.sender_video.set_state(next_queue_item)
 
-        if self.player_audio:
-            self.player_audio.set_state(Gst.State.NULL)
-        if self.player_video:
-            self.player_video.set_state(Gst.State.NULL)
+            if curr_state == Gst.State.NULL == self.last_pending:
+                Console.print("reset.")
 
-        while not self.video_sender_queue.empty():
-            curr_state = self.sender_video.get_state(1)[1]
-            if curr_state:
-                if curr_state == self.sender_video_mode:
-                    self.sender_video_mode = self.video_sender_queue.get()
-                self.sender_video.set_state(self.sender_video_mode)
+            elif curr_state == Gst.State.PAUSED == self.last_pending:
+                Console.print("paused.")
 
-        while not self.audio_sender_queue.empty():
-            curr_state = self.sender_audio.get_state(1)[1]
-            if curr_state:
-                if curr_state == self.sender_audio_mode:
-                    self.sender_audio_mode = self.audio_sender_queue.get()
-                self.sender_audio.set_state(self.sender_audio_mode)
+            elif curr_state == Gst.State.READY:
+                if ConnectionData.resolution > 0:
+                    if self.last_pending == curr_state:
+                        ### SET RESOLUTION/FPS CAPS ###
+                        caps = "video/x-%s%s%i/1,stream-format=byte-stream,tune=zerolatency" % \
+                               (VideoCodec[self.Video_Codec], capsstr[ConnectionData.resolution],
+                                VideoFramerate[ConnectionData.Framerate])
+                        caps = Gst.Caps.from_string(caps)
+                        self.sender_video_capsfilter.set_property("caps", caps)
 
-        Console.print('media stopped.')
+                        Console.print("stopped.")
+
+            elif curr_state == Gst.State.PLAYING == self.last_pending:
+                ConnectionData.StreamMode = ConnectionData.resolution
+                Console.print("streaming [mode %i]." % ConnectionData.resolution)
+
+            self.last_pending = pending_state
+
+        elif msgtype == Gst.MessageType.BUFFERING:
+            # print('BUFFERING')
+            pass
+
+        elif msgtype == Gst.MessageType.ERROR:
+            err, debug = message.parse_error()
+            debug_s = debug.split("\n")
+            if Debug > 0:
+                Console.print("ERROR:", debug_s)
+            return False
+
+        else:
+            pass
+
+        return True
 
     def set_client_camstream(self, Connect):
         if Connect is True:
@@ -929,7 +958,7 @@ class MediaStream:
     def process_client_request(self):
         req_audio_mode  = [Gst.State.READY, Gst.State.PLAYING]
 
-        if AudioBitrate[ConnectionData.Abitrate] != self.curr_AudioBitrate:
+        if self.curr_AudioBitrate != AudioBitrate[ConnectionData.Abitrate]:
             self.curr_AudioBitrate = AudioBitrate[ConnectionData.Abitrate]
             Console.print(" Audio bitrate set to %i" % AudioBitrate[ConnectionData.Abitrate])
             caps = Gst.Caps.from_string("audio/x-raw, rate=%i" % AudioBitrate[ConnectionData.Abitrate])
@@ -945,6 +974,24 @@ class MediaStream:
             else:
                 Console.print(" Mic0 muted")
                 self.audio_sender_queue.put(Gst.State.READY)
+
+        self.process_audio_queue()
+
+        if self.curr_resolution != [ConnectionData.resolution, ConnectionData.Framerate]:
+            self.curr_resolution = [ConnectionData.resolution, ConnectionData.Framerate]
+            ConnectionData.StreamMode = 0
+            if ConnectionData.resolution > 0:
+                Console.print("Setting Gstreamer parameters")
+                # if self.Video_Codec > 0:
+                self.sender_video.set_state(Gst.State.READY)
+
+                self.sender_video_mode = Gst.State.PLAYING
+                self.video_sender_queue.put(self.sender_video_mode)
+            else:
+                self.sender_video_mode = Gst.State.NULL
+                self.sender_video.set_state(self.sender_video_mode)
+
+            self.video_sender_queue.put(None)  # finish the queue
 
         if self.curr_speakers is not ConnectionData.speakers:
             self.curr_speakers = ConnectionData.speakers
@@ -966,83 +1013,59 @@ class MediaStream:
                 else:
                     Console.print(" Display Off")
 
-        if self.curr_Framerate != ConnectionData.Framerate:
-            self.curr_Framerate = ConnectionData.Framerate
-            Console.print(" Setting fps to %s/s..." % VideoFramerate[ConnectionData.Framerate])
-            success = self.set_v4l2_framerate(VideoFramerate[ConnectionData.Framerate])
-            if success:
-                self.curr_resolution = None  # force cam reinitialization
-
-        if self.curr_resolution != ConnectionData.resolution:
-            if ConnectionData.resolution > 0:
-                Console.print("Changing Gstreamer resolution")
-                ### CHANGE RESOLUTION/FPS CAPS ###
-                caps = "video/x-%s%s%i/1" % (VideoCodec[self.Video_Codec], capsstr[ConnectionData.resolution],
-                       VideoFramerate[ConnectionData.Framerate])
-                caps = Gst.Caps.from_string(caps)
-                self.sender_video_capsfilter.set_property("caps", caps)
-
-                if self.Video_Codec > 0:
-                    if self.curr_resolution != 0:
-                        self.video_sender_queue.put(Gst.State.NULL)
-                    self.video_sender_queue.put(Gst.State.READY)
-
-                self.video_sender_queue.put(Gst.State.PLAYING)
-            else:
-                self.video_sender_queue.put(Gst.State.NULL)
-
-            self.curr_resolution = ConnectionData.resolution
-
-            self.video_sender_queue.put(None)  # finish the queue
-
+    def process_audio_queue(self):
         if not self.audio_sender_queue.empty():
             curr_state = self.sender_audio.get_state(1)[1]
             if curr_state == self.sender_audio_mode:
                 self.sender_audio_mode = self.audio_sender_queue.get()
             self.sender_audio.set_state(self.sender_audio_mode)
 
+    def process_video_queue(self):
         if not self.video_sender_queue.empty():
-            curr_state = self.sender_video.get_state(1)[1]
-            if curr_state == self.sender_video_mode:
-                if curr_state == Gst.State.NULL:
-                    Console.print("stopped.")
-                elif curr_state == Gst.State.PAUSED:
-                    Console.print("paused.")
-                elif curr_state == Gst.State.READY:
-                    Console.print("ready.")
-                elif curr_state == Gst.State.PLAYING:
-                    Console.print("streaming in mode %i." % ConnectionData.resolution)
-                    ConnectionData.StreamMode = ConnectionData.resolution
+            next_queue_item = self.video_sender_queue.get()
+        else:
+            return None
 
-                next_queue_item = self.video_sender_queue.get()
+        if next_queue_item == Gst.State.PAUSED:
+            Console.print("Pausing Gstreamer", end="...")
 
-                if next_queue_item != None:
-                    self.sender_video_mode = next_queue_item
-            else:
-                # Counter for delaying Gst mode switching
-                self.delay_counter -= 1
+        elif next_queue_item == Gst.State.NULL:
+            Console.print("Stopping", end="...")
 
-        if self.delay_counter == 0:
-            self.delay_counter = 10  # Default delay
-            if self.sender_video_mode == Gst.State.PAUSED:
-                Console.print("Pausing Gstreamer", end="...")
-                self.sender_video.set_state(self.sender_video_mode)
-            elif self.sender_video_mode == Gst.State.NULL:
-                Console.print("Stopping", end="...")
-                self.sender_video.set_state(self.sender_video_mode)
-            elif self.sender_video_mode == Gst.State.READY:
-                Console.print("Preparing Gstreamer", end="...")
-                self.sender_video.set_state(self.sender_video_mode)
-            elif self.sender_video_mode == Gst.State.PLAYING:
-                Console.print("Requested streaming in mode %i/%i..." % (ConnectionData.resolution,
-                              VideoFramerate[ConnectionData.Framerate]))
-                self.sender_video.set_state(self.sender_video_mode)
-                self.delay_counter = 25
-            else:
-                Console.print('ERROR: resolution %i/%i, mode %s' % (ConnectionData.resolution,
-                                                                    VideoFramerate[ConnectionData.Framerate],
-                                                                    self.sender_video_mode))
-                self.delay_counter = 15
+        elif next_queue_item == Gst.State.READY:
+            Console.print("Preparing Gstreamer", end="...")
+
+        elif next_queue_item == Gst.State.PLAYING:
+            # SET the v4l2 framerate
+            self.set_v4l2_framerate(VideoFramerate[ConnectionData.Framerate])
+            time.sleep(.1)
+
+            Console.print("Requested streaming in mode %i/%i..." % (ConnectionData.resolution,
+                          VideoFramerate[ConnectionData.Framerate]))
+        else:
+            Console.print('ERROR: resolution %i/%i, mode %s' % (ConnectionData.resolution,
+                                                                VideoFramerate[ConnectionData.Framerate],
+                                                                self.sender_video_mode))
+        return next_queue_item
+
+    def close_all(self):
+        ConnectionData.resolution = 0  # init camera to standby mode
+        ConnectionData.StreamMode = 0  # to close streams nicely
+        self.curr_resolution[0]   = 1  # Switching to low resolution
+
+        Console.print("Stopping media streams", end="... ")
+
+        if self.sender_video:
+            self.sender_video.set_state(Gst.State.NULL)
+        if self.sender_audio:
+            self.sender_audio.set_state(Gst.State.NULL)
+        if self.player_video:
+            self.player_video.set_state(Gst.State.NULL)
+        if self.player_audio:
+            self.player_audio.set_state(Gst.State.NULL)
+
+        time.sleep(0.25)
+        Console.print('media stopped.')
 
 
 class Console:
