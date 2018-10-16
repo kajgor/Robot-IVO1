@@ -1,9 +1,9 @@
-capsstr = [None]
-capsstr.append(", width=320, height=240, framerate=")
-capsstr.append(", width=640, height=480, framerate=")
-capsstr.append(", width=800, height=600, framerate=")
-capsstr.append(", width=1024, height=768, framerate=")
-capsstr.append(", width=1280, height=960, framerate=")
+capsstr_resolution = [None]
+capsstr_resolution.append("width=320, height=240")
+capsstr_resolution.append("width=640, height=480")
+capsstr_resolution.append("width=800, height=600")
+capsstr_resolution.append("width=1024, height=768")
+capsstr_resolution.append("width=1280, height=960")
 # capsstr.append(", width=1152, height=864, framerate=")
 FxModes  = ["brightness", "contrast", "saturation", "red_balance", "blue_balance", "power_line_frequency", "sharpness",
             "color_effects", "color_effects_cbcr", "video_bitrate_mode", "video_bitrate", "repeat_sequence_header",

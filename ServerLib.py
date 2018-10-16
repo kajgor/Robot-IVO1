@@ -608,15 +608,15 @@ class MediaStream:
     curr_AudioBitrate = None
     curr_mic0         = None
     curr_speakers     = None
-    curr_Framerate    = None
     curr_display      = None
     last_pending      = Gst.State.READY
     sender_audio_mode = Gst.State.READY
     sender_video_mode = Gst.State.READY
+    # curr_Framerate    = None
 
     def __init__(self, client_IP, Protocol, Video_Codec, Cam0, MicIn, SpkOut, Port_COMM):
 
-        self.delay_counter          = 10
+        self.delay_counter = 10
 
         Port_CAM0 = Port_COMM + 1
         Port_MIC0 = Port_COMM + 2
@@ -897,18 +897,18 @@ class MediaStream:
                 Console.print("reset.")
 
             elif curr_state == Gst.State.PAUSED == self.last_pending:
+                # SET the v4l2 framerate
+                # self.set_v4l2_framerate(VideoFramerate[ConnectionData.Framerate])
                 Console.print("paused.")
 
             elif curr_state == Gst.State.READY:
                 if ConnectionData.resolution > 0:
                     if self.last_pending == curr_state:
                         ### SET RESOLUTION/FPS CAPS ###
-                        caps = "video/x-%s%s%i/1,stream-format=byte-stream,tune=zerolatency" % \
-                               (VideoCodec[self.Video_Codec], capsstr[ConnectionData.resolution],
+                        caps = "video/x-%s, %s, framerate=%i/1, stream-format=byte-stream, tune=zerolatency" % \
+                               (VideoCodec[self.Video_Codec], capsstr_resolution[ConnectionData.resolution],
                                 VideoFramerate[ConnectionData.Framerate])
-                        caps = Gst.Caps.from_string(caps)
-                        self.sender_video_capsfilter.set_property("caps", caps)
-
+                        self.sender_video_capsfilter.set_property("caps", Gst.Caps.from_string(caps))
                         Console.print("stopped.")
 
             elif curr_state == Gst.State.PLAYING == self.last_pending:
@@ -918,7 +918,6 @@ class MediaStream:
             self.last_pending = pending_state
 
         elif msgtype == Gst.MessageType.BUFFERING:
-            # print('BUFFERING')
             pass
 
         elif msgtype == Gst.MessageType.ERROR:
@@ -961,8 +960,8 @@ class MediaStream:
         if self.curr_AudioBitrate != AudioBitrate[ConnectionData.Abitrate]:
             self.curr_AudioBitrate = AudioBitrate[ConnectionData.Abitrate]
             Console.print(" Audio bitrate set to %i" % AudioBitrate[ConnectionData.Abitrate])
-            caps = Gst.Caps.from_string("audio/x-raw, rate=%i" % AudioBitrate[ConnectionData.Abitrate])
-            self.sender_audio_capsfilter.set_property("caps", caps)
+            caps = "audio/x-raw, rate=%i" % AudioBitrate[ConnectionData.Abitrate]
+            self.sender_audio_capsfilter.set_property("caps", Gst.Caps.from_string(caps))
             self.audio_sender_queue.put(Gst.State.READY)
             self.curr_mic0 = None
 
@@ -982,9 +981,7 @@ class MediaStream:
             ConnectionData.StreamMode = 0
             if ConnectionData.resolution > 0:
                 Console.print("Setting Gstreamer parameters")
-                # if self.Video_Codec > 0:
                 self.sender_video.set_state(Gst.State.READY)
-
                 self.sender_video_mode = Gst.State.PLAYING
                 self.video_sender_queue.put(self.sender_video_mode)
             else:
@@ -1036,10 +1033,6 @@ class MediaStream:
             Console.print("Preparing Gstreamer", end="...")
 
         elif next_queue_item == Gst.State.PLAYING:
-            # SET the v4l2 framerate
-            self.set_v4l2_framerate(VideoFramerate[ConnectionData.Framerate])
-            time.sleep(.1)
-
             Console.print("Requested streaming in mode %i/%i..." % (ConnectionData.resolution,
                           VideoFramerate[ConnectionData.Framerate]))
         else:

@@ -62,8 +62,8 @@ class SenderStream:
             self.sender_video_sink_udp.set_property("host", 'localhost')
             self.sender_video_sink_udp.set_property("port", 0)
             self.sender_video_sink_udp.set_property("sync", False)
-            caps = Gst.Caps.from_string("video/x-raw, width=320, height=240, frametrate=15/1")
-            self.sender_video_caps_udp.set_property("caps", caps)
+            caps = "video/x-raw, width=320, height=240, frametrate=15/1"
+            self.sender_video_caps_udp.set_property("caps", Gst.Caps.from_string(caps))
 
         self.sender_video_encoder.set_property("tune", "zerolatency")
         self.sender_video_encoder.set_property("pass", "qual")
@@ -71,8 +71,8 @@ class SenderStream:
         self.sender_video_encoder.set_property("byte-stream", True)
         self.sender_video_encoder.set_property("b-pyramid", True)
 
-        caps = Gst.Caps.from_string("video/x-raw, width=320, height=240, frametrate=15/1")
-        self.sender_video_caps_xv.set_property("caps", caps)
+        caps = "video/x-raw, width=320, height=240, frametrate=15/1"
+        self.sender_video_caps_xv.set_property("caps", Gst.Caps.from_string(caps))
         self.sender_video_sink_xv.set_property("sync", False)
 
         self.gst_init_udp_video_stream()
@@ -102,8 +102,8 @@ class SenderStream:
         self.sender_audio_sink.set_property("port", 0)
         self.sender_audio_sink.set_property("sync", False)
 
-        caps = Gst.Caps.from_string("audio/x-raw, rate=" + AudioBitrate[ConnectionData.Abitrate].__str__())
-        self.sender_audio_capsfilter.set_property("caps", caps)
+        caps = "audio/x-raw, rate=%i" % AudioBitrate[ConnectionData.Abitrate]
+        self.sender_audio_capsfilter.set_property("caps", Gst.Caps.from_string(caps))
 
         self.gst_init_udp_audio_stream()
 
@@ -199,13 +199,13 @@ class SenderStream:
             retmsg = self.sender_video.set_state(Gst.State.PLAYING)
         else:
             if self.sender_video:
-                self.sender_video.set_state(Gst.State.NULL)
-                time.sleep(0.1)
+                # self.sender_video.set_state(Gst.State.NULL)
+                # time.sleep(0.1)
                 retmsg = self.sender_video.set_state(Gst.State.READY)
 
         time.sleep(0.1)
         if retmsg == Gst.StateChangeReturn.FAILURE:
-            Console.print("AUDIO CONNECTION ERROR: Unable to set the pipeline to the playing state.")
+            Console.print("AUDIO CONNECTION ERROR: Unable to set the pipeline to the required state.")
             return False
         else:
             return True
@@ -218,8 +218,8 @@ class SenderStream:
             retmsg = self.sender_audio.set_state(Gst.State.PLAYING)
         else:
             if self.sender_audio:
-                self.sender_audio.set_state(Gst.State.NULL)
-                time.sleep(0.1)
+                # self.sender_audio.set_state(Gst.State.NULL)
+                # time.sleep(0.1)
                 retmsg = self.sender_audio.set_state(Gst.State.READY)
 
         time.sleep(0.1)
@@ -257,6 +257,12 @@ class SenderStream:
             if Debug > 0:
                 Console.print ("ERROR:", debug_s)
             return debug_s[debug_s.__len__() - 1]
+        elif msgtype == Gst.MessageType.CLOCK_LOST:
+            # pause
+            # play
+            pass
+        elif msgtype == Gst.MessageType.PROGRESS:
+            pass
         elif msgtype == Gst.MessageType.STATE_CHANGED:
             # print('STATE_CHANGED')
             pass
@@ -304,8 +310,8 @@ class ReceiverStream:
         #         self.fpsadjcaps_video.set_property("caps", caps)
         #         self.fpsadj_video.set_property("max-rate", 30)
 
-        caps = Gst.Caps.from_string("application/x-rtp, encoding-name=H264, payload=96")
-        self.player_video_capsfilter.set_property("caps", caps)
+        caps = "application/x-rtp, encoding-name=H264, payload=96"
+        self.player_video_capsfilter.set_property("caps", Gst.Caps.from_string(caps))
 
         if ConnectionData.TestMode is False:
             self.gst_init_testvideo_udp()
@@ -337,8 +343,8 @@ class ReceiverStream:
         else:
             self.player_audio_source  = Gst.ElementFactory.make("udpsrc", "remote_source_audio_udp")
 
-        caps = Gst.Caps.from_string("application/x-rtp, media=audio, clock-rate=32000, encoding-name=SPEEX, payload=96")
-        self.player_audio_capsfilter.set_property("caps", caps)
+        caps = "application/x-rtp, media=audio, clock-rate=32000, encoding-name=SPEEX, payload=96"
+        self.player_audio_capsfilter.set_property("caps", Gst.Caps.from_string(caps))
         self.player_audio_sink.set_property("sync", True)
         # self.player_video_sink.set_property("sync", False)
         # self.player_video_sink.set_property("set_clock", "100")
@@ -491,13 +497,15 @@ class ReceiverStream:
     def prepare_receiver(self, Host, Port_Video, Port_Audio):
         self.set_video_source()
         self.player_video_source.set_property("port", Port_Video)
-        # self.Receiver_Stream.player_video_source.set_property("host", Host)
+        if Host:
+            self.player_video_source.set_property("host", Host)
         self.player_video.set_state(Gst.State.NULL)
         self.CliDisplay_gtksync()
 
         self.set_audio_source()
         self.player_audio_source.set_property("port", Port_Audio)
-        # self.Receiver_Stream.player_audio_source.set_property("host", Host)
+        if Host:
+            self.player_audio_source.set_property("host", Host)
         self.player_audio.set_state(Gst.State.NULL)
 
     def run_video(self, flag):
@@ -532,10 +540,10 @@ class ReceiverStream:
         if flag is True:
             retmsg = self.player_audio.set_state(Gst.State.PLAYING)
         else:
-            retmsg = self.player_audio.set_state(Gst.State.NULL)
             if flag is False:
-                time.sleep(0.1)
                 retmsg = self.player_audio.set_state(Gst.State.READY)
+            else:
+                retmsg = self.player_audio.set_state(Gst.State.NULL)
 
         time.sleep(0.1)
         if retmsg == Gst.StateChangeReturn.FAILURE:

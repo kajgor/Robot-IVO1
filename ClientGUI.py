@@ -386,7 +386,7 @@ class MainWindow(Gtk.Window):
                     Port_MIC0 = self.Port + 2
                     Port_DSP0 = self.Port + 4
                     Port_SPK0 = self.Port + 5
-                    self.Receiver_Stream.prepare_receiver(self.Host, Port_CAM0, Port_MIC0)
+                    self.Receiver_Stream.prepare_receiver(None, Port_CAM0, Port_MIC0)
                     self.Sender_Stream.prepare_sender(self.Host, Port_DSP0, Port_SPK0)
                 else:
                     Console.print(retmsg)
@@ -411,6 +411,7 @@ class MainWindow(Gtk.Window):
                 if qFXmode == FXmode:
                     self.Connection_Thread.FxQueue.put((qFXmode, FXvalue))
                     item_found = True
+                    break
                 else:
                     self.Connection_Thread.FxQueue.put((qFXmode, qFXvalue))
 
@@ -730,7 +731,7 @@ class MainWindow(Gtk.Window):
 
     def on_TreeSelection_Hosts_changed(self, selection):
         # get the model and the iterator that points at the data in the model
-        (model, iter) = selection.get_selected()
+        model, iter = selection.get_selected()
         # set the label to a new value depending on the selection
         # self.label.set_text("\n %s %s" %
         #                     (model[iter][0],  model[iter][1]))
@@ -963,6 +964,7 @@ class ConfigStorage:
 
             value = self.get_object_value(obj)
             if value is not None:
+                active_text = None
                 if name == "ComboBoxText_Cam1":
                     active_text = DEVICE_control.DEV_Cam0
                 elif name == "ComboBoxText_AudioIn":
@@ -976,8 +978,6 @@ class ConfigStorage:
                     value = False
                 elif name == "CheckButton_Show":
                     value = False
-                else:
-                    active_text = None
 
                 # if active_text:
                 #     print('SAVE NAME/TEXT %s' % name + " >> " + active_text)
