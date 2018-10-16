@@ -8,7 +8,7 @@ gi.require_version('Gdk', '3.0')
 from gi.repository import Gtk, Gdk, GLib
 from sys import argv
 
-from ClientLib import ConnectionThread, Console, DisplayStream
+from ClientLib import ConnectionThread, Console, SenderStream, ReceiverStream
 from Client_vars import Files, DEVICE_control, KEY_control, CommunicationFFb
 from Common_vars import VideoFramerate, AudioBitrate, AudioCodec, VideoCodec, PrintOnOff, execute_cmd,\
     TIMEOUT_GUI, PROTO_NAME, LEFT, RIGHT, X_AXIS, Y_AXIS, MOUSE_MIN, MOUSE_MAX, ConnectionData, COMM_IDLE,\
@@ -18,6 +18,9 @@ from v4l2Gtk import v4l2Gtk
 # noinspection PyAttributeOutsideInit
 class MainWindow(Gtk.Window):
     Console = Console()
+    Sender_Stream = None
+    Host = "0.0.0.0"
+    Port = 0
 
     def __init__(self):
         super(MainWindow, self).__init__()
@@ -42,12 +45,14 @@ class MainWindow(Gtk.Window):
         self.builder.connect_signals(self)
 
         self.Window_Console.show()
-        P_SXID = self.DrawingArea_Cam.get_property('window')
-        S_SXID = self.DrawingArea_Disp.get_property('window')
+        self.P_SXID = self.DrawingArea_Cam.get_property('window')
+        self.S_SXID = self.DrawingArea_Disp.get_property('window')
 
-        print("SXID0: %s" % P_SXID)
-        print("SXID1: %s" % S_SXID)
-        self.Connection_Thread = ConnectionThread(P_SXID, S_SXID)
+        # print("SXID0: %s" % P_SXID)
+        # print("SXID1: %s" % S_SXID)
+        self.Sender_Stream     = SenderStream(self.S_SXID)
+        self.Receiver_Stream   = ReceiverStream(self.P_SXID)
+        self.Connection_Thread = ConnectionThread()
 
         Console.print('Console 3.0 initialized.\n')
 
@@ -74,6 +79,11 @@ class MainWindow(Gtk.Window):
             self.SyncItemCount = 0
             self.Console.print('Resetting to default configuration.')
             self.StatusBar.push(self.context_id, 'Resetting to default configuration.')
+
+        Proto = self.ComboBoxText_Proto.get_active()
+        self.Sender_Stream.set_video_source(Proto)
+        self.Sender_Stream.set_audio_source(Proto)
+        self.Sender_Stream.CliCamera_gtksync()
 
         self.load_devices()
 
@@ -157,20 +167,36 @@ class MainWindow(Gtk.Window):
         self.StatusBar1.push(self.context_id1, SStatBar)
 
     def load_devices(self):
-        fail  = self.set_device(CAM_1_CMD, self.ComboBoxText_Cam1, DEVICE_control.DEV_Cam0)
-        fail += self.set_device(DEV_INP_CMD, self.ComboBoxText_AudioIn, DEVICE_control.DEV_AudioIn)
-        fail += self.set_device(DEV_OUT_CMD, self.ComboBoxText_AudioOut, DEVICE_control.DEV_AudioOut)
+        fail = 0
+        detected_devices, err = execute_cmd(CAM_1_CMD)
+        detected_devices += "\nvideotestsrc"
+        err  = self.set_device(detected_devices, self.ComboBoxText_Cam1, DEVICE_control.DEV_Cam0)
+        if err:
+            self.CheckButton_Show.set_active(False)
+            self.CheckButton_Show.sensitive(False)
+            fail += 1
+
+        detected_devices, err = execute_cmd(DEV_INP_CMD)
+        detected_devices += "\naudiotestsrc"
+        err  = self.set_device(detected_devices, self.ComboBoxText_AudioIn, DEVICE_control.DEV_AudioIn)
+        if err:
+            self.CheckButton_Speakers.set_active(False)
+            self.CheckButton_Speakers.sensitive(False)
+            fail += 1
+
+        detected_devices, err = execute_cmd(DEV_OUT_CMD)
+        # detected_devices += "\nnull"
+        fail += self.set_device(detected_devices, self.ComboBoxText_AudioOut, DEVICE_control.DEV_AudioOut)
 
         if fail > 0:
             self.MessageDialog_Warning.show()
 
-    def set_device(self, CMD, widget, DevToMatch):
+    def set_device(self, detected_devices, widget, DevToMatch):
         active_item = 0
         if DevToMatch is None:
-            Console.print("Warning: %s device not setup yet!" % Gtk.Buildable.get_name(widget).split('_')[1])
+            Console.print("Warning: %s device set automatically as default." % Gtk.Buildable.get_name(widget).split('_')[1])
 
         LsDev = Gtk.ListStore(str, int)
-        detected_devices, err = execute_cmd(CMD)
         if detected_devices > "":
             for idx, DevName in enumerate(detected_devices.splitlines()):
                 if DevName.find(":") == -1:
@@ -289,13 +315,23 @@ class MainWindow(Gtk.Window):
     def on_DrawingArea_Cam_draw(self, widget, message):
         self.Connection_Thread.draw_hud(message)
 
-    def on_ComboBox_Host_changed(self, widget):
+    def get_host_and_port(self):
+        widget = self.ComboBox_Host
         try:
-            self.Host = str(widget.get_model()[widget.get_active()][0])
-            self.Port = int(float(widget.get_model()[widget.get_active()][1]))
+            Host = str(widget.get_model()[widget.get_active()][0])
+            Port = int(float(widget.get_model()[widget.get_active()][1]))
         except IndexError:
-            return
-        # self.SpinButton_Port.set_value(self.Port)
+            return None
+
+        return Host, Port
+
+    def on_ComboBox_Host_changed(self, widget):
+        pass
+        # try:
+        #     self.Host = str(widget.get_model()[widget.get_active()][0])
+        #     self.Port = int(float(widget.get_model()[widget.get_active()][1]))
+        # except IndexError:
+        #     return
 
     def on_SpinButton_Port_value_changed(self, widget):
         # self.Port = widget.get_value_as_int()
@@ -314,8 +350,11 @@ class MainWindow(Gtk.Window):
         self.on_key_press_handler = None
         if widget.get_active() is True:
             widget.set_label(Gtk.STOCK_DISCONNECT)
+
             self.gui_update_connect()
             self.gui_connect_loop()
+
+            self.Host, self.Port = self.get_host_and_port()
 
             # retmsg = 'SSH Connection Error!'
             # if self.CheckButton_SshTunnel.get_active() is True:
@@ -337,27 +376,29 @@ class MainWindow(Gtk.Window):
 
             if success is True:
                 self.Spinner_Connected.start()
-                success, retmsg = self.Connection_Thread.establish_connection(self.Host, self.Port)
+                success, retmsg = self.Connection_Thread.establish_connection(self.Host, self.Port,
+                                                                              self.Receiver_Stream)
                 # if success is True:
                 #     self.Connection_Thread.update_server_list(self.ComboBox_Host, self.SpinButton_Port.get_value())
 
-                if success is not True:
+                if success is True:
+                    Port_CAM0 = self.Port + 1
+                    Port_MIC0 = self.Port + 2
+                    Port_DSP0 = self.Port + 4
+                    Port_SPK0 = self.Port + 5
+                    self.Receiver_Stream.prepare_receiver(None, Port_CAM0, Port_MIC0)
+                    self.Sender_Stream.prepare_sender(self.Host, Port_DSP0, Port_SPK0)
+                else:
                     Console.print(retmsg)
                     self.gui_update_disconnect()
-
                     self.StatusBar.push(self.context_id, retmsg)
         else:
+            self.Host = "0.0.0.0"
+            self.Port = 0
             ConnectionData.connected = False
             widget.set_label(Gtk.STOCK_CONNECT)
             self.StatusBar.push(self.context_id, 'Disconnected.')
             self.gui_update_disconnect()
-
-    def on_CheckButton_Cam_toggled(self, widget):
-        self.camera_on = widget.get_active()
-        ConnectionData.resolution = self.resolution * self.camera_on
-        retmsg = 'Camera: %s' % PrintOnOff[self.camera_on]
-        Console.print(retmsg)
-        self.StatusBar.push(self.context_id, retmsg)
 
     def store_FX_request(self, FXmode, FXvalue):
         items = self.Connection_Thread.FxQueue.qsize()
@@ -370,6 +411,7 @@ class MainWindow(Gtk.Window):
                 if qFXmode == FXmode:
                     self.Connection_Thread.FxQueue.put((qFXmode, FXvalue))
                     item_found = True
+                    break
                 else:
                     self.Connection_Thread.FxQueue.put((qFXmode, qFXvalue))
 
@@ -469,43 +511,74 @@ class MainWindow(Gtk.Window):
 
     def on_ComboBoxText_Rotate_changed(self, widget):
         DEVICE_control.Cam0_Flip = widget.get_active()
+        if self.Receiver_Stream.player_video:
+            self.Receiver_Stream.player_video_flip.set_property("method", DEVICE_control.Cam0_Flip)  # => "rotate"
 
     def on_ComboBoxText_Abitrate_changed(self, widget):
         ConnectionData.Abitrate = widget.get_active()
+        if self.CheckButton_Speakers.get_active() is True:  # restart stream
+            self.CheckButton_Speakers.set_active(False)
+            self.CheckButton_Speakers.set_active(True)
         self.Console.print('Audio Bitrate:', AudioBitrate[ConnectionData.Abitrate])
         self.SSBar_update()
 
+    def on_ComboBoxText_Cam1_changed(self, widget):
+        DEVICE_control.DEV_Cam0 = widget.get_active_text()
+
     def on_CheckButton_Speakers_toggled(self, widget):
         ConnectionData.speakers = widget.get_active()
-        self.Console.print('Speakers:', ConnectionData.speakers)
-        retmsg = 'Speakers: ' + PrintOnOff[ConnectionData.speakers]
+
+        ret = False
+        if ConnectionData.speakers is True:
+            Console.print(" Speaker requested rate:", AudioBitrate[ConnectionData.Abitrate])
+            ret = self.Sender_Stream.run_audio(ConnectionData.speakers)
+        else:
+            if self.Sender_Stream.sender_audio:
+                ret = self.Sender_Stream.run_audio(ConnectionData.speakers)
+
+        retmsg = 'Speakers: %s' % PrintOnOff[ret]
+        self.Console.print(retmsg)
+        self.StatusBar.push(self.context_id, retmsg)
+
+    def on_CheckButton_Mic_toggled(self, widget):
+        ConnectionData.mic = widget.get_active()
+
+        ret = False
+        if ConnectionData.mic is True:
+            Console.print(" Mic requested rate:", AudioBitrate[ConnectionData.Abitrate])
+            ret = self.Receiver_Stream.run_audio(ConnectionData.mic)
+        else:
+            if self.Receiver_Stream.player_audio:
+                ret = self.Receiver_Stream.run_audio(ConnectionData.mic)
+        retmsg = 'Microphone: ' + PrintOnOff[ret]
+        self.Console.print(retmsg)
         self.StatusBar.push(self.context_id, retmsg)
 
     def on_CheckButton_Display_toggled(self, widget):
         ConnectionData.display = widget.get_active()
 
-        # if self.Window_AdvancedDisp.is_visible() is True or ConnectionData.connected is True:
-        self.Connection_Thread.start_display_stream(ConnectionData.display)
-
         if ConnectionData.display is True:
             self.DrawingArea_Disp.show()
+            self.Sender_Stream.run_video(ConnectionData.display)
         else:
+            self.Sender_Stream.run_video(ConnectionData.display)
             self.DrawingArea_Disp.hide()
 
         self.Console.print('Display:', ConnectionData.display)
         retmsg = 'Display: ' + PrintOnOff[ConnectionData.display]
         self.StatusBar.push(self.context_id, retmsg)
 
+    def on_CheckButton_Cam_toggled(self, widget):
+        self.camera_on = widget.get_active()
+        ConnectionData.resolution = self.resolution * self.camera_on
+        retmsg = 'Camera: %s' % PrintOnOff[self.camera_on]
+        self.Console.print(retmsg)
+        self.StatusBar.push(self.context_id, retmsg)
+
     def on_CheckButton_Lights_toggled(self, widget):
         ConnectionData.light = widget.get_active()
         self.Console.print('Lights:', ConnectionData.light)
         retmsg = 'Lights: ' + PrintOnOff[ConnectionData.light]
-        self.StatusBar.push(self.context_id, retmsg)
-
-    def on_CheckButton_Mic_toggled(self, widget):
-        ConnectionData.mic = widget.get_active()
-        self.Console.print('Microphone:', ConnectionData.mic)
-        retmsg = 'Microphone: ' + PrintOnOff[ConnectionData.mic]
         self.StatusBar.push(self.context_id, retmsg)
 
     def on_CheckButton_Laser_toggled(self, widget):
@@ -583,6 +656,11 @@ class MainWindow(Gtk.Window):
             resp = self.Dialog_YN.run()
             if resp < 1:
                 return
+        elif FXvalue == 251:
+            self.Label_dialog_yn.set_text("Restart server?")
+            resp = self.Dialog_YN.run()
+            if resp < 1:
+                return
         elif FXvalue == 0:
             self.Label_dialog_yn.set_text("Do you really want\n\tto shutdown the server?")
             resp = self.Dialog_YN.run()
@@ -653,7 +731,7 @@ class MainWindow(Gtk.Window):
 
     def on_TreeSelection_Hosts_changed(self, selection):
         # get the model and the iterator that points at the data in the model
-        (model, iter) = selection.get_selected()
+        model, iter = selection.get_selected()
         # set the label to a new value depending on the selection
         # self.label.set_text("\n %s %s" %
         #                     (model[iter][0],  model[iter][1]))
@@ -857,6 +935,8 @@ class ConfigStorage:
                                 ItemCount += int(self.set_object_value(obj, value))
                             else:
                                 ItemCount += 1
+                                # print('LOAD NAME/TEXT %s' % name)
+                                # print('LOAD TEXT %s' % text)
                                 if name == "ComboBoxText_Cam1":
                                     DEVICE_control.DEV_Cam0 = text
                                 elif name == "ComboBoxText_AudioIn":
@@ -884,6 +964,7 @@ class ConfigStorage:
 
             value = self.get_object_value(obj)
             if value is not None:
+                active_text = None
                 if name == "ComboBoxText_Cam1":
                     active_text = DEVICE_control.DEV_Cam0
                 elif name == "ComboBoxText_AudioIn":
@@ -893,9 +974,13 @@ class ConfigStorage:
                 elif name == "Entry_SkinFile":
                     SkinFile = value
                     continue
-                else:
-                    active_text = None
+                elif name == "CheckButton_Speakers":
+                    value = False
+                elif name == "CheckButton_Show":
+                    value = False
 
+                # if active_text:
+                #     print('SAVE NAME/TEXT %s' % name + " >> " + active_text)
                 SetupVar.append((active_text, name, value))
 
         with open(Files.ini_file, 'wb') as iniFile:

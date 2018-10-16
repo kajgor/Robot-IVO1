@@ -117,6 +117,7 @@ class ConnectionData:
     Acodec      = 0
     Abitrate    = 0
     Protocol    = 0
+    StreamMode  = 0
 
 
 import binascii

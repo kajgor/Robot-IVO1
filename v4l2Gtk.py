@@ -38,46 +38,42 @@ def v4lparse(device, *args):
         tmp_line = None
         out_list = []
         if device:
-            # sss = get_command_output('v4l2-ctl -L')
             v4l2_prop_txt = get_command_output('v4l2-ctl -L -d %s' % device)
-            # v4l2_prop_txt, err = execute_cmd('cat ./v4l2-ctl-server.txt')
         else:
             v4l2_prop_txt = get_command_output('v4l2-ctl -L')
 
-        prop_list = v4l2_prop_txt.split('\n')
-        prop_list.append(": .\n")  # Spool out last line of the list with that string
-        if ":" in prop_list[0]:
-            prop_list.insert(0, "Defaults")
+        if v4l2_prop_txt:
+            prop_list = v4l2_prop_txt.split('\n')
+            prop_list.append(": .\n")  # Spool out last line of the list with that string
+            if ":" in prop_list[0]:
+                prop_list.insert(0, "Defaults")
 
-        for i_line in prop_list:
-            if not i_line:
-                continue
-            i_line = i_line.strip()
-            if ":" in i_line:
-                if i_line.split()[0][-1] == ":":
-                    tmp_line.append(i_line.split(": "))
+            for i_line in prop_list:
+                if not i_line:
+                    continue
+                i_line = i_line.strip()
+                if ":" in i_line:
+                    if i_line.split()[0][-1] == ":":
+                        tmp_line.append(i_line.split(": "))
+                    else:
+                        if tmp_line is not None:
+                            out_list.append(tmp_line)
+
+                        tmp_line = i_line.split()
+
+                        if tmp_line[1][-2:] == '):':  # In order to process '(intmenu):' string
+                            tmp_line[1] = tmp_line[1][0:-1]
+                            tmp_line.insert(2, ":")
                 else:
-                    if tmp_line is not None:
-                        out_list.append(tmp_line)
-
-                    tmp_line = i_line.split()
-
-                    if tmp_line[1][-2:] == '):':  # In order to process '(intmenu):' string
-                        tmp_line[1] = tmp_line[1][0:-1]
-                        tmp_line.insert(2, ":")
-            else:
-                out_list.append(i_line)
+                    out_list.append(i_line)
+        else:
+            out_list = v4l2_prop_txt
 
         return out_list
 
 
 class v4l2Gtk():
     def v4l2Gtk(self):
-        # def __init__(self):
-    #     Gtk.Window.__init__(self, title='v4l2 Setup')
-
-        # self.grid.set_halign(Gtk.Align.FILL)
-
         x_pos = 0
         x_add_tab = 1
         x_list = v4lparse('/dev/video0')
@@ -86,7 +82,7 @@ class v4l2Gtk():
 
         for x, x_line in enumerate(x_list):
             if type(x_line) is list:
-                if x_pos >= 19:
+                if x_pos >= 15:
                     x_pos = 0
                     x_add_tab += 1
                     grid = self.create_grid()
@@ -127,18 +123,15 @@ class v4l2Gtk():
                     x_pos += 1
 
                 elif x_type == '(bool)':
-                    print('bool')
                     x_default   = int(x_line[3 + x_shift].split("=")[1])
                     x_value     = int(x_line[4 + x_shift].split("=")[1])
 
                     widget = self.create_check_button(x_name, x_code, x_value)
-                    # setattr(self, str(x_code) + '_widget', widget)
                     grid.attach(widget, 1, x_pos, 1, 1)
                     x_pos += 1
                     pass
 
                 elif x_type[-5:] == 'menu)':
-                    print(x_line)
                     # x_min       = int(x_line[3 + x_shift].split("=")[1])
                     # x_max       = int(x_line[4 + x_shift].split("=")[1])
                     x_default   = int(x_line[5 + x_shift].split("=")[1])
@@ -163,9 +156,6 @@ class v4l2Gtk():
                 grid = self.create_grid()
                 tab_name = self.create_new_tab(x_line, grid)
 
-        # self.add(self.notebook)
-        # self.set_property('default-width', 300)
-
         return self.notebook
 
     def create_new_tab(self, x_line, grid):
@@ -174,7 +164,6 @@ class v4l2Gtk():
         x_name = x_line
         if x_name is not None:
             x_name = x_name.split()
-            print('tab_name %s' % x_name)
             if len(x_name) == 3:
                 x_name[1] = x_name[1][0:4] + "." + x_name[2][0:4] + "."
                 x_name = x_name[:-1]
@@ -197,7 +186,6 @@ class v4l2Gtk():
         else:
             x_widget = getattr(self, str(x_code) + '_widget')
             if type(x_widget) == Gtk.ComboBox:
-                # tree_iter = widget.get_active_iter()
                 model = x_widget.get_model()
                 for cx, item in enumerate(model):
                     if int(model[cx][0]) == int(x_default):
@@ -206,11 +194,9 @@ class v4l2Gtk():
                 x_widget.set_value(int(x_default))
 
     def create_combobox(self, x_name, x_value, x_line):
-        print('combobox %s' % x_line)
         combobox_list = Gtk.ListStore(str, str)
         for _value in x_line:
             if type(_value) is list:
-                print(_value)
                 _value[1] = _value[1].split()[0]
                 combobox_list.append(_value)
 
@@ -237,21 +223,17 @@ class v4l2Gtk():
         if tree_iter is not None:
             model = widget.get_model()
             x_item = model[tree_iter][0]
-            print("Selected: combomenu=%s" % x_item)
             v4lparse(None, x_name + "=" + str(x_item))
 
     def on_scale_changed(self, widget):
         x_name = widget.get_name()
         x_value = widget.get_value()
-        # print("Set: scale=%s" % x_value)
         v4lparse(None, x_name + "=" + str(x_value))
 
     def create_default_button(self, x_code, x_default):
         button = Gtk.Button(label='Default')
         button.set_margin_top(5)
         button.set_margin_right(10)
-        # button.set_margin_left(10)
-        # button.set_margin_bottom(5)
         button.set_valign(Gtk.Align.CENTER)
 
         button.set_name(str(x_code) + ";" + str(x_default))
@@ -261,7 +243,6 @@ class v4l2Gtk():
     def create_check_button(self, x_name, x_code, x_value):
         button = Gtk.CheckButton(label=x_name.replace("_", " "))
         button.set_margin_top(5)
-        # button.set_margin_left(10)
         button.set_margin_right(40)
         button.set_margin_bottom(10)
         button.set_name(str(x_code))
@@ -305,7 +286,4 @@ class v4l2Gtk():
         adjustment.set_value(x_value)
         return adjustment
 
-# Main_Win = v4l2Gtk()
-# Main_Win.connect("destroy", Gtk.main_quit)
-# Main_Win.show_all()
-# Gtk.main()
+# EndOfCode
