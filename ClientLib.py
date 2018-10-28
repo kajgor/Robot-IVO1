@@ -182,13 +182,15 @@ class SenderStream:
         self.sender_audio_encoder.link(self.sender_audio_rtimer)
         self.sender_audio_rtimer.link(self.sender_audio_sink)
 
-    def prepare_sender(self, Host, Port_DSP0, Port_SPK0):
+    def initiate_streams(self, Host, Port_DSP0, Port_SPK0):
         self.sender_video_sink_udp.set_property('port', Port_DSP0)
-        self.sender_video_sink_udp.set_property('host', Host)
+        if Host:
+            self.sender_video_sink_udp.set_property('host', Host)
         self.sender_video.set_state(Gst.State.NULL)
 
         self.sender_audio_sink.set_property("port", Port_SPK0)
-        self.sender_audio_sink.set_property("host", Host)
+        if Host:
+            self.sender_audio_sink.set_property("host", Host)
         self.sender_audio.set_state(Gst.State.NULL)
 
     def run_video(self, flag):
@@ -289,16 +291,20 @@ class ReceiverStream:
     def set_video_source(self):
         self.player_video       = Gst.Pipeline.new("player_video")
         #   SET VIDEO (PLAYER)
-        self.player_video_flip          = Gst.ElementFactory.make("videoflip", "flip")
+        # VIDEO receiver pipe:
+        # source>capsfilter>rtimer>queue>decoder>convert>fpsadj>fpsadjcaps>flip>sink
+        self.player_video_flip          = Gst.ElementFactory.make("videoflip")
         self.player_video_capsfilter    = Gst.ElementFactory.make("capsfilter", "capsfilter")
-        self.player_video_depayloader   = Gst.ElementFactory.make("gdpdepay", "depayloader")
+        self.player_video_depayloader   = Gst.ElementFactory.make("gdpdepay")
         self.player_video_convert       = Gst.ElementFactory.make("videoconvert")
-        self.player_video_rtimer        = Gst.ElementFactory.make("rtph264depay", "rtimer")
-        self.player_video_queue         = Gst.ElementFactory.make("queue", "queue")
-        self.player_video_decoder       = Gst.ElementFactory.make("avdec_h264", "avdec")
+        self.player_video_rtimer        = Gst.ElementFactory.make("rtph264depay")
+        self.player_video_queue         = Gst.ElementFactory.make("queue")
+        self.player_video_decoder       = Gst.ElementFactory.make("avdec_h264")
         self.player_video_fpsadj        = Gst.ElementFactory.make("videorate")
-        self.player_video_fpsadjcaps    = Gst.ElementFactory.make("capsfilter", "fpsadj")
+        self.player_video_scale         = Gst.ElementFactory.make("videoscale")
+        self.player_video_adjcaps       = Gst.ElementFactory.make("capsfilter", "screenadj")
         self.player_video_sink          = Gst.ElementFactory.make("ximagesink", "sink")
+        # self.player_video_scalecaps     = Gst.ElementFactory.make("capsfilter", "scalecaps")
 
         if ConnectionData.Protocol == TCP:
             self.player_video_source  = Gst.ElementFactory.make("tcpclientsrc", "remote_source_video")
@@ -362,14 +368,14 @@ class ReceiverStream:
         self.player_video.add(self.player_video_depayloader)
         self.player_video.add(self.player_video_convert)
         self.player_video.add(self.player_video_fpsadj)
-        self.player_video.add(self.player_video_fpsadjcaps)
+        self.player_video.add(self.player_video_adjcaps)
         self.player_video.add(self.player_video_sink)
 
         self.player_video_source.link(self.player_video_depayloader)
         self.player_video_depayloader.link(self.player_video_convert)
         self.player_video_convert.link(self.player_video_fpsadj)
-        self.player_video_fpsadj.link(self.player_video_fpsadjcaps)
-        self.player_video_fpsadjcaps.link(self.player_video_sink)
+        self.player_video_fpsadj.link(self.player_video_adjcaps)
+        self.player_video_adjcaps.link(self.player_video_sink)
 
         #    tcpclientsrc host=x.x.x.x port=4552 ! application/x-rtp, media=audio, clock-rate=32000, encoding-name=SPEEX, payload=96 !
         #    rtpspeexdepay ! speexdec ! pulsesink sync=false
@@ -394,7 +400,7 @@ class ReceiverStream:
         self.player_video.add(self.player_video_convert)
         self.player_video.add(self.player_video_flip)
         self.player_video.add(self.player_video_fpsadj)
-        self.player_video.add(self.player_video_fpsadjcaps)
+        self.player_video.add(self.player_video_adjcaps)
         self.player_video.add(self.player_video_sink)
 
         self.player_video_source.link(self.player_video_depayloader)
@@ -403,8 +409,8 @@ class ReceiverStream:
         self.player_video_decoder.link(self.player_video_convert)
         self.player_video_convert.link(self.player_video_flip)
         self.player_video_flip.link(self.player_video_fpsadj)
-        self.player_video_fpsadj.link(self.player_video_fpsadjcaps)
-        self.player_video_fpsadjcaps.link(self.player_video_sink)
+        self.player_video_fpsadj.link(self.player_video_adjcaps)
+        self.player_video_adjcaps.link(self.player_video_sink)
 
         #    tcpclientsrc host=x.x.x.x port=4552 ! application/x-rtp, media=audio, clock-rate=32000, encoding-name=SPEEX,
         #    payload=96 ! rtpspeexdepay ! speexdec ! pulsesink sync=false
@@ -429,7 +435,8 @@ class ReceiverStream:
         self.player_video.add(self.player_video_decoder)
         self.player_video.add(self.player_video_convert)
         self.player_video.add(self.player_video_fpsadj)
-        self.player_video.add(self.player_video_fpsadjcaps)
+        self.player_video.add(self.player_video_scale)
+        self.player_video.add(self.player_video_adjcaps)
         self.player_video.add(self.player_video_sink)
 
         self.player_video_source.link(self.player_video_capsfilter)
@@ -437,8 +444,9 @@ class ReceiverStream:
         self.player_video_rtimer.link(self.player_video_decoder)
         self.player_video_decoder.link(self.player_video_convert)
         self.player_video_convert.link(self.player_video_fpsadj)
-        self.player_video_fpsadj.link(self.player_video_fpsadjcaps)
-        self.player_video_fpsadjcaps.link(self.player_video_sink)
+        self.player_video_fpsadj.link(self.player_video_scale)
+        self.player_video_scale.link(self.player_video_adjcaps)
+        self.player_video_adjcaps.link(self.player_video_sink)
 
     def gst_init_testaudio_udp(self):
         #    udpsrc port=3333 ! application/x-rtp, media=audio, clock-rate=32000, encoding-name=SPEEX, payload=96 !
@@ -464,7 +472,8 @@ class ReceiverStream:
         self.player_video.add(self.player_video_decoder)
         self.player_video.add(self.player_video_convert)
         self.player_video.add(self.player_video_fpsadj)
-        self.player_video.add(self.player_video_fpsadjcaps)
+        self.player_video.add(self.player_video_scale)
+        self.player_video.add(self.player_video_adjcaps)
         self.player_video.add(self.player_video_flip)
         self.player_video.add(self.player_video_sink)
 
@@ -474,8 +483,9 @@ class ReceiverStream:
         self.player_video_queue.link(self.player_video_decoder)
         self.player_video_decoder.link(self.player_video_convert)
         self.player_video_convert.link(self.player_video_fpsadj)
-        self.player_video_fpsadj.link(self.player_video_fpsadjcaps)
-        self.player_video_fpsadjcaps.link(self.player_video_flip)
+        self.player_video_fpsadj.link(self.player_video_scale)
+        self.player_video_scale.link(self.player_video_adjcaps)
+        self.player_video_adjcaps.link(self.player_video_flip)
         self.player_video_flip.link(self.player_video_sink)
 
     def gst_init_audio_udp(self):
@@ -494,7 +504,7 @@ class ReceiverStream:
         self.player_audio_decoder.link(self.player_audio_sink)
         # --- Gstreamer setup end ---
 
-    def prepare_receiver(self, Host, Port_Video, Port_Audio):
+    def initiate_streams(self, Host, Port_Video, Port_Audio):
         self.set_video_source()
         self.player_video_source.set_property("port", Port_Video)
         if Host:
@@ -551,6 +561,10 @@ class ReceiverStream:
         else:
             return True
 
+    def resize_screen(self, width, height):
+        caps = "video/x-raw, width=%i, height=%i" % (width, height)
+        self.player_video_adjcaps.set_property("caps", Gst.Caps.from_string(caps))
+
     def CliDisplay_gtksync(self):
         bus = self.player_video.get_bus()
         bus.add_signal_watch()
@@ -561,12 +575,14 @@ class ReceiverStream:
     def on_player_message(self, bus, message):
         retmsg = self.on_message(message)
         if retmsg is not None:
-            print("retmsg:", retmsg)
-            # self.ToggleButton_connect.set_active(False)
-            # self.StatusBar.push(self.context_id, retmsg)
+            Console.print("retmsg:", retmsg)
+            return False
+        else:
+            return True
 
     def on_player_sync_message(self, bus, message):
         self.on_sync_message(message, self.Player_SXID)
+        return True
 
     def on_message(self, message):
         msgtype = message.type
@@ -580,7 +596,7 @@ class ReceiverStream:
             debug_s = debug.split("\n")
             if Debug > 0:
                 Console.print ("ERROR:", debug_s)
-            return debug_s[debug_s.__len__() - 1]
+            # return debug_s[debug_s.__len__() - 1]
 
         elif msgtype == Gst.MessageType.STATE_CHANGED:
             # print('STATE_CHANGED')
@@ -589,8 +605,8 @@ class ReceiverStream:
         elif msgtype == Gst.MessageType.BUFFERING:
             # print('BUFFERING')
             pass
-        else:
-            return None
+
+        return None
 
     def on_sync_message(self, message, SXID):
         if message.get_structure().get_name() == 'prepare-window-handle':
@@ -717,11 +733,14 @@ class ConnectionThread:
         #     self.Rac_Stream.player_video.set_state(Gst.State.PAUSED)
         self.Control_Display.draw_hud(message)
 
-    def start_media_streams(self, Host, Port):
+    @staticmethod
+    def get_streamer_ports(Port):
         Port_CAM0 = Port + 1
         Port_MIC0 = Port + 2
         Port_DSP0 = Port + 4
         Port_SPK0 = Port + 5
+
+        return Port_CAM0, Port_MIC0, Port_DSP0, Port_SPK0
 
     def establish_connection(self, Host, Port, Receiver):
         Console.print("Establishing connection with \n %s on port"  % Host, Port)

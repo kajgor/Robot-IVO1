@@ -1,7 +1,32 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!-- Generated with glade 3.22.1 -->
+<!-- Generated with glade 3.22.1 
+
+Copyright (C) AtHome
+
+This file is part of Robot IVO console GUI.
+
+Robot IVO console GUI is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+Robot IVO console GUI is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with Robot IVO console GUI.  If not, see <http://www.gnu.org/licenses/>.
+
+Author: kajgor@hotmail.com
+
+-->
 <interface>
-  <requires lib="gtk+" version="3.12"/>
+  <requires lib="gtk+" version="3.10"/>
+  <!-- interface-license-type gplv3 -->
+  <!-- interface-name Robot IVO console GUI -->
+  <!-- interface-copyright AtHome -->
+  <!-- interface-authors kajgor@hotmail.com -->
   <object class="GtkAdjustment" id="Adjustement_Port">
     <property name="lower">22</property>
     <property name="upper">19999</property>
@@ -596,6 +621,7 @@
                         <signal name="button-release-event" handler="on_mouse_release" swapped="no"/>
                         <signal name="draw" handler="on_DrawingArea_Cam_draw" swapped="no"/>
                         <signal name="motion-notify-event" handler="on_motion_notify" swapped="no"/>
+                        <signal name="size-allocate" handler="on_DrawingArea_Cam_screen_changed" swapped="no"/>
                       </object>
                     </child>
                   </object>
@@ -778,15 +804,35 @@
                           </packing>
                         </child>
                         <child>
-                          <object class="GtkLabel" id="label43">
+                          <object class="GtkCheckButton" id="CheckButton_Show">
+                            <property name="label" translatable="yes">Display</property>
                             <property name="visible">True</property>
-                            <property name="can_focus">False</property>
-                            <property name="label" translatable="yes">Lights</property>
+                            <property name="can_focus">True</property>
+                            <property name="focus_on_click">False</property>
+                            <property name="receives_default">False</property>
+                            <property name="halign">start</property>
+                            <property name="draw_indicator">True</property>
+                            <signal name="toggled" handler="on_CheckButton_Display_toggled" swapped="no"/>
                           </object>
                           <packing>
                             <property name="left_attach">0</property>
                             <property name="top_attach">5</property>
-                            <property name="width">2</property>
+                          </packing>
+                        </child>
+                        <child>
+                          <object class="GtkButton" id="Button_AdvancedShow">
+                            <property name="label">gtk-properties</property>
+                            <property name="visible">True</property>
+                            <property name="can_focus">True</property>
+                            <property name="receives_default">True</property>
+                            <property name="halign">center</property>
+                            <property name="valign">center</property>
+                            <property name="use_stock">True</property>
+                            <signal name="clicked" handler="on_Button_AdvancedShow_clicked" swapped="no"/>
+                          </object>
+                          <packing>
+                            <property name="left_attach">1</property>
+                            <property name="top_attach">5</property>
                           </packing>
                         </child>
                         <child>
@@ -807,40 +853,21 @@
                           </object>
                           <packing>
                             <property name="left_attach">0</property>
-                            <property name="top_attach">6</property>
+                            <property name="top_attach">7</property>
                             <property name="width">2</property>
                           </packing>
                         </child>
                         <child>
-                          <object class="GtkCheckButton" id="CheckButton_Show">
-                            <property name="label" translatable="yes">Display</property>
+                          <object class="GtkLabel" id="label43">
                             <property name="visible">True</property>
-                            <property name="can_focus">True</property>
-                            <property name="focus_on_click">False</property>
-                            <property name="receives_default">False</property>
-                            <property name="halign">start</property>
-                            <property name="draw_indicator">True</property>
-                            <signal name="toggled" handler="on_CheckButton_Display_toggled" swapped="no"/>
+                            <property name="can_focus">False</property>
+                            <property name="margin_top">5</property>
+                            <property name="label" translatable="yes">Lights</property>
                           </object>
                           <packing>
                             <property name="left_attach">0</property>
-                            <property name="top_attach">7</property>
-                          </packing>
-                        </child>
-                        <child>
-                          <object class="GtkButton" id="Button_AdvancedShow">
-                            <property name="label">gtk-properties</property>
-                            <property name="visible">True</property>
-                            <property name="can_focus">True</property>
-                            <property name="receives_default">True</property>
-                            <property name="halign">center</property>
-                            <property name="valign">center</property>
-                            <property name="use_stock">True</property>
-                            <signal name="clicked" handler="on_Button_AdvancedShow_clicked" swapped="no"/>
-                          </object>
-                          <packing>
-                            <property name="left_attach">1</property>
-                            <property name="top_attach">7</property>
+                            <property name="top_attach">6</property>
+                            <property name="width">2</property>
                           </packing>
                         </child>
                       </object>
@@ -1159,9 +1186,11 @@
                           </packing>
                         </child>
                         <child>
-                          <object class="GtkProgressBar" id="progressbar1">
+                          <object class="GtkProgressBar" id="ProgressBar_CpuTemp">
                             <property name="visible">True</property>
                             <property name="can_focus">False</property>
+                            <property name="margin_left">10</property>
+                            <property name="pulse_step">0.01</property>
                           </object>
                           <packing>
                             <property name="left_attach">0</property>
@@ -1769,9 +1798,6 @@
 Check devices setup.</property>
     <signal name="close" handler="on_Window_delete_event" swapped="no"/>
     <signal name="delete-event" handler="on_Window_delete_event" swapped="no"/>
-    <child>
-      <placeholder/>
-    </child>
     <child internal-child="vbox">
       <object class="GtkBox" id="messagedialog-vbox">
         <property name="can_focus">False</property>
@@ -2460,9 +2486,6 @@ video signal.</property>
     <property name="transient_for">Window_Advanced</property>
     <property name="preview_widget_active">False</property>
     <signal name="response" handler="on_FileChooserDialog_open_response" swapped="no"/>
-    <child>
-      <placeholder/>
-    </child>
     <child internal-child="vbox">
       <object class="GtkBox" id="filechooserdialog-vbox1">
         <property name="can_focus">False</property>
@@ -2531,6 +2554,7 @@ video signal.</property>
     <property name="gravity">static</property>
     <property name="transient_for">Window_Console</property>
     <property name="attached_to">Window_Console</property>
+    <signal name="delete-event" handler="widget_deactivate" object="ToggleButton_Log" swapped="no"/>
     <signal name="delete-event" handler="on_Window_delete_event" swapped="no"/>
     <child>
       <placeholder/>
@@ -2543,6 +2567,7 @@ video signal.</property>
         <child>
           <object class="GtkTextView" id="TextView_Log">
             <property name="visible">True</property>
+            <property name="sensitive">False</property>
             <property name="can_focus">True</property>
             <property name="editable">False</property>
             <property name="left_margin">5</property>

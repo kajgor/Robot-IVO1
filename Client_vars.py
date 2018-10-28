@@ -7,8 +7,6 @@
 # ! videorate ! queue ! video/x-raw, framerate=15/1, width=320, height=240 ! videoconvert ! xvimagesink t.
 # ! videorate ! queue ! video/x-raw, framerate=15/1, width=320, height=240 ! videoconvert ! x264enc pass=qual bitrate=300 tune=zerolatency ! rtph264pay ! udpsink host=10.0.0.55 port=1234
 
-
-
 CONSOLE_GUI = True
 RESP_DELAY = 0.025
 #RESP_DELAY = 0.05

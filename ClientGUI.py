@@ -48,8 +48,6 @@ class MainWindow(Gtk.Window):
         self.P_SXID = self.DrawingArea_Cam.get_property('window')
         self.S_SXID = self.DrawingArea_Disp.get_property('window')
 
-        # print("SXID0: %s" % P_SXID)
-        # print("SXID1: %s" % S_SXID)
         self.Sender_Stream     = SenderStream(self.S_SXID)
         self.Receiver_Stream   = ReceiverStream(self.P_SXID)
         self.Connection_Thread = ConnectionThread()
@@ -289,6 +287,8 @@ class MainWindow(Gtk.Window):
         self.LevelBar_Voltage.set_tooltip_text("%s V" % Voltage)
         self.LevelBar_Current.set_tooltip_text("%s A" % Current)
 
+        self.ProgressBar_CpuTemp.set_fraction(ConnectionData.coreTemp/100)
+
         return
 
     def UpdateControlData(self):
@@ -307,6 +307,13 @@ class MainWindow(Gtk.Window):
 
     def on_Button_AdvancedShow_clicked(self, widget):
         self.Window_AdvancedDisp.show()
+        return True
+
+    def on_DrawingArea_Cam_screen_changed(self, widget, message):
+        if ConnectionData.connected:
+            width = widget.get_allocated_width()
+            height = widget.get_allocated_height()
+            self.Receiver_Stream.resize_screen(width, height)
         return True
 
     def on_DrawingArea_Control_draw(self, widget, message):
@@ -382,12 +389,9 @@ class MainWindow(Gtk.Window):
                 #     self.Connection_Thread.update_server_list(self.ComboBox_Host, self.SpinButton_Port.get_value())
 
                 if success is True:
-                    Port_CAM0 = self.Port + 1
-                    Port_MIC0 = self.Port + 2
-                    Port_DSP0 = self.Port + 4
-                    Port_SPK0 = self.Port + 5
-                    self.Receiver_Stream.prepare_receiver(None, Port_CAM0, Port_MIC0)
-                    self.Sender_Stream.prepare_sender(self.Host, Port_DSP0, Port_SPK0)
+                    Port_CAM0, Port_MIC0, Port_DSP0, Port_SPK0 = self.Connection_Thread.get_streamer_ports(self.Port)
+                    self.Receiver_Stream.initiate_streams(None, Port_CAM0, Port_MIC0)
+                    self.Sender_Stream.initiate_streams(self.Host, Port_DSP0, Port_SPK0)
                 else:
                     Console.print(retmsg)
                     self.gui_update_disconnect()
@@ -899,6 +903,10 @@ class MainWindow(Gtk.Window):
         # if KEY_control.MouseBtn[RIGHT] is True:
         #     self.Console.print("KEY_control.MouseXY[right]", KEY_control.MouseXY)
 
+    def widget_deactivate(self, widget, *message):
+        widget.set_active(False)
+        return False
+
     def gtk_main_quit(self, widget, message):
         self.Connection_Thread.close_connection()
         self.Config_Storage.save_setup(self.builder, self.RunSeqNo)
@@ -979,8 +987,6 @@ class ConfigStorage:
                 elif name == "CheckButton_Show":
                     value = False
 
-                # if active_text:
-                #     print('SAVE NAME/TEXT %s' % name + " >> " + active_text)
                 SetupVar.append((active_text, name, value))
 
         with open(Files.ini_file, 'wb') as iniFile:
