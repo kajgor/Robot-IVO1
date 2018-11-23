@@ -153,7 +153,9 @@ class GtkTsMain(Gtk.Window):
                     "MIC0\t" + str(self.ComboBoxText_AudioIn.get_active_text()),
                     "SPK0\t" + str(self.ComboBoxText_AudioOut.get_active_text()),
                     "IPP0\t" + str(self.ComboBoxText_AudioOut.get_active_text()),
-                    "PORT\t" + str(self.SpinButton_Port.get_value_as_int())):
+                    "PORT\t" + str(self.SpinButton_Port.get_value_as_int()),
+                    "PRG_CONN_BEGIN /usr/bin/xscreensaver-command -exit",
+                    "PRG_CONN_END /usr/bin/xscreensaver -no-splash &"):
             CMD = "echo " + OutStr + " >> " + Paths.ini_file
             execute_cmd(CMD)
 

@@ -87,23 +87,25 @@ class ServerThread(threading.Thread):
             data = self.get_bytes_from_client(CLIMSGLEN)
             if len(data) == 9:
                 Console.print("Message Validation... ")
-                Protocol = None
                 if int(data[1]) == 48:
                     Protocol = TCP
                 elif int(data[1]) == 49:
                     Protocol = UDP
+                else:
+                    Protocol = None
 
                 if Protocol is not None:
-                    Video_Codec         = int(data[2]) - 48
-                    SRV_vars.TestMode   = int(data[3]) - 48  # Substract 48 ASCII to decode the mode
-                    ConnIP              =  data[4].__str__() + "."
-                    ConnIP              += data[5].__str__() + "."
-                    ConnIP              += data[6].__str__() + "."
-                    ConnIP              += data[7].__str__()
+                    ConnectionData.Protocol = Protocol
+                    ConnectionData.Vcodec   = int(data[2]) - 48
+                    SRV_vars.TestMode       = int(data[3]) - 48  # Substract 48 ASCII to decode the mode
+                    ConnIP                  =  data[4].__str__() + "."
+                    ConnIP                  += data[5].__str__() + "."
+                    ConnIP                  += data[6].__str__() + "."
+                    ConnIP                  += data[7].__str__()
                     Console.print("Client: %s/%s" % (client_IP, PROTO_NAME[Protocol]))
-                    Console.print("Video Codec is %s " % VideoCodec[Video_Codec])
+                    Console.print("Video Codec is %s " % VideoCodec[ConnectionData.Vcodec])
 
-                    self.connection_loop(client_IP, Protocol, Video_Codec)
+                    self.connection_loop(client_IP)
 
                     # STOP THE ROBOT!
                     SRV_vars.DRV_A1_request = chr(50) + chr(50) + chr(0) + chr(0) + chr(0)
@@ -119,7 +121,7 @@ class ServerThread(threading.Thread):
             else:
                 Console.print("Incomplete message received! Breaking connection.")
 
-    def connection_loop(self, client_IP, Protocol, Video_Codec):
+    def connection_loop(self, client_IP):
         noData_cnt = 0
         SRV_vars.heartbeat = HB_VALUE
 
@@ -131,7 +133,8 @@ class ServerThread(threading.Thread):
             execute_cmd(PRG_CONN_BEGIN)
 
         # Initialize media streams
-        Media_Stream = MediaStream(client_IP, Protocol, Video_Codec, Cam0, MicIn, SpkOut, Port_COMM)
+        Conn_param = client_IP, Port_COMM
+        Media_Stream = MediaStream(Conn_param, Cam0, MicIn, SpkOut)
 
         # ...and now keep talking with the client
         while not self.shutdown_flag.is_set():
@@ -614,8 +617,9 @@ class MediaStream:
     sender_video_mode = Gst.State.READY
     # curr_Framerate    = None
 
-    def __init__(self, client_IP, Protocol, Video_Codec, Cam0, MicIn, SpkOut, Port_COMM):
+    def __init__(self, Conn_param, Cam0, MicIn, SpkOut):
 
+        client_IP, Port_COMM = Conn_param
         self.delay_counter = 10
 
         Port_CAM0 = Port_COMM + 1
@@ -625,8 +629,6 @@ class MediaStream:
 
         self.video_sender_queue = queue.Queue()
         self.audio_sender_queue = queue.Queue()
-
-        self.Video_Codec = Video_Codec
 
         # Define pipelines:
         self.player_video   = Gst.Pipeline.new("player_video")
@@ -652,7 +654,7 @@ class MediaStream:
         self.player_video_convert    = Gst.ElementFactory.make("videoconvert")
         self.player_video_sink       = Gst.ElementFactory.make("ximagesink", "local_sink_video")
 
-        if Protocol == TCP:
+        if ConnectionData.Protocol == TCP:
             self.player_video_source  = Gst.ElementFactory.make("tcpclientsrc", "remote_source_video")
         else:
             self.player_video_source  = Gst.ElementFactory.make("udpsrc", "remote_source_video")
@@ -663,7 +665,7 @@ class MediaStream:
         else:
             self.sender_video_source = Gst.ElementFactory.make("v4l2src", "local_source_video")
 
-        if Protocol == TCP:
+        if ConnectionData.Protocol == TCP:
             self.sender_video_encoder = Gst.ElementFactory.make("gdppay", "encoder_video")
             self.sender_video_sink    = Gst.ElementFactory.make("tcpserversink", "sink_video")
         else:
@@ -679,7 +681,7 @@ class MediaStream:
         self.player_audio_decoder    = Gst.ElementFactory.make("speexdec", "decoder_audio")
         self.player_audio_sink       = Gst.ElementFactory.make("pulsesink", "local_sink_audio")
 
-        if Protocol == TCP:
+        if ConnectionData.Protocol == TCP:
             self.player_audio_source  = Gst.ElementFactory.make("tcpclientsrc", "source_audio")
         else:
             self.player_audio_source  = Gst.ElementFactory.make("udpsrc", "source_audio")
@@ -695,7 +697,7 @@ class MediaStream:
         else:
             self.sender_audio_source = Gst.ElementFactory.make("pulsesrc", "local_source_audio")
 
-        if Protocol == TCP:
+        if ConnectionData.Protocol == TCP:
             self.sender_audio_sink    = Gst.ElementFactory.make("tcpserversink", "sink_audio")
         else:
             self.sender_audio_sink    = Gst.ElementFactory.make("udpsink", "sink_audio")
@@ -713,6 +715,7 @@ class MediaStream:
         if SRV_vars.TestMode == 0:
             self.sender_video_source.set_property("pattern", "smpte")
         else:
+            self.sender_video_source.set_property("device", Cam0)
             self.sender_video_rtimer.set_property("config_interval", 1)
             self.sender_video_rtimer.set_property("pt", 96)
 
@@ -733,7 +736,7 @@ class MediaStream:
         self.player_audio_capsfilter.set_property("caps", caps)
         self.player_audio_sink.set_property("sync", True)
 
-        if Protocol == TCP:
+        if ConnectionData.Protocol == TCP:
             if HOST:
                 self.player_video_source.set_property("host", HOST)
                 self.sender_video_sink.set_property("host", HOST)
@@ -906,7 +909,7 @@ class MediaStream:
                     if self.last_pending == curr_state:
                         ### SET RESOLUTION/FPS CAPS ###
                         caps = "video/x-%s, %s, framerate=%i/1, stream-format=byte-stream, tune=zerolatency" % \
-                               (VideoCodec[self.Video_Codec], capsstr_resolution[ConnectionData.resolution],
+                               (VideoCodec[ConnectionData.Vcodec], capsstr_resolution[ConnectionData.resolution],
                                 VideoFramerate[ConnectionData.Framerate])
                         self.sender_video_capsfilter.set_property("caps", Gst.Caps.from_string(caps))
                         Console.print("stopped.")

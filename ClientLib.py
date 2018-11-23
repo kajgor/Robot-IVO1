@@ -29,30 +29,28 @@ class SenderStream:
         self.Sender_SXID = Sender_SXID
 
     def set_video_source(self, Proto):
-        self.sender_video              = Gst.Pipeline.new("sender_video")
+        self.sender_video               = Gst.Pipeline.new("sender_video")
 
-        if DEVICE_control.DEV_Cam0 == "videotestsrc":
-            self.sender_video_source   = Gst.ElementFactory.make("videotestsrc", "video-source")
-        else:
-            self.sender_video_source   = Gst.ElementFactory.make("v4l2src", "video-source")
+        self.sender_video_source        = Gst.ElementFactory.make("v4l2src", "video-source")
+        self.sender_video_testsrc       = Gst.ElementFactory.make("videotestsrc", "test-video-source")
 
         # glimagesink(default)/gtksink/cacasink/autovideosink/ximagesink(working)
         #   SET VIDEO (SENDER)
         self.sender_video_videorate_udp = Gst.ElementFactory.make("videorate", "vr1")
-        self.sender_video_queue_udp = Gst.ElementFactory.make("queue", "queue1")
-        self.sender_video_caps_udp = Gst.ElementFactory.make("capsfilter", "capsfilter1")
-        self.sender_video_convert_udp = Gst.ElementFactory.make("videoconvert", "vc1")
-        self.sender_video_encoder = Gst.ElementFactory.make(H264_ENC, "encoder_udp")
-        self.sender_video_rtimer = Gst.ElementFactory.make("rtph264pay", "rtimer_udp")
-        self.sender_video_sink_udp = Gst.ElementFactory.make("udpsink", "udp-output")
+        self.sender_video_queue_udp     = Gst.ElementFactory.make("queue", "queue1")
+        self.sender_video_caps_udp      = Gst.ElementFactory.make("capsfilter", "capsfilter1")
+        self.sender_video_convert_udp   = Gst.ElementFactory.make("videoconvert", "vc1")
+        self.sender_video_encoder       = Gst.ElementFactory.make(H264_ENC, "encoder_udp")
+        self.sender_video_rtimer        = Gst.ElementFactory.make("rtph264pay", "rtimer_udp")
+        self.sender_video_sink_udp      = Gst.ElementFactory.make("udpsink", "udp-output")
 
-        self.sender_video_videorate_xv = Gst.ElementFactory.make("videorate", "vr2")
-        self.sender_video_queue_xv = Gst.ElementFactory.make("queue", "queue2")
-        self.sender_video_caps_xv = Gst.ElementFactory.make("capsfilter", "capsfilter2")
-        self.sender_video_convert_xv = Gst.ElementFactory.make("videoconvert", "vc2")
-        self.sender_video_sink_xv = Gst.ElementFactory.make("xvimagesink", "video-output")
+        self.sender_video_videorate_xv  = Gst.ElementFactory.make("videorate", "vr2")
+        self.sender_video_queue_xv      = Gst.ElementFactory.make("queue", "queue2")
+        self.sender_video_caps_xv       = Gst.ElementFactory.make("capsfilter", "capsfilter2")
+        self.sender_video_convert_xv    = Gst.ElementFactory.make("videoconvert", "vc2")
+        self.sender_video_sink_xv       = Gst.ElementFactory.make("xvimagesink", "video-output")
 
-        self.sender_video_tee = Gst.ElementFactory.make("tee", "tee")
+        self.sender_video_tee           = Gst.ElementFactory.make("tee", "tee")
 
         if ConnectionData.Protocol == TCP:
             # ToDo:
@@ -77,26 +75,35 @@ class SenderStream:
 
         self.gst_init_udp_video_stream()
 
-    def set_audio_source(self, Proto):
-        self.sender_audio              = Gst.Pipeline.new("sender_audio")
-        # SET AUDIO SENDER
-        if DEVICE_control.DEV_AudioIn == "audiotestsrc":
-            self.sender_audio_source = Gst.ElementFactory.make("audiotestsrc", "local_source_audio")
-            self.sender_audio_source.set_property("wave", 0)
+    def link_video_source(self, Flag):
+        if Flag is True:
+            if DEVICE_control.DEV_Cam0 == "videotestsrc":
+                self.sender_video.add(self.sender_video_testsrc)
+                self.sender_video_testsrc.link(self.sender_video_tee)
+            else:
+                self.sender_video.add(self.sender_video_source)
+                self.sender_video_source.link(self.sender_video_tee)
         else:
-            self.sender_audio_source = Gst.ElementFactory.make("pulsesrc", "local_source_audio")
-            self.sender_audio_source.set_property("device", DEVICE_control.DEV_AudioIn)
+            if DEVICE_control.DEV_Cam0 == "videotestsrc":
+                self.sender_video.remove(self.sender_video_testsrc)
+            else:
+                self.sender_video.remove(self.sender_video_source)
 
-        self.sender_audio_capsfilter = Gst.ElementFactory.make("capsfilter", "capsfilter_audio")
-        self.sender_audio_resample = Gst.ElementFactory.make("audioresample", "resample_audio")
-        self.sender_audio_encoder = Gst.ElementFactory.make("speexenc", "encoder_audio")
-        self.sender_audio_rtimer = Gst.ElementFactory.make("rtpspeexpay", "rtimer_audio")
+    def set_audio_source(self, Proto):
+        self.sender_audio               = Gst.Pipeline.new("sender_audio")
+        # SET AUDIO SENDER
+        self.sender_audio_testsrc       = Gst.ElementFactory.make("audiotestsrc", "test_source_audio")
+        self.sender_audio_source        = Gst.ElementFactory.make("pulsesrc", "local_source_audio")
+        self.sender_audio_capsfilter    = Gst.ElementFactory.make("capsfilter", "capsfilter_audio")
+        self.sender_audio_resample      = Gst.ElementFactory.make("audioresample", "resample_audio")
+        self.sender_audio_encoder       = Gst.ElementFactory.make("speexenc", "encoder_audio")
+        self.sender_audio_rtimer        = Gst.ElementFactory.make("rtpspeexpay", "rtimer_audio")
 
         # ToDo:
         # if ConnectionData.Protocol == TCP:
         #     self.sender_audio_sink = Gst.ElementFactory.make("tcpserversink", "remote_sink_audio")
         # else:
-        self.sender_audio_sink = Gst.ElementFactory.make("udpsink", "remote_sink_audio_udp")
+        self.sender_audio_sink          = Gst.ElementFactory.make("udpsink", "remote_sink_audio_udp")
 
         self.sender_audio_sink.set_property("host", 'localhost')
         self.sender_audio_sink.set_property("port", 0)
@@ -107,6 +114,23 @@ class SenderStream:
 
         self.gst_init_udp_audio_stream()
 
+    def link_audio_source(self, Flag):
+        if Flag is True:
+            if DEVICE_control.DEV_AudioIn == "audiotestsrc":
+                self.sender_audio.add(self.sender_audio_testsrc)
+                self.sender_audio_testsrc.set_property("wave", 0)
+                self.sender_audio_testsrc.link(self.sender_audio_capsfilter)
+            else:
+                AudioInDevice = DEVICE_control.DEV_AudioIn.split(":")[0]
+                self.sender_audio.add(self.sender_audio_source)
+                self.sender_audio_source.set_property("device", AudioInDevice)
+                self.sender_audio_source.link(self.sender_audio_capsfilter)
+        else:
+            if DEVICE_control.DEV_AudioIn == "audiotestsrc":
+                self.sender_audio.remove(self.sender_audio_testsrc)
+            else:
+                self.sender_audio.remove(self.sender_audio_source)
+
     def gst_init_tcp_stream(self):
         ####################################################################
         ### Build video pipeline as following:
@@ -115,14 +139,14 @@ class SenderStream:
         # TdDo
         #
         # SENDER AUDIO(TCP)
-        self.sender_audio.add(self.sender_audio_source)
+        # self.sender_audio.add(self.sender_audio_source)
         self.sender_audio.add(self.sender_audio_capsfilter)
         self.sender_audio.add(self.sender_audio_resample)
         self.sender_audio.add(self.sender_audio_encoder)
         self.sender_audio.add(self.sender_audio_rtimer)
         self.sender_audio.add(self.sender_audio_sink)
 
-        self.sender_audio_source.link(self.sender_audio_capsfilter)
+        # self.sender_audio_source.link(self.sender_audio_capsfilter)
         self.sender_audio_capsfilter.link(self.sender_audio_resample)
         self.sender_audio_resample.link(self.sender_audio_encoder)
         self.sender_audio_encoder.link(self.sender_audio_rtimer)
@@ -133,7 +157,7 @@ class SenderStream:
         ### Build video pipeline as following:
         ####################################################################
         # SENDER VIDEO (UDP)
-        self.sender_video.add(self.sender_video_source)
+        # self.sender_video.add(self.sender_test_source)
         self.sender_video.add(self.sender_video_tee)
 
         self.sender_video.add(self.sender_video_videorate_xv)
@@ -165,18 +189,16 @@ class SenderStream:
         self.sender_video_tee.link(self.sender_video_videorate_udp)
         self.sender_video_tee.link(self.sender_video_videorate_xv)
 
-        self.sender_video_source.link(self.sender_video_tee)
-
     def gst_init_udp_audio_stream(self):
         # SENDER AUDIO (UDP)
-        self.sender_audio.add(self.sender_audio_source)
+        # self.sender_audio.add(self.sender_audio_source)
         self.sender_audio.add(self.sender_audio_capsfilter)
         self.sender_audio.add(self.sender_audio_resample)
         self.sender_audio.add(self.sender_audio_encoder)
         self.sender_audio.add(self.sender_audio_rtimer)
         self.sender_audio.add(self.sender_audio_sink)
 
-        self.sender_audio_source.link(self.sender_audio_capsfilter)
+        # self.sender_audio_source.link(self.sender_audio_capsfilter)
         self.sender_audio_capsfilter.link(self.sender_audio_resample)
         self.sender_audio_resample.link(self.sender_audio_encoder)
         self.sender_audio_encoder.link(self.sender_audio_rtimer)
@@ -194,38 +216,38 @@ class SenderStream:
         self.sender_audio.set_state(Gst.State.NULL)
 
     def run_video(self, flag):
-        # flag 0 - Stop and be ready for Play (restart mode)
-        # flag 1 - Play
+        # flag 0 - Stop and drop Source
+        # flag 1 - Link Source and play
         retmsg = None
         if flag is True:
+            self.link_video_source(flag)
             retmsg = self.sender_video.set_state(Gst.State.PLAYING)
         else:
             if self.sender_video:
-                # self.sender_video.set_state(Gst.State.NULL)
-                # time.sleep(0.1)
                 retmsg = self.sender_video.set_state(Gst.State.READY)
+                time.sleep(0.1)
+                self.link_video_source(flag)
 
-        time.sleep(0.1)
         if retmsg == Gst.StateChangeReturn.FAILURE:
-            Console.print("AUDIO CONNECTION ERROR: Unable to set the pipeline to the required state.")
+            Console.print("VIDEO CONNECTION ERROR: Unable to set\nthe pipeline to the required state.")
             return False
         else:
             return True
 
     def run_audio(self, flag):
-        # flag 0 - Stop and be ready for Play (restart mode)
-        # flag 1 - Play
+        # flag 0 - Stop and drop Source
+        # flag 1 - Link Source and play
         retmsg = None
         if flag is True:
+            self.link_audio_source(flag)
             retmsg = self.sender_audio.set_state(Gst.State.PLAYING)
         else:
             if self.sender_audio:
-                # self.sender_audio.set_state(Gst.State.NULL)
-                # time.sleep(0.1)
-                retmsg = self.sender_audio.set_state(Gst.State.READY)
+                retmsg = self.sender_audio.set_state(Gst.State.NULL)
+                self.link_audio_source(flag)
 
-        time.sleep(0.1)
         if retmsg == Gst.StateChangeReturn.FAILURE:
+            Console.print("AUDIO CONNECTION ERROR: Unable to set\nthe pipeline to the required state.")
             return False
         else:
             return True
@@ -555,7 +577,6 @@ class ReceiverStream:
             else:
                 retmsg = self.player_audio.set_state(Gst.State.NULL)
 
-        time.sleep(0.1)
         if retmsg == Gst.StateChangeReturn.FAILURE:
             return False
         else:
@@ -715,14 +736,14 @@ class ControlDisplay:
 class ConnectionThread:
     srv             = None
     tunnel          = None
+    comm_link_idle  = 0
 
     # Sender_Stream   = None
     Control_Display = ControlDisplay()
     FxQueue         = queue.Queue()
 
     def __init__(self):
-        self.FxMode         = 255
-        self.FxValue        = 0
+        self.FxMode = 255, 0
 
     def draw_arrow(self, message):
         self.Control_Display.draw_arrow(message)
@@ -757,16 +778,15 @@ class ConnectionThread:
         l_iter = 0
         while ConnectionData.connected is False and l_iter < 10:
             l_iter += 1
-            Console.print("Retry:", l_iter)
+            Console.print("Retry: %i" % l_iter)
             time.sleep(0.25)
 
         if ConnectionData.connected is True:
-            retmsg = "Server connected! " + self.srv.getsockname().__str__()
-            # if Debug > 2:
-            Console.print(retmsg)
+            retmsg = "Client connected! %s" % self.srv.getsockname().__str__()
         else:
-            retmsg = "Connection Error [" + (Host, Port).__str__() + "]"
-            # if Debug > 0:
+            retmsg = "Connection Error [%s:%i]" % (Host, Port)
+
+        if Debug > 0:
             Console.print(retmsg)
 
         return ConnectionData.connected, retmsg
@@ -813,10 +833,10 @@ class ConnectionThread:
                 HostIp = status[0]
 
         if status[0] == HostIp:
-            if Debug > 2: Console.print("Connection status: " + status.__str__())
+            if Debug > 2: Console.print("Connection status: %s" % status)
             return True
         else:
-            if Debug > 1: Console.print("Not connected.")
+            if Debug > 2: Console.print("Not connected.")
             return False
 
     ###############################################################################
@@ -853,9 +873,11 @@ class ConnectionThread:
             IP_addr = socket.gethostbyname(Host)
             self.send_init_string(IP_addr)
 
+        connErr = 0
         cam0_restart = False
         resolution_last = None
         ConnectionData.StreamMode = None
+        self.comm_link_idle = 0
 
         while ConnectionData.connected is True:
             if CommunicationFFb is True:
@@ -867,8 +889,7 @@ class ConnectionThread:
                 if self.FxQueue.empty() is True and ConnectionData.StreamMode is not None:
                     resolution_last = [ConnectionData.resolution, ConnectionData.Framerate]
 
-                    self.FxMode  = 0  # Resolution Tag is 0
-                    self.FxValue = ConnectionData.resolution
+                    self.FxMode = 0, ConnectionData.resolution  # Resolution Tag is 0
 
                     if ConnectionData.resolution > 0:
                         Console.print("Requesting mode", ConnectionData.resolution, end='...')
@@ -885,7 +906,13 @@ class ConnectionThread:
                     cam0_restart = False
 
             if self.check_connection(None) is True:
-                self.send_and_receive()
+                retcode = self.send_and_receive()
+                if retcode is False:
+                    connErr += 1
+                    if connErr > RETRY_LIMIT:
+                        ConnectionData.connected = False  # EXIT LOOP!
+                else:
+                    ConnectionData.connErr = 0
 
         Receiver.run_video(None)
         Receiver.run_audio(None)
@@ -909,18 +936,12 @@ class ConnectionThread:
     def send_and_receive(self):
         if ConnectionData.speed != "HALT":  # Todo
 
-            request  = self.encode_message(self.FxMode, self.FxValue)
+            request  = self.encode_message(self.FxMode)
 
             checksum = self.transmit_message(request)
 
             if checksum is None:
-                ConnectionData.connErr += 1
-                if ConnectionData.connErr > RETRY_LIMIT:
-                    ConnectionData.connErr = 0
-                    ConnectionData.connected = False
-                return
-            else:
-                ConnectionData.connErr = 0
+                return False
 
             ###### Communication Clock! #####################
             time.sleep(RESP_DELAY)      # Wait for response #
@@ -929,24 +950,24 @@ class ConnectionThread:
             response = self.receive_message(RECMSGLEN)
 
             if response:
+                self.comm_link_idle = 0
                 if checksum == ord(response[0]):    # ************* MESSAGE CONFIRMED ******************
                     self.decode_message(response)
                     ConnectionData.motor_ACK = ConnectionData.motor_Power
                     if self.FxQueue.empty() is False:
-                        FxMask = self.FxQueue.get()
-                        # print("FXmode/FXvalue", self.FXmode, self.FXvalue)
+                        self.FxMode = self.FxQueue.get()
                     else:
-                        FxMask = (255, 0)
-                    self.FxMode = int(FxMask[0])
-                    self.FxValue = int(FxMask[1])
+                        self.FxMode = 255, 0
                 else:
                     Console.print("Bad chksum:", checksum, ord(response[0]))
                 if Debug > 1:
                     Console.print("CheckSum Sent/Received:", checksum, ord(response[0]))
+            return True
         else:
 # ToDo:
             self.transmit_message("HALTHALTHALT")
             ConnectionData.connected = False
+            return False
 
     ###############################################################################
     ################   CONN LOOP END   ############################################
@@ -955,7 +976,7 @@ class ConnectionThread:
     def transmit_message(self, out_str):
         sendstr = str(chr(0) + out_str + chr(10)).encode(Encoding)
         if Debug > 1:
-            print("CLISENT[len]: " + len(sendstr).__str__())
+            print("CLISENT[len]: %i" % len(sendstr))
 
         if self.srv is None:
             Console.print("self.srv is NONE!")
@@ -983,16 +1004,15 @@ class ConnectionThread:
             return None
 
         if Debug > 2:
-            Console.print("CLIRCVD[len]: " + len(data).__str__())
+            Console.print("CLIRCVD[len]: %i" % len(data))
 
         try:
             data_end = data[msglen - 1]
         except IndexError:
             data_end = False
-            Console.print(">>>DataIndexError>>>", len(data), data_end)
+            Console.print(">>>DataIndexError>>> %s [len=%i]" % (data_end, len(data)))
 
         if data_end == chr(255):
-            ConnectionData.comm_link_idle = 0
             return data
         else:
             return None
@@ -1072,10 +1092,11 @@ class ConnectionThread:
         ConnectionData.coreTemp         = ord(resp[14]) * 0.5                       #15
 
     @staticmethod
-    def encode_message(FXmode, FXvalue):
+    def encode_message(FxMode):
+        FXtag, FXvalue = FxMode
         CntrlMask1 = 0
-        for idx, x in enumerate([ConnectionData.AutoMode, ConnectionData.light, ConnectionData.speakers, ConnectionData.mic,
-                                 ConnectionData.display, ConnectionData.laser, 0, 0]):
+        for idx, x in enumerate([ConnectionData.AutoMode, ConnectionData.light, ConnectionData.speakers,
+                                 ConnectionData.mic, ConnectionData.display, ConnectionData.laser, 0, 0]):
             CntrlMask1 |= (x << idx)
 
         BitrateMask  = 100 * ConnectionData.Abitrate + 10 * ConnectionData.Vbitrate + ConnectionData.Framerate
@@ -1090,7 +1111,7 @@ class ConnectionThread:
         reqMsgVal.append(ConnectionData.camPosition[X_AXIS])         # 3
         reqMsgVal.append(ConnectionData.camPosition[Y_AXIS])         # 4
         reqMsgVal.append(CntrlMask1)                            # 5
-        reqMsgVal.append(FXmode)                                # 6
+        reqMsgVal.append(FXtag)                                 # 6
         reqMsgVal.append(FxVal0)                                # 7
         reqMsgVal.append(FxVal1)                                # 8
         reqMsgVal.append(BitrateMask)                           # 9

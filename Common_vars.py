@@ -85,8 +85,6 @@ DEV_INP_CMD  = "pactl list short sources|grep input|cut -f1-2|tr '\t' ':'"
 
 class ConnectionData:
     connected   = False
-    comm_link_idle = 0
-    connErr     = 0
     speed       = 0
     direction   = 0
     resolution  = 0

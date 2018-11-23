@@ -55,7 +55,18 @@ class MainWindow(Gtk.Window):
         Console.print('Console 3.0 initialized.\n')
 
         self.Config_Storage = ConfigStorage()
-        if self.get_argv('reset') is False:
+        retmsg = self.load_configuration(self.get_argv('reset'), GuiFile)
+        self.StatusBar.push(self.context_id, retmsg)
+
+        Proto = self.ComboBoxText_Proto.get_active()
+        self.Sender_Stream.set_video_source(Proto)
+        self.Sender_Stream.set_audio_source(Proto)
+        self.Sender_Stream.CliCamera_gtksync()
+
+        self.load_devices()
+
+    def load_configuration(self, ResetMode, GuiFile):
+        if ResetMode is False:  # Load custom configuration
             self.RunSeqNo, self.SyncItemCount = self.Config_Storage.load_setup(self.builder)
             self.Entry_SkinFile.set_text(GuiFile)
 
@@ -72,18 +83,12 @@ class MainWindow(Gtk.Window):
 
             self.ComboBox_Host.set_model(self.TreeView_Hosts.get_model())
             self.ComboBox_Host.set_active(0)
-            self.StatusBar.push(self.context_id, '[%s-th configuration load]' % str(self.RunSeqNo))
-        else:
+            return '[%s-th configuration load]' % str(self.RunSeqNo)
+        else:  # Load default configuration
             self.SyncItemCount = 0
-            self.Console.print('Resetting to default configuration.')
-            self.StatusBar.push(self.context_id, 'Resetting to default configuration.')
-
-        Proto = self.ComboBoxText_Proto.get_active()
-        self.Sender_Stream.set_video_source(Proto)
-        self.Sender_Stream.set_audio_source(Proto)
-        self.Sender_Stream.CliCamera_gtksync()
-
-        self.load_devices()
+            retmsg = 'Resetting to default configuration.'
+            self.Console.print(retmsg)
+            return retmsg
 
     def load_v4l2_panel(self):
         notebook = v4l2Gtk().v4l2Gtk()
@@ -218,7 +223,7 @@ class MainWindow(Gtk.Window):
     ###############################################################################
     def on_timer(self):
         # Idle timer for checking the link
-        ConnectionData.comm_link_idle += 1
+        self.Connection_Thread.comm_link_idle += 1
 
         # Update Hud & Control widgets
         if KEY_control.hud is True:
@@ -258,8 +263,8 @@ class MainWindow(Gtk.Window):
             self.counter = 0
             if self.ToggleButton_Connect.get_active() is True:
                 self.ToggleButton_Connect.set_active(False)
-            if ConnectionData.comm_link_idle >= COMM_IDLE:
-                ConnectionData.comm_link_idle = COMM_IDLE  # Do not need to increase counter anymore
+            if self.Connection_Thread.comm_link_idle >= COMM_IDLE:
+                self.Connection_Thread.comm_link_idle = COMM_IDLE  # Do not need to increase counter anymore
                 return True
             else:
                 self.Spinner_Connected.stop()
@@ -404,28 +409,29 @@ class MainWindow(Gtk.Window):
             self.StatusBar.push(self.context_id, 'Disconnected.')
             self.gui_update_disconnect()
 
-    def store_FX_request(self, FXmode, FXvalue):
+    def store_FX_request(self, FXtag, FXvalue):
+        FXtag, FXvalue = int(FXtag), int(FXvalue)
         items = self.Connection_Thread.FxQueue.qsize()
         if items == 0:
-            self.Connection_Thread.FxQueue.put((FXmode, FXvalue))
+            self.Connection_Thread.FxQueue.put((FXtag, FXvalue))
         else:
             item_found = False
             for i in range(items):
-                qFXmode, qFXvalue = self.Connection_Thread.FxQueue.get()
-                if qFXmode == FXmode:
-                    self.Connection_Thread.FxQueue.put((qFXmode, FXvalue))
+                qFXtag, qFXvalue = self.Connection_Thread.FxQueue.get()
+                if qFXtag == FXtag:
+                    self.Connection_Thread.FxQueue.put((qFXtag, FXvalue))
                     item_found = True
                     break
                 else:
-                    self.Connection_Thread.FxQueue.put((qFXmode, qFXvalue))
+                    self.Connection_Thread.FxQueue.put((qFXtag, qFXvalue))
 
             if item_found is False:
-                self.Connection_Thread.FxQueue.put((FXmode, FXvalue))
+                self.Connection_Thread.FxQueue.put((FXtag, FXvalue))
 
     def on_ComboBoxText_FxEffect_changed(self, widget):
-        FXmode   = 8
+        FXtag   = 8
         FXvalue  = widget.get_active()
-        self.store_FX_request(FXmode, FXvalue)
+        self.store_FX_request(FXtag, FXvalue)
 
         if FXvalue == 0:
             self.Menu_CamFx_Item0.set_active(True)
@@ -490,13 +496,13 @@ class MainWindow(Gtk.Window):
         self.store_FX_request(widget.get_name(), widget.get_active())
 
     def on_FX_value_changed(self, widget):
-        FXmode = int(widget.get_name())
-        if FXmode < 4:  # Avoid negative values to be sent for Brightness, Contrast & Saturation
-            self.store_FX_request(FXmode, int(widget.get_value()) + 100)
-        elif FXmode == 11:
-            self.store_FX_request(FXmode, int(widget.get_value()) / 1000)
+        FXtag = int(widget.get_name())
+        if FXtag < 4:  # Avoid negative values to be sent for Brightness, Contrast & Saturation
+            self.store_FX_request(FXtag, int(widget.get_value()) + 100)
+        elif FXtag == 11:
+            self.store_FX_request(FXtag, int(widget.get_value()) / 1000)
         else:
-            self.store_FX_request(FXmode, int(widget.get_value()))
+            self.store_FX_request(FXtag, widget.get_value())
 
     def on_ComboBoxText_Vcodec_changed(self, widget):
         ConnectionData.Vcodec = widget.get_active()
@@ -527,34 +533,46 @@ class MainWindow(Gtk.Window):
         self.SSBar_update()
 
     def on_ComboBoxText_Cam1_changed(self, widget):
-        DEVICE_control.DEV_Cam0 = widget.get_active_text()
+        if ConnectionData.display == True:
+            self.Sender_Stream.run_video(False)
+            DEVICE_control.DEV_Cam0 = widget.get_active_text()
+            self.Sender_Stream.run_video(True)
+        else:
+            DEVICE_control.DEV_Cam0 = widget.get_active_text()
+
+    def on_ComboBoxText_AudioIn_changed(self, widget):
+        if ConnectionData.speakers == True:
+            self.Sender_Stream.run_audio(False)
+            DEVICE_control.DEV_AudioIn = widget.get_active_text()
+            self.Sender_Stream.run_audio(True)
+        else:
+            DEVICE_control.DEV_AudioIn = widget.get_active_text()
 
     def on_CheckButton_Speakers_toggled(self, widget):
         ConnectionData.speakers = widget.get_active()
 
-        ret = False
         if ConnectionData.speakers is True:
             Console.print(" Speaker requested rate:", AudioBitrate[ConnectionData.Abitrate])
-            ret = self.Sender_Stream.run_audio(ConnectionData.speakers)
-        else:
-            if self.Sender_Stream.sender_audio:
-                ret = self.Sender_Stream.run_audio(ConnectionData.speakers)
 
-        retmsg = 'Speakers: %s' % PrintOnOff[ret]
+        ret = self.Sender_Stream.run_audio(ConnectionData.speakers)
+        if ret is True:
+            retmsg = 'Speakers: %s' % PrintOnOff[ConnectionData.speakers]
+        else:
+            retmsg = 'Speakers: error'
         self.Console.print(retmsg)
         self.StatusBar.push(self.context_id, retmsg)
 
     def on_CheckButton_Mic_toggled(self, widget):
         ConnectionData.mic = widget.get_active()
 
-        ret = False
         if ConnectionData.mic is True:
             Console.print(" Mic requested rate:", AudioBitrate[ConnectionData.Abitrate])
-            ret = self.Receiver_Stream.run_audio(ConnectionData.mic)
+
+        ret = self.Receiver_Stream.run_audio(ConnectionData.mic)
+        if ret is True:
+            retmsg = 'Microphone: %s' % PrintOnOff[ConnectionData.mic]
         else:
-            if self.Receiver_Stream.player_audio:
-                ret = self.Receiver_Stream.run_audio(ConnectionData.mic)
-        retmsg = 'Microphone: ' + PrintOnOff[ret]
+            retmsg = 'Microphone: error'
         self.Console.print(retmsg)
         self.StatusBar.push(self.context_id, retmsg)
 
@@ -653,8 +671,8 @@ class MainWindow(Gtk.Window):
                 self.Menu_CamFx_Item15.set_active(False)
 
     def on_Menu_CmdExe_Item_activate(self, widget):
-        FXmode = 30
-        FXvalue = int(widget.get_name())
+        FXtag = 30
+        FXvalue = widget.get_name()
         if FXvalue == 250:
             self.Label_dialog_yn.set_text("Do you really want\n\tto reboot RPI?")
             resp = self.Dialog_YN.run()
@@ -677,7 +695,7 @@ class MainWindow(Gtk.Window):
         else:
             return
 
-        self.store_FX_request(FXmode, FXvalue)
+        self.store_FX_request(FXtag, FXvalue)
 
     def on_Button_AdvOk_clicked(self, widget):
         self.ComboBox_Host.set_model(self.TreeView_Hosts.get_model())
@@ -817,6 +835,9 @@ class MainWindow(Gtk.Window):
             ConnectionData.speed = 0
             ConnectionData.direction = 0
             KEY_control.Space = value
+
+        elif key_name == 'slash':
+            ConnectionData.camPosition[X_AXIS] = 100
 
         elif key_name.replace("H", "h", 1) == "h":
             if value is False:
