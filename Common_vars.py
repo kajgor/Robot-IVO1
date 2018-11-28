@@ -55,7 +55,6 @@ Encoding = 'latin_1'
 VideoCodec = ('raw', 'h264', 'mjpeg', 'VP8')
 AudioCodec = ('speex', 'mp3', 'aac')
 VideoFramerate = [5, 15, 25, 30]
-AudioBitrate = [32000, 16000, 8000]
 PrintOnOff = ('off', 'on')
 ###### COLOURS #######
 BLACK = (0, 0, 0)

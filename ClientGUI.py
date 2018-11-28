@@ -7,18 +7,22 @@ gi.require_version('Gtk', '3.0')
 gi.require_version('Gdk', '3.0')
 from gi.repository import Gtk, Gdk, GLib
 from sys import argv
+from math import pi
+from cairo import ImageSurface
 
-from ClientLib import ConnectionThread, Console, SenderStream, ReceiverStream
-from Client_vars import Files, DEVICE_control, KEY_control, CommunicationFFb
-from Common_vars import VideoFramerate, AudioBitrate, AudioCodec, VideoCodec, PrintOnOff, execute_cmd,\
+from MediaLib import *
+from ClientLib import ConnectionThread, Console
+from Client_vars import Files, KEY_control, CommunicationFFb, ACCELERATION
+from Common_vars import VideoFramerate, AudioCodec, VideoCodec, PrintOnOff, execute_cmd,\
     TIMEOUT_GUI, PROTO_NAME, LEFT, RIGHT, X_AXIS, Y_AXIS, MOUSE_MIN, MOUSE_MAX, ConnectionData, COMM_IDLE,\
-    CAM_1_CMD, DEV_OUT_CMD, DEV_INP_CMD
+    CAM_1_CMD, DEV_OUT_CMD, DEV_INP_CMD, MAX_SPEED
 from v4l2Gtk import v4l2Gtk
+
 
 # noinspection PyAttributeOutsideInit
 class MainWindow(Gtk.Window):
     Console = Console()
-    Sender_Stream = None
+
     Host = "0.0.0.0"
     Port = 0
 
@@ -48,9 +52,10 @@ class MainWindow(Gtk.Window):
         self.P_SXID = self.DrawingArea_Cam.get_property('window')
         self.S_SXID = self.DrawingArea_Disp.get_property('window')
 
-        self.Sender_Stream     = SenderStream(self.S_SXID)
-        self.Receiver_Stream   = ReceiverStream(self.P_SXID)
-        self.Connection_Thread = ConnectionThread()
+        self.Sender_Stream      = SenderStream(self.S_SXID)
+        self.Receiver_Stream    = ReceiverStream(self.P_SXID)
+        self.Connection_Thread  = ConnectionThread()
+        self.Control_Display    = ControlDisplay()
 
         Console.print('Console 3.0 initialized.\n')
 
@@ -111,7 +116,6 @@ class MainWindow(Gtk.Window):
             # pass
         return False
 
-    # @property
     def init_gui_builder(self, GuiFile):
         builder = Gtk.Builder()
         print('Adding GUI file', GuiFile, end='... ')
@@ -226,6 +230,7 @@ class MainWindow(Gtk.Window):
         self.Connection_Thread.comm_link_idle += 1
 
         # Update Hud & Control widgets
+        self.get_speed_and_direction()
         if KEY_control.hud is True:
             self.DrawingArea_Cam.queue_draw()
 
@@ -255,7 +260,7 @@ class MainWindow(Gtk.Window):
                     self.ProgressBar_SsBar.set_fraction((self.SyncItemCount - qSize) / self.SyncItemCount)
 
             if CommunicationFFb is False:
-                ConnectionThread.get_speed_and_direction()  # Keyboard input
+                self.get_speed_and_direction()  # Keyboard input
                 ConnectionThread.calculate_MotorPower()
                 ConnectionThread.mouseInput()  # Mouse input
             return True
@@ -322,10 +327,12 @@ class MainWindow(Gtk.Window):
         return True
 
     def on_DrawingArea_Control_draw(self, widget, message):
-        self.Connection_Thread.draw_arrow(message)
+        # self.Connection_Thread.draw_arrow(message)
+        self.Control_Display.draw_arrow(message)
 
     def on_DrawingArea_Cam_draw(self, widget, message):
-        self.Connection_Thread.draw_hud(message)
+        # self.Connection_Thread.draw_hud(message)
+        self.Control_Display.draw_hud(message)
 
     def get_host_and_port(self):
         widget = self.ComboBox_Host
@@ -816,6 +823,31 @@ class MainWindow(Gtk.Window):
 
         return key_name
 
+    @staticmethod
+    def get_speed_and_direction():
+
+        if KEY_control.Down is True:
+            if ConnectionData.speed > -MAX_SPEED:
+                ConnectionData.speed -= ACCELERATION
+
+        if KEY_control.Up is True:
+            if ConnectionData.speed < MAX_SPEED:
+                ConnectionData.speed += ACCELERATION
+
+        if KEY_control.Left is True:
+            if ConnectionData.direction > -MAX_SPEED:
+                ConnectionData.direction -= ACCELERATION
+            else:
+                ConnectionData.direction = MAX_SPEED - ACCELERATION
+
+        if KEY_control.Right is True:
+            if ConnectionData.direction < MAX_SPEED:
+                ConnectionData.direction += ACCELERATION
+            else:
+                ConnectionData.direction = -MAX_SPEED + ACCELERATION
+
+        return ConnectionData.speed, ConnectionData.direction
+
     # @staticmethod
     def keybuffer_set(self, event, value):
         key_name = Gdk.keyval_name(event.keyval)
@@ -935,6 +967,126 @@ class MainWindow(Gtk.Window):
         Gtk.main_quit()
         return True
 
+
+class ControlDisplay:
+    background_control = ImageSurface.create_from_png(Files.background_file)
+
+    image = None
+
+    def draw_hud(self, image):
+
+        if image is None:
+            image = self.image
+        else:
+            self.image = image
+
+        image.set_line_width(1)
+        image.translate(300, 200)
+
+        if ConnectionData.speed >= 0:
+            image.rotate(ConnectionData.direction / (pi * 5))
+        else:
+            image.rotate((ConnectionData.direction + MAX_SPEED) / (pi * 5))
+
+        # Direction arrow
+        image.set_source_rgb(0.25, 0.25, 0.25)
+        for i in range(4):
+            image.line_to(arrow.points[i][0], arrow.points[i][1])
+        # image.fill()
+        image.set_source_rgb(0, 0.75, 0.75)
+        for i in range(5):
+            image.line_to(arrow.points[i][0], arrow.points[i][1])
+        image.stroke()
+
+        # Speed arrow (REQ)
+        image.set_source_rgb(abs(ConnectionData.speed / MAX_SPEED), 1 - abs(ConnectionData.speed / MAX_SPEED), 0)
+        image.line_to(arrow.points[0][0], arrow.points[0][1] + 60 - abs((ConnectionData.speed / MAX_SPEED) * 50))
+        for i in range(1, 4):
+                image.line_to(arrow.points[i][0], arrow.points[i][1])
+        # image.fill()
+
+        # Speed arrow (ACK)
+        image.set_source_rgb(0, 0.75, 0.75)
+        speed_ACK = abs(ConnectionData.motor_ACK[0] + ConnectionData.motor_ACK[1]) * 0.5
+        image.line_to(arrow.points[1][0], arrow.points[1][1])
+        image.line_to(arrow.points[0][0], arrow.points[0][1] + 60 - speed_ACK)
+        image.line_to(arrow.points[3][0], arrow.points[3][1])
+        image.stroke()
+
+        # Camera position
+        image.set_source_rgb(.8, 0.05, 0.8)
+        for i in range(10):
+            image.line_to(rombe.points[i][0] - ConnectionData.camPosition[0] + 100,
+                          rombe.points[i][1] + ConnectionData.camPosition[1] - 70)
+        image.stroke()
+
+    def draw_arrow(self, image):
+        image.set_source_surface(self.background_control, 0, 0)
+        image.paint()
+
+        image.set_line_width(1)
+        image.translate(90, 81)
+
+        if ConnectionData.speed >= 0:
+            image.rotate(ConnectionData.direction / (pi * 5))
+        else:
+            image.rotate((ConnectionData.direction + MAX_SPEED) / (pi * 5))
+
+        # Direction arrow
+        image.set_source_rgb(0.25, 0.25, 0.25)
+        for i in range(4):
+            image.line_to(arrow.points[i][0], arrow.points[i][1])
+        image.fill()
+        image.set_source_rgb(0, 0.75, 0.75)
+        for i in range(5):
+            image.line_to(arrow.points[i][0], arrow.points[i][1])
+        image.stroke()
+
+        # Speed arrow (REQ)
+        image.set_source_rgb(abs(ConnectionData.speed / MAX_SPEED), 1 - abs(ConnectionData.speed / MAX_SPEED), 0)
+        image.line_to(arrow.points[0][0], arrow.points[0][1] + 60 - abs((ConnectionData.speed / MAX_SPEED) * 50))
+        for i in range(1, 4):
+                image.line_to(arrow.points[i][0], arrow.points[i][1])
+        image.fill()
+
+        # Speed arrow (ACK)
+        image.set_source_rgb(0, 0.75, 0.75)
+        speed_ACK = abs(ConnectionData.motor_ACK[0] + ConnectionData.motor_ACK[1]) * 0.5
+        image.line_to(arrow.points[1][0], arrow.points[1][1])
+        image.line_to(arrow.points[0][0], arrow.points[0][1] + 60 - speed_ACK)
+        image.line_to(arrow.points[3][0], arrow.points[3][1])
+        image.stroke()
+
+        # Camera position
+        image.set_source_rgb(.8, 0.05, 0.8)
+        for i in range(10):
+            image.line_to(rombe.points[i][0] - ConnectionData.camPosition[0] + 100,
+                          rombe.points[i][1] + ConnectionData.camPosition[1] - 70)
+        image.stroke()
+
+class arrow(object):
+    points = (
+        (0, -35),
+        (-28, 35),
+        (0, 25),
+        (28, 35),
+        (0, -35)
+    )
+
+
+class rombe(object):
+    points = (
+        (0, -5),
+        (-5, 0),
+        (0, 5),
+        (5, 0),
+        (0, -5),
+        (0, -3),
+        (-3, 0),
+        (0, 3),
+        (3, 0),
+        (0, -3),
+    )
 ###############################################################################
 
 

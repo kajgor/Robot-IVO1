@@ -10,44 +10,19 @@
 CONSOLE_GUI = True
 RESP_DELAY = 0.025
 #RESP_DELAY = 0.05
-H264_ENC = "x264enc"
 
 Debug = 1
 
 CommunicationFFb = False
 if CommunicationFFb is True:
-    ACCELERATION = 0.5
+    ACCELERATION = 0.25
 else:
-    ACCELERATION = 1
+    ACCELERATION = 0.5
 
 # DEVICES
 # MIC0_DEVICE = "alsa_input.usb-C-Media_Electronics_Inc._USB_PnP_Sound_Device-00.analog-mono"
 # MIC0_DEVICE = "alsa_input.pci-0000_00_05.0.analog-stereo"
 
-
-class arrow(object):
-    points = (
-        (0, -35),
-        (-28, 35),
-        (0, 25),
-        (28, 35),
-        (0, -35)
-    )
-
-
-class rombe(object):
-    points = (
-        (0, -5),
-        (-5, 0),
-        (0, 5),
-        (5, 0),
-        (0, -5),
-        (0, -3),
-        (-3, 0),
-        (0, 3),
-        (3, 0),
-        (0, -3),
-    )
 
 class KEY_control:
     Shift   = False
@@ -60,14 +35,6 @@ class KEY_control:
     MouseXY = [0, 0]
     time    = 0
     hud     = False
-
-
-class DEVICE_control:
-    DEV_Cam0    = None
-    DEV_AudioIn = None
-    DEV_AudioOut = None
-    Cam0_Flip   = 0
-
 
 from os import path
 from sys import argv
