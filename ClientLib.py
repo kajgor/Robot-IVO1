@@ -8,7 +8,11 @@ from re import findall
 from _thread import *
 from Common_vars import ConnectionData, MAX_SPEED, RETRY_LIMIT, CLIMSGLEN,\
     RECMSGLEN, Encoding, LEFT, RIGHT, calc_checksum, X_AXIS, Y_AXIS
-from Client_vars import CONSOLE_GUI, RESP_DELAY, Debug, CommunicationFFb
+from Client_vars import *
+
+CONSOLE_GUI = True
+RESP_DELAY = 0.025
+#RESP_DELAY = 0.05
 
 
 class ConnectionThread:
@@ -18,8 +22,10 @@ class ConnectionThread:
 
     FxQueue         = queue.Queue()
 
-    def __init__(self):
+
+    def __init__(self, CommunicationFFb):
         self.FxMode = 255, 0
+        self.CommunicationFFb = CommunicationFFb
 
     @staticmethod
     def get_streamer_ports(Port):
@@ -32,8 +38,6 @@ class ConnectionThread:
 
     def establish_connection(self, Host, Port, Receiver):
         Console.print("Establishing connection with \n %s on port"  % Host, Port)
-
-        # self.start_media_streams(Host, Port)
 
         ##########################################################
         #              RUN CONNECTION THREAD LOOP                #
@@ -141,7 +145,7 @@ class ConnectionThread:
         self.comm_link_idle = 0
 
         while ConnectionData.connected is True:
-            if CommunicationFFb is True:
+            if self.CommunicationFFb is True:
                 # self.get_speed_and_direction()  # Keyboard input
                 self.calculate_MotorPower()     # Set control variables
                 self.mouseInput()               # Set mouse Variables

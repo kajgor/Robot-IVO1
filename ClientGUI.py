@@ -6,17 +6,30 @@ import gi
 gi.require_version('Gtk', '3.0')
 gi.require_version('Gdk', '3.0')
 from gi.repository import Gtk, Gdk, GLib
-from sys import argv
 from math import pi
 from cairo import ImageSurface
+from os import path
+from sys import argv
 
 from MediaLib import *
 from ClientLib import ConnectionThread, Console
-from Client_vars import Files, KEY_control, CommunicationFFb, ACCELERATION
 from Common_vars import VideoFramerate, AudioCodec, VideoCodec, PrintOnOff, execute_cmd,\
-    TIMEOUT_GUI, PROTO_NAME, LEFT, RIGHT, X_AXIS, Y_AXIS, MOUSE_MIN, MOUSE_MAX, ConnectionData, COMM_IDLE,\
-    CAM_1_CMD, DEV_OUT_CMD, DEV_INP_CMD, MAX_SPEED
+    TIMEOUT_GUI, PROTO_NAME, LEFT, RIGHT, X_AXIS, Y_AXIS, MOUSE_MIN, MOUSE_MAX, ConnectionData,\
+    COMM_IDLE, CAM_1_CMD, DEV_OUT_CMD, DEV_INP_CMD, MAX_SPEED
 from v4l2Gtk import v4l2Gtk
+
+
+CommunicationFFb = False
+if CommunicationFFb is True:
+    ACCELERATION = 0.25
+else:
+    ACCELERATION = 0.5
+
+
+class Files:
+    pathname = path.dirname(argv[0])
+    ini_file = pathname + "/ClientGUI.ini"
+    background_file = pathname + "/gui_artifacts/images/HUD_small.png"
 
 
 # noinspection PyAttributeOutsideInit
@@ -54,7 +67,7 @@ class MainWindow(Gtk.Window):
 
         self.Sender_Stream      = SenderStream(self.S_SXID)
         self.Receiver_Stream    = ReceiverStream(self.P_SXID)
-        self.Connection_Thread  = ConnectionThread()
+        self.Connection_Thread  = ConnectionThread(CommunicationFFb)
         self.Control_Display    = ControlDisplay()
 
         Console.print('Console 3.0 initialized.\n')
@@ -71,6 +84,7 @@ class MainWindow(Gtk.Window):
         self.load_devices()
 
     def load_configuration(self, ResetMode, GuiFile):
+        self.Connection_Thread.CommunicationFFb = CommunicationFFb
         if ResetMode is False:  # Load custom configuration
             self.RunSeqNo, self.SyncItemCount = self.Config_Storage.load_setup(self.builder)
             self.Entry_SkinFile.set_text(GuiFile)
@@ -1087,6 +1101,20 @@ class rombe(object):
         (3, 0),
         (0, -3),
     )
+
+
+class KEY_control:
+    Shift   = False
+    Left    = False
+    Right   = False
+    Up      = False
+    Down    = False
+    Space   = False
+    MouseBtn = [False, False]
+    MouseXY = [0, 0]
+    time    = 0
+    hud     = False
+
 ###############################################################################
 
 

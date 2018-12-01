@@ -7,40 +7,8 @@
 # ! videorate ! queue ! video/x-raw, framerate=15/1, width=320, height=240 ! videoconvert ! xvimagesink t.
 # ! videorate ! queue ! video/x-raw, framerate=15/1, width=320, height=240 ! videoconvert ! x264enc pass=qual bitrate=300 tune=zerolatency ! rtph264pay ! udpsink host=10.0.0.55 port=1234
 
-CONSOLE_GUI = True
-RESP_DELAY = 0.025
-#RESP_DELAY = 0.05
-
 Debug = 1
-
-CommunicationFFb = False
-if CommunicationFFb is True:
-    ACCELERATION = 0.25
-else:
-    ACCELERATION = 0.5
 
 # DEVICES
 # MIC0_DEVICE = "alsa_input.usb-C-Media_Electronics_Inc._USB_PnP_Sound_Device-00.analog-mono"
 # MIC0_DEVICE = "alsa_input.pci-0000_00_05.0.analog-stereo"
-
-
-class KEY_control:
-    Shift   = False
-    Left    = False
-    Right   = False
-    Up      = False
-    Down    = False
-    Space   = False
-    MouseBtn = [False, False]
-    MouseXY = [0, 0]
-    time    = 0
-    hud     = False
-
-from os import path
-from sys import argv
-
-
-class Files:
-    pathname = path.dirname(argv[0])
-    ini_file = pathname + "/ClientGUI.ini"
-    background_file = pathname + "/gui_artifacts/images/HUD_small.png"

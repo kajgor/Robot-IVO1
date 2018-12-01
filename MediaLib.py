@@ -4,12 +4,19 @@ gi.require_version('Gst', '1.0')
 gi.require_version('GstVideo', '1.0')
 from gi.repository import Gst, GstVideo, GdkPixbuf
 
-from Media_vars import *
-from Client_vars import Debug
+from Client_vars import *
 from Common_vars import TCP, ConnectionData
 
 Gst.init(None)
 
+H264_ENC = "x264enc"
+AudioBitrate = [32000, 16000, 8000]
+
+class DEVICE_control:
+    DEV_Cam0    = None
+    DEV_AudioIn = None
+    DEV_AudioOut = None
+    Cam0_Flip   = 0
 
 class SenderStream:
     sender_video = None
