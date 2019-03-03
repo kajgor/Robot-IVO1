@@ -38,6 +38,7 @@ class ServerThread(threading.Thread):
                 else:
                     if self.shutdown_flag.is_set() is True:
                         break
+                    # Console.print("Bind failed, retrying...")
                     time.sleep(1)
 
             if self.srv is None:
@@ -70,7 +71,7 @@ class ServerThread(threading.Thread):
 
     def listen_socket(self):
         self.srv.listen(5)
-        Console.print('Socket now listening on %s:%i' % (HOST , self.Port))
+        Console.print('Socket now listening on %s:%i' % (HOST, self.Port))
 
         self.conn = addr = None
         try:
@@ -165,8 +166,7 @@ class ServerThread(threading.Thread):
                     Console.print("_Entering FX mode %s, value %i" % (FxModes[Fxmode - 1], Fxvalue))
 # ToDo:
 #  call('v4l2-ctl -d %s -c ' % device + FxModes[Fxmode - 1] + '=' + Fxvalue.__str__(), shell=True)
-                    arg = FxModes[Fxmode - 1] + '=' + Fxvalue.__str__()
-                    cmd = 'v4l2-ctl -c %s' % arg
+                    cmd = 'v4l2-ctl -c %s=%i' % (FxModes[Fxmode - 1], Fxvalue)
                     # call('v4l2-ctl -c %s' % arg, shell=True)
 
                 elif Fxmode < 35:
@@ -181,10 +181,10 @@ class ServerThread(threading.Thread):
                             cmd = ExeCmd.cmd[Fxvalue - 250]
                     elif Fxmode == 31:
                         Console.print(" Setting Mic Level to", Fxvalue)
-                        cmd = "pactl set-source-volume " + MicIn + " " + str(Fxvalue * 7000)
+                        cmd = "pactl set-source-volume %s %i" % (MicIn, Fxvalue * 7000)
                     elif Fxmode == 32:
                         Console.print(" Setting Speker volume to", Fxvalue)
-                        cmd = "pactl set-sink-volume " + SpkOut + " " + str(Fxvalue * 7000)
+                        cmd = "pactl set-sink-volume %s %i" % (SpkOut, Fxvalue * 7000)
                     else:
                         Console.print(" WARNING: Invalid mode [%s]" % Fxmode)
                 else:
@@ -254,8 +254,6 @@ class ServerThread(threading.Thread):
         ConnectionData.display   = bool(int(CTRL1_Mask[4]))
         ConnectionData.laser     = bool(int(CTRL1_Mask[3]))
         ConnectionData.AutoMode  = bool(int(CTRL1_Mask[2]))
-        # COMM_vars.          = bool(int(CTRL1_Mask[1]))
-        # COMM_vars.          = bool(int(CTRL1_Mask[0]))
 
         FXmode              = data[6]
         FXvalue             = data[7] * 256 + data[8]
@@ -294,7 +292,7 @@ class ServerThread(threading.Thread):
             return None
 
         except OSError as msg:
-            Console.print('Bind failed. Error Code: %i, Message' % msg[0], msg[1])
+            Console.print('Bind failed. Error Code: %i, Message %s' % (msg[0], msg[1]))
             Console.print('Advice: check for python process to kill it!')
             return None
 
@@ -444,7 +442,7 @@ class DriverThread(threading.Thread):
                 ConnectionData.voltage = 0.0157 * (dataint[2] * 250 + dataint[3]) - 0.95  # 8,9
             else:
                 if resp_data.decode(Encoding).split(":")[0] != "IVO-A1":
-                    Console.print(">>>BAD CHKSUM", resp_data[0], resp_data[15])
+                    Console.print(">>>BAD CHKSUM %i/%i" % (resp_data[0], resp_data[15]))
                 SerPort1.flushInput()
 
         return HeartBeat
@@ -566,8 +564,8 @@ class ThreadManager:
         if self._GUI:
             self.LbVoltage.set_value(self.DispAvgVal[0])
             self.LbCurrent.set_value(self.DispAvgVal[1])
-            Voltage = "{:.2f}".format(ConnectionData.voltage).__str__()
-            Current = "{:.2f}".format(ConnectionData.current).__str__()
+            Voltage = "{:.2f}".format(ConnectionData.voltage)
+            Current = "{:.2f}".format(ConnectionData.current)
             self.LbVoltage.set_tooltip_text("%s V" % Voltage)
             self.LbCurrent.set_tooltip_text("%s A" % Current)
 
@@ -615,7 +613,6 @@ class MediaStream:
     last_pending      = Gst.State.READY
     sender_audio_mode = Gst.State.READY
     sender_video_mode = Gst.State.READY
-    # curr_Framerate    = None
 
     def __init__(self, Conn_param, Cam0, MicIn, SpkOut):
 

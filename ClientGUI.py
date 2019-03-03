@@ -76,9 +76,9 @@ class MainWindow(Gtk.Window):
         retmsg = self.load_configuration(self.get_argv('reset'), GuiFile)
         self.StatusBar.push(self.context_id, retmsg)
 
-        Proto = self.ComboBoxText_Proto.get_active()
-        self.Sender_Stream.set_video_source(Proto)
-        self.Sender_Stream.set_audio_source(Proto)
+        # Proto = self.ComboBoxText_Proto.get_active()
+        self.Sender_Stream.set_video_source()
+        self.Sender_Stream.set_audio_source()
         self.Sender_Stream.CliCamera_gtksync()
 
         self.load_devices()
@@ -237,7 +237,7 @@ class MainWindow(Gtk.Window):
             return True
 
     ###############################################################################
-    ################   MAIN LOOP START ############################################
+    ################   MAIN GTK LOOP START   ######################################
     ###############################################################################
     def on_timer(self):
         # Idle timer for checking the link
@@ -301,9 +301,10 @@ class MainWindow(Gtk.Window):
         self.LabelCamPosH.set_text(ConnectionData.camPosition[X_AXIS].__str__())
         self.LabelCamPosV.set_text(ConnectionData.camPosition[Y_AXIS].__str__())
 
-        Voltage = "{:.2f}".format(ConnectionData.voltage).__str__()
-        Current = "{:.2f}".format(ConnectionData.current).__str__()
-        self.LabelCoreTemp.set_text("{:.2f}".format(ConnectionData.coreTemp).__str__())
+        Voltage = "{:.2f}".format(ConnectionData.voltage)
+        Current = "{:.2f}".format(ConnectionData.current)
+        CPUtemp = "{:.2f}".format(ConnectionData.coreTemp)
+        self.LabelCoreTemp.set_text(CPUtemp)
         self.LabelBattV.set_text(Voltage)
         self.LabelPowerA.set_text(Current)
         self.LabelS1Dist.set_text(ConnectionData.distanceS1.__str__())
@@ -326,7 +327,7 @@ class MainWindow(Gtk.Window):
         return
 
 ###############################################################################
-################   MAIN LOOP END   ############################################
+################   MAIN GTK LOOP END   ########################################
 ###############################################################################
 
     def on_Button_AdvancedShow_clicked(self, widget):
@@ -693,7 +694,7 @@ class MainWindow(Gtk.Window):
 
     def on_Menu_CmdExe_Item_activate(self, widget):
         FXtag = 30
-        FXvalue = widget.get_name()
+        FXvalue = int(widget.get_name())
         if FXvalue == 250:
             self.Label_dialog_yn.set_text("Do you really want\n\tto reboot RPI?")
             resp = self.Dialog_YN.run()
@@ -1144,8 +1145,6 @@ class ConfigStorage:
                                 ItemCount += int(self.set_object_value(obj, value))
                             else:
                                 ItemCount += 1
-                                # print('LOAD NAME/TEXT %s' % name)
-                                # print('LOAD TEXT %s' % text)
                                 if name == "ComboBoxText_Cam1":
                                     DEVICE_control.DEV_Cam0 = text
                                 elif name == "ComboBoxText_AudioIn":

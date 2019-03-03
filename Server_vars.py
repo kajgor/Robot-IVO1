@@ -30,7 +30,6 @@ HB_BITSHIFT       = 30
 # Note omxh264enc element which is hardware h264 encoder.
 # Software h264 encoder is called h264enc.
 # generic GST is x264?
-H264_ENC = "x264enc"
 Debug = 0
 
 import serial.tools.list_ports

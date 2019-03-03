@@ -124,7 +124,7 @@ class GtkTsMain(Gtk.Window):
             self.init_Thread()
 
             ####### Main loop definition ###############
-            self.Thread_ID = GLib.timeout_add(TIMEOUT_GUI, self.Thread_Manager.run)
+            self.Thread_ID = GLib.timeout_add(TIMEOUT_GUI * 4, self.Thread_Manager.run)
             ############################################
 
             self.StatusBar_Server.push(self.context_id, "Port %i open!" % self.Port_COMM)
@@ -164,8 +164,9 @@ class GtkTsMain(Gtk.Window):
             self.switch_ServerStart.set_active(False)
             self.Thread_Manager.ProgramExit(249)
             while Gtk.events_pending():
+                time.sleep(0.5)
                 Gtk.main_iteration()
-            time.sleep(3)
+            time.sleep(1)
         Gtk.main_quit()
 
 

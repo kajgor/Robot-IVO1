@@ -7,8 +7,7 @@ import time
 from re import findall
 from _thread import *
 from Common_vars import ConnectionData, MAX_SPEED, RETRY_LIMIT, CLIMSGLEN,\
-    RECMSGLEN, Encoding, LEFT, RIGHT, calc_checksum, X_AXIS, Y_AXIS
-from Client_vars import *
+    RECMSGLEN, Encoding, LEFT, RIGHT, calc_checksum, X_AXIS, Y_AXIS, Debug
 
 CONSOLE_GUI = True
 RESP_DELAY = 0.025
@@ -21,7 +20,6 @@ class ConnectionThread:
     comm_link_idle  = 0
 
     FxQueue         = queue.Queue()
-
 
     def __init__(self, CommunicationFFb):
         self.FxMode = 255, 0
@@ -335,7 +333,7 @@ class ConnectionThread:
         # CheckSum = ord(resp[0])
         dataint = list()
         dataint.append(None)
-        for xcr in range(1, 11): # communication via serial port fix decode
+        for xcr in range(1, 11): # serial port communication fix decode
             if ord(resp[xcr]) == 252:
                 dataint.append(17)
             elif ord(resp[xcr]) == 253:

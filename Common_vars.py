@@ -1,4 +1,6 @@
-#################################
+########## DEBUG MODE ###########
+Debug = 1
+########## RESOLUTION ###########
 # 0 - Resolution ***            #
 # 1 - Brightness                #
 # 2 - Contrast                  #
@@ -35,8 +37,8 @@
 # Port_DSP0 = Port_COMM + 4
 # Port_SPK0 = Port_COMM + 5
 #################################
-RECMSGLEN = 16
-CLIMSGLEN = 12
+RECMSGLEN   = 16
+CLIMSGLEN   = 12
 TIMEOUT_GUI = 50
 COMM_IDLE   = 10
 RETRY_LIMIT = 15
@@ -45,30 +47,32 @@ MAX_SPEED = 50
 MOUSE_MIN = [20, 10]
 MOUSE_MAX = [180, 100]
 #################################
-X_AXIS = 0
-Y_AXIS = 1
-RIGHT = 1
-LEFT = 0
+X_AXIS  = 0
+Y_AXIS  = 1
+RIGHT   = 1
+LEFT    = 0
 #################################
 # Encoding = 'cp037'
-Encoding = 'latin_1'
-VideoCodec = ('raw', 'h264', 'mjpeg', 'VP8')
-AudioCodec = ('speex', 'mp3', 'aac')
-VideoFramerate = [5, 15, 25, 30]
-PrintOnOff = ('off', 'on')
+Encoding        = 'latin_1'
+VideoCodec      = ('raw', 'h264', 'mjpeg', 'VP8')
+AudioCodec      = ('speex', 'mp3', 'aac')
+VideoFramerate  = [5, 15, 25, 30]
+AudioBitrate    = [32000, 16000, 8000]
+PrintOnOff      = ('off', 'on')
+H264_ENC        = "x264enc"
 ###### COLOURS #######
-BLACK = (0, 0, 0)
-WHITE = (255, 255, 255)
-CYAN = (0, 255, 255)
-RED = (255, 0, 0)
-DRED = (128, 0, 0)
-DDRED = (30, 0, 0)
-GREEN = (0, 255, 0)
-DGREEN = (0, 128, 0)
+BLACK   = (0, 0, 0)
+WHITE   = (255, 255, 255)
+CYAN    = (0, 255, 255)
+RED     = (255, 0, 0)
+DRED    = (128, 0, 0)
+DDRED   = (30, 0, 0)
+GREEN   = (0, 255, 0)
+DGREEN  = (0, 128, 0)
 DDGREEN = (0, 30, 0)
-BLUE = (0, 0, 255)
-DBLUE = (0, 0, 128)
-DDBLUE = (0, 0, 30)
+BLUE    = (0, 0, 255)
+DBLUE   = (0, 0, 128)
+DDBLUE  = (0, 0, 30)
 #################################
 TCP = 0
 UDP = 1

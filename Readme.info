@@ -7,8 +7,6 @@
 # ! videorate ! queue ! video/x-raw, framerate=15/1, width=320, height=240 ! videoconvert ! xvimagesink t.
 # ! videorate ! queue ! video/x-raw, framerate=15/1, width=320, height=240 ! videoconvert ! x264enc pass=qual bitrate=300 tune=zerolatency ! rtph264pay ! udpsink host=10.0.0.55 port=1234
 
-Debug = 1
-
 # DEVICES
 # MIC0_DEVICE = "alsa_input.usb-C-Media_Electronics_Inc._USB_PnP_Sound_Device-00.analog-mono"
 # MIC0_DEVICE = "alsa_input.pci-0000_00_05.0.analog-stereo"

@@ -4,13 +4,9 @@ gi.require_version('Gst', '1.0')
 gi.require_version('GstVideo', '1.0')
 from gi.repository import Gst, GstVideo, GdkPixbuf
 
-from Client_vars import *
-from Common_vars import TCP, ConnectionData
+from Common_vars import TCP, ConnectionData, Debug, AudioBitrate, H264_ENC
 
 Gst.init(None)
-
-H264_ENC = "x264enc"
-AudioBitrate = [32000, 16000, 8000]
 
 class DEVICE_control:
     DEV_Cam0    = None
@@ -25,7 +21,7 @@ class SenderStream:
     def __init__(self, Sender_SXID):
         self.Sender_SXID = Sender_SXID
 
-    def set_video_source(self, Proto):
+    def set_video_source(self):
         self.sender_video               = Gst.Pipeline.new("sender_video")
 
         self.sender_video_source        = Gst.ElementFactory.make("v4l2src", "video-source")
@@ -86,7 +82,7 @@ class SenderStream:
             else:
                 self.sender_video.remove(self.sender_video_source)
 
-    def set_audio_source(self, Proto):
+    def set_audio_source(self):
         self.sender_audio               = Gst.Pipeline.new("sender_audio")
         # SET AUDIO SENDER
         self.sender_audio_testsrc       = Gst.ElementFactory.make("audiotestsrc", "test_source_audio")
@@ -257,16 +253,6 @@ class SenderStream:
         bus.connect("sync-message::element", self.on_sender_sync_message)
 
     def on_sender_message(self, bus, message):
-        retmsg = self.on_message(message)
-        if retmsg is not None:
-            print("retmsg:", retmsg)
-            # self.ToggleButton_connect.set_active(False)
-            # self.StatusBar.push(self.context_id, retmsg)
-
-    def on_sender_sync_message(self, bus, message):
-        self.on_sync_message(message, self.Sender_SXID)
-
-    def on_message(self, message):
         msgtype = message.type
         if msgtype == Gst.MessageType.EOS:
             if Debug > 1:
@@ -279,8 +265,6 @@ class SenderStream:
                 print ("ERROR:", debug_s)
             return debug_s[debug_s.__len__() - 1]
         elif msgtype == Gst.MessageType.CLOCK_LOST:
-            # pause
-            # play
             pass
         elif msgtype == Gst.MessageType.PROGRESS:
             pass
@@ -291,13 +275,18 @@ class SenderStream:
             # print('BUFFERING')
             pass
         else:
-            return None
+            pass
 
-    def on_sync_message(self, message, SXID):
+        return True
+
+    def on_sender_sync_message(self, bus, message):
         if message.get_structure().get_name() == 'prepare-window-handle':
             imagesink = message.src
             imagesink.set_property("force-aspect-ratio", True)
-            imagesink.set_window_handle(SXID.get_xid())
+            imagesink.set_window_handle(self.Sender_SXID.get_xid())
+
+        return True
+
 
 # noinspection PyPep8Naming
 class ReceiverStream:
@@ -591,18 +580,6 @@ class ReceiverStream:
         bus.connect("sync-message::element", self.on_player_sync_message)
 
     def on_player_message(self, bus, message):
-        retmsg = self.on_message(message)
-        if retmsg is not None:
-            print("retmsg:", retmsg)
-            return False
-        else:
-            return True
-
-    def on_player_sync_message(self, bus, message):
-        self.on_sync_message(message, self.Player_SXID)
-        return True
-
-    def on_message(self, message):
         msgtype = message.type
         if msgtype == Gst.MessageType.EOS:
             if Debug > 1:
@@ -624,12 +601,12 @@ class ReceiverStream:
             # print('BUFFERING')
             pass
 
-        return None
+        return True
 
-    def on_sync_message(self, message, SXID):
+    def on_player_sync_message(self, bus, message):
         if message.get_structure().get_name() == 'prepare-window-handle':
             imagesink = message.src
             imagesink.set_property("force-aspect-ratio", True)
-            imagesink.set_window_handle(SXID.get_xid())
+            imagesink.set_window_handle(self.Player_SXID.get_xid())
 
-
+        return True
